@@ -24,7 +24,7 @@ nltk==3.10.3
 # Google Services Integration
 trendspy==0.1.6
 gnews==0.8.2
-google-auth==2.57.0
+google-auth==2.57.1
 
 # News & Content Parsing
 newspaper4k==0.9.6
