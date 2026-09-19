@@ -17,6 +17,11 @@ from app.api.google_maps.common import (
     upstream_error,
 )
 from app.api.google_maps.schemas import (
+    MAX_RESULTS_CEILING,
+    MAX_SEARCH_TIMEOUT_SECONDS,
+    SECONDS_PER_RESULT,
+    affordable_results_within,
+    seconds_needed_for,
     SearchRequest,
     NearbySearchRequest,
     BulkSearchRequest,
@@ -44,6 +49,30 @@ from app.core.cache_manager import generate_cache_key, get_cached_or_fetch
 MAPS_SEARCH_CACHE_TTL = 3600
 
 
+def enforce_result_budget(max_results: int, timeout: int) -> None:
+    """Reject a size/timeout pair that cannot finish before it starts running.
+
+    At ~12s per result a request for more results than the timeout pays for is
+    already lost when it arrives: it holds a browser and a concurrency permit
+    for the whole timeout, returns nothing, and blocks other callers meanwhile.
+    A 400 that names the budget costs the caller nothing and tells them what to
+    ask for instead.
+    """
+    needed = seconds_needed_for(max_results)
+    if needed <= timeout:
+        return
+
+    raise HTTPException(
+        status_code=400,
+        detail=(
+            f"max_results={max_results} needs about {needed}s at the measured "
+            f"~{SECONDS_PER_RESULT}s per result, but timeout={timeout}s was given. "
+            f"Request max_results={affordable_results_within(timeout)} at this timeout, "
+            f"or raise timeout to {needed} (maximum {MAX_SEARCH_TIMEOUT_SECONDS})."
+        ),
+    )
+
+
 @router.post(
     "/search",
     summary="Search Google Maps places",
@@ -64,7 +93,7 @@ async def search_places(
     timeout: int = Query(
         300,
         ge=30,
-        le=600,
+        le=MAX_SEARCH_TIMEOUT_SECONDS,
         description="Maximum seconds to wait for results (if wait_for_results=True)"
     ),
     api_key: str = Depends(get_api_key),
@@ -75,7 +104,7 @@ async def search_places(
 
     **Features:**
     - Full-text search across Google Maps
-    - Up to 100 results per search
+    - Up to 45 results per search (see max_results)
     - Comprehensive place details extraction
     - Coordinate-based search centering
 
@@ -97,6 +126,11 @@ async def search_places(
     - `{"query": "Starbucks Portland Oregon", "max_results": 5}` - Specific business search
     """
     logger.info("Google Maps search: %s", scrub(request.query))
+
+    # Only the blocking form spends the timeout; a job created with
+    # wait_for_results=False runs on its own clock.
+    if wait_for_results:
+        enforce_result_budget(request.max_results, timeout)
 
     # Check service health first
     health = await google_maps_service.health_check()
@@ -159,7 +193,9 @@ async def search_places(
                 "job_id": job_result.get("job_id") or job_result.get("id"),
                 "status": "pending",
                 "message": "Search job created. Use /jobs/{job_id} to check status.",
-                "estimated_time": f"~{request.max_results * 2} seconds",
+                # Was max_results * 2, which under-quoted the wait six-fold
+                # against the measured ~12s per result.
+                "estimated_time": f"~{request.max_results * SECONDS_PER_RESULT} seconds",
                 "timestamp": datetime.now().isoformat()
             }
 
@@ -184,13 +220,23 @@ async def search_places_get(
         examples=["restaurants in New York"]
     ),
     language: str = Query("en", description="Language code"),
-    max_results: int = Query(20, ge=1, le=100, description="Maximum results"),
+    max_results: int = Query(
+        20,
+        ge=1,
+        le=MAX_RESULTS_CEILING,
+        description=f"Maximum results (~{SECONDS_PER_RESULT}s each)"
+    ),
     depth: int = Query(1, ge=1, le=3, description="Crawl depth"),
     email_extraction: bool = Query(False, description="Extract emails"),
     zoom: int = Query(15, ge=1, le=21, description="Map zoom level"),
     geo_coordinates: Optional[str] = Query(None, description="Search center (lat,lng)"),
     wait_for_results: bool = Query(True, description="Wait for results"),
-    timeout: int = Query(300, ge=30, le=600, description="Timeout in seconds"),
+    timeout: int = Query(
+        300,
+        ge=30,
+        le=MAX_SEARCH_TIMEOUT_SECONDS,
+        description="Timeout in seconds"
+    ),
     api_key: str = Depends(get_api_key),
     rate_limit_check: None = Depends(rate_limit)
 ):
@@ -224,6 +270,11 @@ async def search_places_get(
     # id, and caching that would hand every later caller the first job's id.
     if not wait_for_results:
         return await run_search()
+
+    # Checked here as well as inside search_places because timeout is not part
+    # of the cache key: a hit would otherwise answer 200 for a combination that
+    # answers 400 on a miss, and the same request would behave two ways.
+    enforce_result_budget(max_results, timeout)
 
     cache_key = generate_cache_key(
         "maps_search",

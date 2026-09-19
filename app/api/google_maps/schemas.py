@@ -5,12 +5,37 @@ models carry the URL validation that keeps ``page.goto()`` off the container
 network -- that guard belongs with the field it protects, not with whichever
 handler happens to read it.
 """
+import math
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field, validator
 
 from app.api.google_maps.common import validate_maps_url
+
+
+# A Maps search opens and reads each place in turn, measured at ~12s per result.
+# The largest timeout any search endpoint accepts is 600s, so the most results a
+# request could ever finish is 600 / 12 = 50, and a run that comes in 10% slower
+# than that mean has to fit too: floor(600 / (12 * 1.1)) = 45.
+#
+# The previous ceiling was 100, which needs 100 * 12 = 1200s -- twice the largest
+# timeout on offer. Such a request could not succeed at any setting; it held a
+# browser and a concurrency permit for the full timeout and then failed.
+SECONDS_PER_RESULT = 12
+MAX_SEARCH_TIMEOUT_SECONDS = 600
+SLOW_RUN_MARGIN = 1.1
+MAX_RESULTS_CEILING = int(MAX_SEARCH_TIMEOUT_SECONDS / (SECONDS_PER_RESULT * SLOW_RUN_MARGIN))
+
+
+def seconds_needed_for(max_results: int) -> int:
+    """Seconds a search of this size needs, including the slow-run margin."""
+    return math.ceil(max_results * SECONDS_PER_RESULT * SLOW_RUN_MARGIN)
+
+
+def affordable_results_within(timeout: int) -> int:
+    """Largest result count that fits in ``timeout`` at the measured per-result cost."""
+    return max(1, int(timeout / (SECONDS_PER_RESULT * SLOW_RUN_MARGIN)))
 
 
 class SearchRequest(BaseModel):
@@ -30,8 +55,12 @@ class SearchRequest(BaseModel):
     max_results: int = Field(
         20,
         ge=1,
-        le=100,
-        description="Maximum number of results to return"
+        le=MAX_RESULTS_CEILING,
+        description=(
+            f"Maximum number of results to return. Capped at {MAX_RESULTS_CEILING}: "
+            f"each result costs ~{SECONDS_PER_RESULT}s and the largest accepted "
+            f"timeout is {MAX_SEARCH_TIMEOUT_SECONDS}s."
+        )
     )
     depth: int = Field(
         1,
