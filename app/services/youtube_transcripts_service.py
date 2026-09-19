@@ -30,7 +30,11 @@ from youtube_transcript_api.formatters import WebVTTFormatter, SRTFormatter
 from requests.exceptions import ProxyError, ConnectionError as RequestsConnectionError
 from fastapi import HTTPException
 
-from app.core.proxy import get_proxy_sync, rotate_proxy, ENABLE_PROXY
+from app.core.proxy import get_proxy_sync, proxy_for, is_host_excluded, rotate_proxy, ENABLE_PROXY
+
+# Everything this service fetches lives on youtube.com, so proxy decisions
+# are made against this one host.
+YOUTUBE_HOST = "https://www.youtube.com"
 
 logger = logging.getLogger(__name__)
 
@@ -80,9 +84,11 @@ class YouTubeTranscriptsService:
         Returns:
             YouTubeTranscriptApi instance with current proxy
         """
-        proxy_url = None
-        if ENABLE_PROXY:
-            proxy_url = get_proxy_sync()
+        # Ask for the proxy by host rather than globally. Bright Data refuses
+        # CONNECT to youtube.com with policy_20050 (a compliance permission, not
+        # a zone setting), so listing it in NO_PROXY_HOSTS lets Reddit and news
+        # keep their proxy while transcripts go direct, which is where they work.
+        proxy_url = proxy_for(YOUTUBE_HOST) if ENABLE_PROXY else None
         return self._get_youtube_api(proxy_url)
 
     def _handle_youtube_exception(self, e: Exception, video_id: str, operation: str) -> None:
@@ -170,7 +176,13 @@ class YouTubeTranscriptsService:
                     f"(video_id={video_id}): {type(e).__name__}"
                 )
 
-                if ENABLE_PROXY and attempt < MAX_RETRY_ATTEMPTS - 1:
+                # No point rotating when this host bypasses the proxy: every
+                # candidate would be skipped and we would just retry direct.
+                if (
+                    ENABLE_PROXY
+                    and not is_host_excluded(YOUTUBE_HOST)
+                    and attempt < MAX_RETRY_ATTEMPTS - 1
+                ):
                     # Rotate to a new proxy
                     new_proxy = rotate_proxy()
                     if new_proxy:

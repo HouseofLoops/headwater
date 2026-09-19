@@ -108,6 +108,9 @@ class Settings(BaseSettings):
     # Proxy settings
     ENABLE_PROXY: bool = False
     PROXY_URL: Optional[str] = None
+    # Hosts that must never be proxied, comma separated. Suffix match, so
+    # "youtube.com" also covers www. and m. See proxy.proxy_for().
+    NO_PROXY_HOSTS: Optional[str] = None
     
     # CORS settings
     CORS_ORIGINS: CsvList = ["*"]

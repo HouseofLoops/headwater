@@ -36,6 +36,8 @@ logger = logging.getLogger("uvicorn")
 __all__ = [
     "get_proxy",
     "get_proxy_sync",
+    "proxy_for",
+    "is_host_excluded",
     "rotate_proxy",
     "is_proxy_enabled",
     "get_available_proxies",
@@ -169,6 +171,58 @@ def get_proxy_sync() -> Optional[str]:
 
     logger.debug("Selected proxy (sync): %s", urls[0])
     return urls[0]
+
+
+def _excluded_hosts() -> Tuple[str, ...]:
+    """Hosts that must bypass the proxy, from ``NO_PROXY_HOSTS``.
+
+    Read through ``Settings`` rather than ``os.getenv`` for the reason given in
+    this module's docstring: pydantic-settings does not export ``.env`` values
+    into ``os.environ``, so a getenv read is empty under a bare uvicorn run and
+    the exclusion would silently never apply.
+    """
+    try:
+        from app.core.config import get_settings
+
+        raw = getattr(get_settings(), "NO_PROXY_HOSTS", None)
+    except Exception:  # pragma: no cover - defensive
+        return ()
+    if not raw:
+        return ()
+    values = raw if isinstance(raw, (list, tuple)) else str(raw).split(",")
+    return tuple(h.strip().lower().lstrip(".") for h in values if h and h.strip())
+
+
+def is_host_excluded(url_or_host: Optional[str]) -> bool:
+    """True when this target must bypass the proxy.
+
+    Matches on domain suffix, so ``youtube.com`` also covers ``www.youtube.com``
+    and ``m.youtube.com`` -- Bright Data refuses CONNECT to all three with
+    ``policy_20050``, while the transcript endpoint works fine direct.
+    """
+    if not url_or_host:
+        return False
+    host = url_or_host.strip().lower()
+    if "//" in host:
+        host = host.split("//", 1)[1]
+    host = host.split("/", 1)[0].split("@")[-1].split(":")[0]
+    for excluded in _excluded_hosts():
+        if host == excluded or host.endswith("." + excluded):
+            return True
+    return False
+
+
+def proxy_for(url_or_host: Optional[str] = None) -> Optional[str]:
+    """The proxy to use for this target, or ``None`` to go direct.
+
+    Callers that route to a mix of targets should prefer this over
+    ``get_proxy_sync()``: one blocked domain would otherwise force the whole
+    deployment to choose between proxying everything and proxying nothing.
+    """
+    if is_host_excluded(url_or_host):
+        logger.debug("Bypassing proxy for excluded host: %s", url_or_host)
+        return None
+    return get_proxy_sync()
 
 
 def rotate_proxy() -> Optional[str]:
