@@ -160,6 +160,13 @@ class UpstreamUnavailable(Exception):
         self.detail = detail
 
 
+# /geo and /categories are reference data: 3681 locations and 1133 categories that
+# change on the order of months. The default TTL is tuned for trend series, which
+# move hourly, so these were re-fetched from Google far more often than the data
+# can possibly change.
+REFERENCE_DATA_TTL_SECONDS = 24 * 60 * 60
+
+
 def flatten_geo_tree(node, out=None):
     """Flatten Google's geo tree into ``[{"name": ..., "id": ...}, ...]``.
 
@@ -815,7 +822,7 @@ async def get_categories(
             return {"data": encode_trends_payload("categories", raw_results)}
 
         # Get cached result or fetch and cache
-        return await cached_trends_response(cache_key, fetch_categories)
+        return await cached_trends_response(cache_key, fetch_categories, ttl=REFERENCE_DATA_TTL_SECONDS)
 
     except HTTPException as http_exc:
         raise http_exc
@@ -836,18 +843,40 @@ async def get_geo(
     """Search available geolocation codes (countries, states, cities)."""
     try:
         # Generate cache key
+        # The tree is served per language, so the key must carry it or two
+        # languages collide on one entry.
         cache_key = generate_cache_key(
             "trends_geo",
-            find=find
+            find=find,
+            language=(await get_trends_instance()).language,
         )
 
         async def fetch_geo():
             trends_obj = await get_trends_instance()
 
-            raw_results = await run_trends_call(
-                "geo",
-                lambda: fetch_geo_locations(trends_obj, find),
-            )
+            # Fetch and cache the whole tree per language, then filter here.
+            # Caching per `find` would send an identical upstream request for
+            # every distinct search term against data that never differs.
+            async def fetch_all():
+                rows = await run_trends_call(
+                    "geo",
+                    lambda: fetch_geo_locations(trends_obj, None),
+                )
+                return {"rows": rows}
+
+            all_rows = (await cached_trends_response(
+                generate_cache_key("trends_geo_all", language=trends_obj.language),
+                fetch_all,
+                ttl=REFERENCE_DATA_TTL_SECONDS,
+            ) or {}).get("rows") or []
+
+            if find:
+                needle = find.strip().lower()
+                raw_results = [r for r in all_rows
+                               if needle in (r.get("name") or "").lower()
+                               or needle in (r.get("id") or "").lower()]
+            else:
+                raw_results = all_rows
 
             if is_empty_result(raw_results):
                 logger.info("Google Trends returned no geo rows")
@@ -856,7 +885,7 @@ async def get_geo(
             return {"data": encode_trends_payload("geo", raw_results)}
 
         # Get cached result or fetch and cache
-        return await cached_trends_response(cache_key, fetch_geo)
+        return await cached_trends_response(cache_key, fetch_geo, ttl=REFERENCE_DATA_TTL_SECONDS)
 
     except HTTPException as http_exc:
         raise http_exc
