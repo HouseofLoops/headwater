@@ -35,6 +35,15 @@ logger = logging.getLogger(__name__)
 router = APIRouter(route_class=SafeUrlValidationRoute)
 
 
+from app.core.cache_manager import generate_cache_key, get_cached_or_fetch
+
+# A Maps search costs ~12s per result because each place is opened and read in
+# turn, so an identical repeat query cost 40s twice over. Every other module
+# here already caches; Maps was the one that did not. Caching the GET path,
+# which is what gets re-requested, turns the repeat into a lookup.
+MAPS_SEARCH_CACHE_TTL = 3600
+
+
 @router.post(
     "/search",
     summary="Search Google Maps places",
@@ -201,13 +210,32 @@ async def search_places_get(
         zoom=zoom,
         geo_coordinates=geo_coordinates
     )
-    return await search_places(
-        request=request,
-        wait_for_results=wait_for_results,
-        timeout=timeout,
-        api_key=api_key,
-        rate_limit_check=rate_limit_check
+
+    async def run_search():
+        return await search_places(
+            request=request,
+            wait_for_results=wait_for_results,
+            timeout=timeout,
+            api_key=api_key,
+            rate_limit_check=rate_limit_check
+        )
+
+    # Only the blocking form is cacheable. wait_for_results=False returns a job
+    # id, and caching that would hand every later caller the first job's id.
+    if not wait_for_results:
+        return await run_search()
+
+    cache_key = generate_cache_key(
+        "maps_search",
+        query=query,
+        language=language,
+        max_results=max_results,
+        depth=depth,
+        email_extraction=email_extraction,
+        zoom=zoom,
+        geo_coordinates=geo_coordinates,
     )
+    return await get_cached_or_fetch(cache_key, run_search, ttl=MAPS_SEARCH_CACHE_TTL)
 
 
 @router.post(
