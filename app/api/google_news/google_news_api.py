@@ -14,6 +14,31 @@ import nltk
 from pydantic import BaseModel, validator, ValidationError
 import re
 from app.core.proxy import get_proxy  # adjust if needed
+
+# ---------------------------------------------------------------------------
+# GNews resolves every Google News redirect by launching a *whole Chromium
+# browser per article* (gnews/utils/utils.py:resolve_url -> _resolve_with_
+# playwright), with no reuse and a 10s wait_for_url timeout. Measured at
+# ~16s per article: a five-article search spent 80.1s, of which only 2.5s was
+# network. Behind a proxy the redirect often misses that 10s window, so the
+# full timeout is burned every time.
+#
+# It is also redundant. decode_and_process_articles() below decodes the same
+# URLs through Google's own parameters in ~0.2s for five articles, which is
+# what the response actually uses. Turning the browser pass off took the same
+# query from 80.8s to 2.9s with byte-identical article URLs.
+#
+# Restore by deleting this block if GNews ever changes how process_url works.
+# ---------------------------------------------------------------------------
+import gnews.utils.utils as _gnews_utils
+
+
+def _skip_gnews_url_resolution(url: str, proxies: Optional[dict] = None) -> str:
+    """Leave the URL alone; decode_google_news_url() resolves it far faster."""
+    return url
+
+
+_gnews_utils.resolve_url = _skip_gnews_url_resolution
 import datetime
 from app.core.rate_limiter import rate_limit
 from app.core.cache_manager import cache_manager
