@@ -3,8 +3,8 @@ YouTube Transcripts API Router.
 
 Thin API layer that delegates to the YouTubeTranscriptsService.
 """
-from fastapi import APIRouter, Query, HTTPException, Depends
-from pydantic import BaseModel
+from fastapi import APIRouter, Body, Query, HTTPException, Depends
+from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
 import asyncio
 import logging
@@ -41,6 +41,17 @@ class TranscriptResponse(BaseModel):
 
 class TranscriptListResponse(BaseModel):
     transcripts: List[Dict[str, Any]]
+
+
+# One batch fans out to one upstream fetch per video id, so an unbounded list
+# just times out the request instead of returning anything useful.
+MAX_BATCH_VIDEO_IDS = 50
+
+
+class BatchTranscriptRequest(BaseModel):
+    video_ids: List[str] = Field(..., description="List of YouTube video IDs")
+    languages: Optional[List[str]] = Field(None, description="Language codes by priority")
+    preserve_formatting: Optional[bool] = Field(None, description="Preserve HTML formatting")
 
 @youtube_transcripts_router.get(
     "/get-transcript",
@@ -163,13 +174,53 @@ async def translate_transcript(
     summary="Batch Get Transcripts"
 )
 async def batch_get_transcripts(
-    video_ids: List[str] = Query(..., description="List of video IDs"),
-    languages: Optional[List[str]] = Query(["en"], description="Language codes by priority"),
-    preserve_formatting: bool = Query(False, description="Preserve HTML formatting"),
+    payload: Optional[BatchTranscriptRequest] = Body(None),
+    # The query form predates the body and existing callers still send repeated
+    # ?video_ids= parameters, so it stays supported alongside the JSON body.
+    video_ids: Optional[List[str]] = Query(None, description="List of video IDs (query form)"),
+    languages: Optional[List[str]] = Query(None, description="Language codes by priority"),
+    preserve_formatting: Optional[bool] = Query(None, description="Preserve HTML formatting"),
     api_key: str = Depends(get_api_key),
     _rate_limit: None = Depends(rate_limit)
 ):
-    """Get transcripts for multiple videos with automatic proxy rotation."""
+    """Get transcripts for multiple videos with automatic proxy rotation.
+
+    Accepts either form:
+      - JSON body: {"video_ids": [...], "languages": [...], "preserve_formatting": false}
+      - Query string: ?video_ids=ID1&video_ids=ID2&languages=en
+
+    The body wins when both are supplied. See MAX_BATCH_VIDEO_IDS for the
+    per-request cap; larger batches are rejected with HTTP 400.
+    """
+    if payload is not None and payload.video_ids:
+        resolved_video_ids = payload.video_ids
+    else:
+        resolved_video_ids = video_ids or []
+
+    if not resolved_video_ids:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "video_ids is required: send a JSON body {\"video_ids\": [...]} "
+                "or repeated ?video_ids= query parameters."
+            )
+        )
+
+    if len(resolved_video_ids) > MAX_BATCH_VIDEO_IDS:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Too many video IDs: {len(resolved_video_ids)} requested, "
+                f"maximum is {MAX_BATCH_VIDEO_IDS} per batch."
+            )
+        )
+
+    if payload is not None and payload.languages is not None:
+        languages = payload.languages
+    if payload is not None and payload.preserve_formatting is not None:
+        preserve_formatting = payload.preserve_formatting
+    if preserve_formatting is None:
+        preserve_formatting = False
 
     async def get_single_transcript(video_id: str):
         cache_key = generate_cache_key(
@@ -211,7 +262,7 @@ async def batch_get_transcripts(
         return await get_cached_or_fetch(cache_key, fetch_data)
 
     # Concurrent processing with caching
-    tasks = [get_single_transcript(video_id) for video_id in video_ids]
+    tasks = [get_single_transcript(video_id) for video_id in resolved_video_ids]
     transcripts = await asyncio.gather(*tasks, return_exceptions=True)
 
     # Handle exceptions
