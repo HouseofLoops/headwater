@@ -1,4 +1,4 @@
-# Social Flood API Endpoint Testing Report
+# Headwater API Endpoint Testing Report
 
 **Date:** 2025-12-27 (Updated: 2025-12-28)
 **API Version:** 1.5.3
@@ -217,7 +217,7 @@ news_by_location = await loop.run_in_executor(None, gnews.get_news_by_location, 
 
 ## Test Environment
 
-- **Docker Image:** social-flood-web:latest
+- **Docker Image:** headwater-web:latest
 - **Python Version:** 3.11
 - **Container Status:** Healthy
 - **Redis:** Connected (0.33ms latency)

@@ -1,6 +1,6 @@
 # API Usage Examples
 
-This document provides comprehensive examples for using the Social Flood API.
+This document provides comprehensive examples for using the Headwater API.
 
 ## Table of Contents
 
@@ -245,11 +245,11 @@ curl -X GET "http://localhost:8000/api/v1/youtube-transcripts/languages?video_id
 
 ```python
 import asyncio
-from socialflood import SocialFloodClient
+from headwater import HeadwaterClient
 
 async def main():
     api_key = "your_api_key_here"
-    client = SocialFloodClient(api_key)
+    client = HeadwaterClient(api_key)
 
     # Get news
     news = await client.google_news.search("artificial intelligence")
@@ -271,10 +271,10 @@ asyncio.run(main())
 ```python
 import asyncio
 import json
-from socialflood import SocialFloodClient
+from headwater import HeadwaterClient
 
 async def comprehensive_example():
-    client = SocialFloodClient("your_api_key_here")
+    client = HeadwaterClient("your_api_key_here")
 
     try:
         # Get news with filters
@@ -326,17 +326,17 @@ asyncio.run(comprehensive_example())
 
 ```python
 import asyncio
-from socialflood import SocialFloodClient, SocialFloodError
+from headwater import HeadwaterClient, HeadwaterError
 
 async def robust_example():
-    client = SocialFloodClient("your_api_key_here")
+    client = HeadwaterClient("your_api_key_here")
 
     try:
         # This might fail if the API key is invalid
         response = await client.google_news.search("test query")
         print(f"Success: {response.status}")
 
-    except SocialFloodError as e:
+    except HeadwaterError as e:
         if e.status_code == 401:
             print("API key is invalid or expired")
         elif e.status_code == 429:
@@ -392,7 +392,7 @@ axios.get(`${baseURL}/google-autocomplete/autocomplete`, {
 ```javascript
 const axios = require('axios');
 
-class SocialFloodAPI {
+class HeadwaterAPI {
   constructor(apiKey) {
     this.apiKey = apiKey;
     this.baseURL = 'http://localhost:8000/api/v1';
@@ -437,7 +437,7 @@ class SocialFloodAPI {
 }
 
 // Usage
-const api = new SocialFloodAPI('your_api_key_here');
+const api = new HeadwaterAPI('your_api_key_here');
 
 async function example() {
   try {
@@ -563,7 +563,7 @@ asyncio.run(handle_errors())
 ```javascript
 // Example error response
 {
-  "type": "https://socialflood.com/problems/rate_limit_exceeded",
+  "type": "https://headwater.com/problems/rate_limit_exceeded",
   "title": "Too Many Requests",
   "status": 429,
   "detail": "Rate limit exceeded. Try again in 60 seconds.",
@@ -739,4 +739,4 @@ asyncio.run(stream_large_response())
 
 ---
 
-These examples demonstrate the full range of Social Flood API capabilities. For more detailed information, see the [API Reference](API_REFERENCE.md) and [Troubleshooting Guide](TROUBLESHOOTING.md).
+These examples demonstrate the full range of Headwater API capabilities. For more detailed information, see the [API Reference](API_REFERENCE.md) and [Troubleshooting Guide](TROUBLESHOOTING.md).

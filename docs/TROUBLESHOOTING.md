@@ -1,6 +1,6 @@
 # Troubleshooting Guide
 
-This guide helps you diagnose and resolve common issues with the Social Flood API.
+This guide helps you diagnose and resolve common issues with the Headwater API.
 
 ## Table of Contents
 
@@ -47,7 +47,7 @@ docker-compose logs api
 docker-compose exec redis redis-cli ping
 
 # Check PostgreSQL connectivity
-docker-compose exec db psql -U user -d socialflood -c "SELECT version();"
+docker-compose exec db psql -U user -d headwater -c "SELECT version();"
 ```
 
 ## Common Issues
@@ -466,8 +466,8 @@ docker-compose exec db psql -U user -d socialflood -c "SELECT version();"
 2. **Profile Database Queries**
    ```sql
    -- Enable query logging in PostgreSQL
-   ALTER DATABASE socialflood SET log_statement = 'all';
-   ALTER DATABASE socialflood SET log_duration = on;
+   ALTER DATABASE headwater SET log_statement = 'all';
+   ALTER DATABASE headwater SET log_duration = on;
 
    -- Check slow queries
    SELECT query, mean_time, calls, total_time
@@ -1138,7 +1138,7 @@ docker-compose exec db psql -U user -d socialflood -c "SELECT version();"
 2. **Debug Container Entrypoint**
    ```bash
    # Run container with shell
-   docker run -it --entrypoint /bin/bash socialflood/api:latest
+   docker run -it --entrypoint /bin/bash headwater/api:latest
 
    # Check if Python is available
    python --version
@@ -1150,10 +1150,10 @@ docker-compose exec db psql -U user -d socialflood -c "SELECT version();"
 3. **Check Environment Variables**
    ```bash
    # List all environment variables in container
-   docker exec -it socialflood_api_1 env
+   docker exec -it headwater_api_1 env
 
    # Check specific variable
-   docker exec -it socialflood_api_1 echo $DATABASE_URL
+   docker exec -it headwater_api_1 echo $DATABASE_URL
    ```
 
 ### Container Resource Issues
@@ -1168,10 +1168,10 @@ docker-compose exec db psql -U user -d socialflood -c "SELECT version();"
 1. **Monitor Container Resources**
    ```bash
    # Check container resource usage
-   docker stats socialflood_api_1
+   docker stats headwater_api_1
 
    # Check container limits
-   docker inspect socialflood_api_1 | grep -A 10 "Limits"
+   docker inspect headwater_api_1 | grep -A 10 "Limits"
    ```
 
 2. **Adjust Resource Limits**
@@ -1180,7 +1180,7 @@ docker-compose exec db psql -U user -d socialflood -c "SELECT version();"
    version: '3.8'
    services:
      api:
-       image: socialflood/api:latest
+       image: headwater/api:latest
        deploy:
          resources:
            limits:
@@ -1684,4 +1684,4 @@ When creating a bug report or seeking help, please include:
 
 ---
 
-This troubleshooting guide provides comprehensive solutions for common issues with the Social Flood API. For additional help, please check the [GitHub Issues](https://github.com/yourusername/social-flood/issues) or create a new issue with detailed information about your problem.
+This troubleshooting guide provides comprehensive solutions for common issues with the Headwater API. For additional help, please check the [GitHub Issues](https://github.com/yourusername/headwater/issues) or create a new issue with detailed information about your problem.

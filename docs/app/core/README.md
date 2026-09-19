@@ -1,6 +1,6 @@
 # BaseRouter
 
-The `BaseRouter` class provides a standardized way to create API routers in the Social Flood application. It extends FastAPI's `APIRouter` with additional features for service name extraction, RFC7807 compliant error responses, and OpenAPI documentation.
+The `BaseRouter` class provides a standardized way to create API routers in the Headwater application. It extends FastAPI's `APIRouter` with additional features for service name extraction, RFC7807 compliant error responses, and OpenAPI documentation.
 
 ## Features
 
@@ -58,7 +58,7 @@ custom_responses = {
         "content": {
             "application/problem+json": {
                 "example": {
-                    "type": "https://socialflood.com/problems/validation_error",
+                    "type": "https://headwater.com/problems/validation_error",
                     "title": "Validation Error",
                     "status": 400,
                     "detail": "Invalid parameters",
@@ -124,7 +124,7 @@ All error responses follow the RFC7807 JSON structure:
 
 ```json
 {
-  "type": "https://socialflood.com/problems/validation_error",
+  "type": "https://headwater.com/problems/validation_error",
   "title": "Validation Error",
   "status": 400,
   "detail": "Invalid email format",
@@ -134,7 +134,7 @@ All error responses follow the RFC7807 JSON structure:
 
 The `type` field is automatically converted to a URI if a simple string is provided:
 
-- `validation_error` → `https://socialflood.com/problems/validation_error`
+- `validation_error` → `https://headwater.com/problems/validation_error`
 - `https://example.com/errors/server_error` → (unchanged)
 
 ## Additional Fields

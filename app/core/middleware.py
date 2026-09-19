@@ -1,5 +1,5 @@
 """
-Custom middleware for the Social Flood application.
+Custom middleware for the Headwater application.
 
 This module provides middleware for CORS, logging, security headers,
 and other cross-cutting concerns.
@@ -246,7 +246,7 @@ def setup_middleware(app: FastAPI, settings: Optional[Settings] = None) -> None:
     if settings.ENVIRONMENT == "production":
         app.add_middleware(
             TrustedHostMiddleware,
-            allowed_hosts=["api.socialflood.com", "socialflood.com", "localhost"]
+            allowed_hosts=["api.headwater.com", "headwater.com", "localhost"]
         )
     
     # Add GZip compression middleware

@@ -1,6 +1,6 @@
 # API Reference
 
-This document provides comprehensive documentation for all Social Flood API endpoints, including request/response formats, parameters, authentication requirements, and usage examples.
+This document provides comprehensive documentation for all Headwater API endpoints, including request/response formats, parameters, authentication requirements, and usage examples.
 
 ## Table of Contents
 
@@ -22,7 +22,7 @@ X-API-Key: YOUR_API_KEY
 
 ### Obtaining an API Key
 
-API keys are provided upon registration. Contact the Social Flood team to get your API key.
+API keys are provided upon registration. Contact the Headwater team to get your API key.
 
 ## Google News API
 
@@ -31,7 +31,7 @@ The Google News API provides access to news articles from various sources with c
 ### Base URL
 
 ```bash
-https://api.socialflood.com/api/v1/google-news/
+https://api.headwater.com/api/v1/google-news/
 ```
 
 ### Endpoints
@@ -58,7 +58,7 @@ Search for news articles based on keywords, with support for advanced filtering 
 **Example Request:**
 
 ```bash
-curl -X GET "https://api.socialflood.com/api/v1/google-news/search?q=artificial+intelligence&max=20&sort_by=date" \
+curl -X GET "https://api.headwater.com/api/v1/google-news/search?q=artificial+intelligence&max=20&sort_by=date" \
   -H "X-API-Key: YOUR_API_KEY"
 ```
 
@@ -98,7 +98,7 @@ Retrieve top news headlines from various categories.
 **Example Request:**
 
 ```bash
-curl -X GET "https://api.socialflood.com/api/v1/google-news/top?category=technology&max=15" \
+curl -X GET "https://api.headwater.com/api/v1/google-news/top?category=technology&max=15" \
   -H "X-API-Key: YOUR_API_KEY"
 ```
 
@@ -117,7 +117,7 @@ Retrieve news articles filtered by specific topics.
 **Example Request:**
 
 ```bash
-curl -X GET "https://api.socialflood.com/api/v1/google-news/topic?topic=technology&max=20" \
+curl -X GET "https://api.headwater.com/api/v1/google-news/topic?topic=technology&max=20" \
   -H "X-API-Key: YOUR_API_KEY"
 ```
 
@@ -136,7 +136,7 @@ Retrieve news articles from specific geographic locations.
 **Example Request:**
 
 ```bash
-curl -X GET "https://api.socialflood.com/api/v1/google-news/location?location=united-states&max=15" \
+curl -X GET "https://api.headwater.com/api/v1/google-news/location?location=united-states&max=15" \
   -H "X-API-Key: YOUR_API_KEY"
 ```
 
@@ -155,7 +155,7 @@ Retrieve news articles from specific news sources.
 **Example Request:**
 
 ```bash
-curl -X GET "https://api.socialflood.com/api/v1/google-news/source?source=cnn&max=20" \
+curl -X GET "https://api.headwater.com/api/v1/google-news/source?source=cnn&max=20" \
   -H "X-API-Key: YOUR_API_KEY"
 ```
 
@@ -173,7 +173,7 @@ Retrieve detailed information about a specific news article.
 **Example Request:**
 
 ```bash
-curl -X GET "https://api.socialflood.com/api/v1/google-news/article-details?url=https://example.com/article" \
+curl -X GET "https://api.headwater.com/api/v1/google-news/article-details?url=https://example.com/article" \
   -H "X-API-Key: YOUR_API_KEY"
 ```
 
@@ -184,7 +184,7 @@ The Google Autocomplete API provides access to Google's autocomplete suggestions
 ### Base URL
 
 ```bash
-https://api.socialflood.com/api/v1/google-autocomplete/
+https://api.headwater.com/api/v1/google-autocomplete/
 ```
 
 ### Endpoints
@@ -211,7 +211,7 @@ Get Google autocomplete suggestions with support for all available parameters.
 **Example Request:**
 
 ```bash
-curl -X GET "https://api.socialflood.com/api/v1/google-autocomplete/autocomplete?q=python+tutorial&output=chrome&variations=true" \
+curl -X GET "https://api.headwater.com/api/v1/google-autocomplete/autocomplete?q=python+tutorial&output=chrome&variations=true" \
   -H "X-API-Key: YOUR_API_KEY"
 ```
 
@@ -266,7 +266,7 @@ The Google Trends API provides access to Google Trends data including interest o
 ### Base URL
 
 ```bash
-https://api.socialflood.com/api/v1/google-trends/
+https://api.headwater.com/api/v1/google-trends/
 ```
 
 ### Endpoints
@@ -288,7 +288,7 @@ Get interest over time data for specified keywords.
 **Example Request:**
 
 ```bash
-curl -X GET "https://api.socialflood.com/api/v1/google-trends/interest-over-time?keywords=python,javascript&timeframe=today+3-m" \
+curl -X GET "https://api.headwater.com/api/v1/google-trends/interest-over-time?keywords=python,javascript&timeframe=today+3-m" \
   -H "X-API-Key: YOUR_API_KEY"
 ```
 
@@ -324,7 +324,7 @@ Get regional interest data for a keyword.
 **Example Request:**
 
 ```bash
-curl -X GET "https://api.socialflood.com/api/v1/google-trends/interest-by-region?keyword=python&resolution=COUNTRY" \
+curl -X GET "https://api.headwater.com/api/v1/google-trends/interest-by-region?keyword=python&resolution=COUNTRY" \
   -H "X-API-Key: YOUR_API_KEY"
 ```
 
@@ -345,7 +345,7 @@ Get queries related to a keyword.
 **Example Request:**
 
 ```bash
-curl -X GET "https://api.socialflood.com/api/v1/google-trends/related-queries?keyword=python" \
+curl -X GET "https://api.headwater.com/api/v1/google-trends/related-queries?keyword=python" \
   -H "X-API-Key: YOUR_API_KEY"
 ```
 
@@ -366,7 +366,7 @@ Get topics related to a keyword.
 **Example Request:**
 
 ```bash
-curl -X GET "https://api.socialflood.com/api/v1/google-trends/related-topics?keyword=python" \
+curl -X GET "https://api.headwater.com/api/v1/google-trends/related-topics?keyword=python" \
   -H "X-API-Key: YOUR_API_KEY"
 ```
 
@@ -383,7 +383,7 @@ Get currently trending searches.
 **Example Request:**
 
 ```bash
-curl -X GET "https://api.socialflood.com/api/v1/google-trends/trending-now?geo=US" \
+curl -X GET "https://api.headwater.com/api/v1/google-trends/trending-now?geo=US" \
   -H "X-API-Key: YOUR_API_KEY"
 ```
 
@@ -400,7 +400,7 @@ Get trending searches with related news articles.
 **Example Request:**
 
 ```bash
-curl -X GET "https://api.socialflood.com/api/v1/google-trends/trending-now-by-rss?geo=US" \
+curl -X GET "https://api.headwater.com/api/v1/google-trends/trending-now-by-rss?geo=US" \
   -H "X-API-Key: YOUR_API_KEY"
 ```
 
@@ -418,7 +418,7 @@ Get news articles related to trending topics.
 **Example Request:**
 
 ```bash
-curl -X GET "https://api.socialflood.com/api/v1/google-trends/trending-now-news-by-ids?news_tokens=token1,token2&max_news=5" \
+curl -X GET "https://api.headwater.com/api/v1/google-trends/trending-now-news-by-ids?news_tokens=token1,token2&max_news=5" \
   -H "X-API-Key: YOUR_API_KEY"
 ```
 
@@ -436,7 +436,7 @@ Get trending timeline data for keywords.
 **Example Request:**
 
 ```bash
-curl -X GET "https://api.socialflood.com/api/v1/google-trends/trending-now-showcase-timeline?keywords=python&timeframe=past_24h" \
+curl -X GET "https://api.headwater.com/api/v1/google-trends/trending-now-showcase-timeline?keywords=python&timeframe=past_24h" \
   -H "X-API-Key: YOUR_API_KEY"
 ```
 
@@ -454,7 +454,7 @@ Search or list Google Trends categories.
 **Example Request:**
 
 ```bash
-curl -X GET "https://api.socialflood.com/api/v1/google-trends/categories?find=technology" \
+curl -X GET "https://api.headwater.com/api/v1/google-trends/categories?find=technology" \
   -H "X-API-Key: YOUR_API_KEY"
 ```
 
@@ -471,7 +471,7 @@ Search available geolocation codes.
 **Example Request:**
 
 ```bash
-curl -X GET "https://api.socialflood.com/api/v1/google-trends/geo?find=united" \
+curl -X GET "https://api.headwater.com/api/v1/google-trends/geo?find=united" \
   -H "X-API-Key: YOUR_API_KEY"
 ```
 
@@ -482,7 +482,7 @@ The YouTube Transcripts API provides access to video transcripts with support fo
 ### Base URL
 
 ```bash
-https://api.socialflood.com/api/v1/youtube-transcripts/
+https://api.headwater.com/api/v1/youtube-transcripts/
 ```
 
 ### Endpoints
@@ -502,7 +502,7 @@ Get transcript for a YouTube video.
 **Example Request:**
 
 ```bash
-curl -X GET "https://api.socialflood.com/api/v1/youtube-transcripts/get-transcript?video_id=dQw4w9WgXcQ&languages=en" \
+curl -X GET "https://api.headwater.com/api/v1/youtube-transcripts/get-transcript?video_id=dQw4w9WgXcQ&languages=en" \
   -H "X-API-Key: YOUR_API_KEY"
 ```
 
@@ -542,7 +542,7 @@ List all available transcripts for a video.
 **Example Request:**
 
 ```bash
-curl -X GET "https://api.socialflood.com/api/v1/youtube-transcripts/list-transcripts?video_id=dQw4w9WgXcQ" \
+curl -X GET "https://api.headwater.com/api/v1/youtube-transcripts/list-transcripts?video_id=dQw4w9WgXcQ" \
   -H "X-API-Key: YOUR_API_KEY"
 ```
 
@@ -580,7 +580,7 @@ Translate a transcript to another language.
 **Example Request:**
 
 ```bash
-curl -X GET "https://api.socialflood.com/api/v1/youtube-transcripts/translate-transcript?video_id=dQw4w9WgXcQ&target_language=es" \
+curl -X GET "https://api.headwater.com/api/v1/youtube-transcripts/translate-transcript?video_id=dQw4w9WgXcQ&target_language=es" \
   -H "X-API-Key: YOUR_API_KEY"
 ```
 
@@ -599,7 +599,7 @@ Get transcripts for multiple videos.
 **Example Request:**
 
 ```bash
-curl -X POST "https://api.socialflood.com/api/v1/youtube-transcripts/batch-get-transcripts?video_ids=dQw4w9WgXcQ,video2&languages=en" \
+curl -X POST "https://api.headwater.com/api/v1/youtube-transcripts/batch-get-transcripts?video_ids=dQw4w9WgXcQ,video2&languages=en" \
   -H "X-API-Key: YOUR_API_KEY"
 ```
 
@@ -618,7 +618,7 @@ Get transcript in different formats.
 **Example Request:**
 
 ```bash
-curl -X GET "https://api.socialflood.com/api/v1/youtube-transcripts/format-transcript?video_id=dQw4w9WgXcQ&format_type=srt" \
+curl -X GET "https://api.headwater.com/api/v1/youtube-transcripts/format-transcript?video_id=dQw4w9WgXcQ&format_type=srt" \
   -H "X-API-Key: YOUR_API_KEY"
 ```
 
@@ -716,7 +716,7 @@ When rate limited, the API returns HTTP status 429 with a `Retry-After` header i
 
 For additional support or questions about the API:
 
-- **Documentation**: <https://docs.socialflood.com>
-- **API Status**: <https://status.socialflood.com>
-- **Support Email**: support@socialflood.com
-- **Community Forum**: <https://community.socialflood.com>
+- **Documentation**: <https://docs.headwater.com>
+- **API Status**: <https://status.headwater.com>
+- **Support Email**: support@headwater.com
+- **Community Forum**: <https://community.headwater.com>

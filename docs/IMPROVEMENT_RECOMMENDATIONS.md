@@ -1,6 +1,6 @@
 # Improvement Recommendations & Complementary Projects
 
-This document outlines recommended improvements for the Social Flood API and suggests open source projects that could be integrated to extend functionality.
+This document outlines recommended improvements for the Headwater API and suggests open source projects that could be integrated to extend functionality.
 
 ## Table of Contents
 
@@ -361,7 +361,7 @@ import praw
 reddit = praw.Reddit(
     client_id="YOUR_CLIENT_ID",
     client_secret="YOUR_CLIENT_SECRET",
-    user_agent="SocialFlood/1.0"
+    user_agent="Headwater/1.0"
 )
 
 def get_trending_subreddits(limit=10):
@@ -580,7 +580,7 @@ instrumentator.instrument(app).expose(app, endpoint="/metrics")
 
 ## High-Priority Additions
 
-Based on the current Social Flood API capabilities, these integrations would add the most value:
+Based on the current Headwater API capabilities, these integrations would add the most value:
 
 ### 1. Twitter/X Data (twscrape or snscrape)
 **Why:** Twitter is a primary source for real-time trends and social sentiment.

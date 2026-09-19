@@ -78,7 +78,7 @@ custom_responses = {
         "content": {
             "application/problem+json": {
                 "example": {
-                    "type": "https://socialflood.com/problems/validation_error",
+                    "type": "https://headwater.com/problems/validation_error",
                     "title": "Validation Error",
                     "status": 400,
                     "detail": "Invalid product data",
@@ -92,7 +92,7 @@ custom_responses = {
         "content": {
             "application/problem+json": {
                 "example": {
-                    "type": "https://socialflood.com/problems/not_found",
+                    "type": "https://headwater.com/problems/not_found",
                     "title": "Product Not Found",
                     "status": 404,
                     "detail": "The requested product does not exist",

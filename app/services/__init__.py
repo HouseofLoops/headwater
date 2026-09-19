@@ -1,5 +1,5 @@
 """
-Services package for Social Flood API.
+Services package for Headwater API.
 
 This package contains business logic services that handle data processing
 and external API interactions, keeping the API routers thin and focused

@@ -1,4 +1,4 @@
-# Dockerfile - Multi-stage build for Social Flood API
+# Dockerfile - Multi-stage build for Headwater API
 # Optimized for size, security, and caching
 # Includes Playwright for Google Maps scraping
 

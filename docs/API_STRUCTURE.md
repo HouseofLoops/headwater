@@ -1,6 +1,6 @@
 # API Structure
 
-This document provides an overview of the Social Flood API structure, organization, and versioning strategy.
+This document provides an overview of the Headwater API structure, organization, and versioning strategy.
 
 ## Directory Structure
 
@@ -114,7 +114,7 @@ All API endpoints use a standardized error response format following RFC7807 Pro
 
 ```json
 {
-  "type": "https://socialflood.com/problems/validation_error",
+  "type": "https://headwater.com/problems/validation_error",
   "title": "Bad Request",
   "status": 400,
   "detail": "Invalid parameter: query cannot be empty"

@@ -1,6 +1,6 @@
-# Supply Chain Security for Social Flood
+# Supply Chain Security for Headwater
 
-This document provides guidance on implementing supply chain security measures for the Social Flood project, focusing on Docker image signing and attestations.
+This document provides guidance on implementing supply chain security measures for the Headwater project, focusing on Docker image signing and attestations.
 
 ## Overview
 
@@ -105,17 +105,17 @@ We've provided a script (`scripts/sign_image.sh`) to simplify the signing proces
 
 ```bash
 # Basic usage
-./scripts/sign_image.sh --image yourusername/social-flood --tag 1.0.0 --key /path/to/cosign.key
+./scripts/sign_image.sh --image yourusername/headwater --tag 1.0.0 --key /path/to/cosign.key
 
 # With password from environment variable
 export COSIGN_PASSWORD="your-secure-password"
-./scripts/sign_image.sh --image yourusername/social-flood --tag 1.0.0 --key /path/to/cosign.key
+./scripts/sign_image.sh --image yourusername/headwater --tag 1.0.0 --key /path/to/cosign.key
 
 # Create SBOM attestation
-./scripts/sign_image.sh --image yourusername/social-flood --tag 1.0.0 --key /path/to/cosign.key --attestation sbom
+./scripts/sign_image.sh --image yourusername/headwater --tag 1.0.0 --key /path/to/cosign.key --attestation sbom
 
 # Create vulnerability attestation
-./scripts/sign_image.sh --image yourusername/social-flood --tag 1.0.0 --key /path/to/cosign.key --attestation vulnerability
+./scripts/sign_image.sh --image yourusername/headwater --tag 1.0.0 --key /path/to/cosign.key --attestation vulnerability
 ```
 
 ### Using Makefile Commands
@@ -141,7 +141,7 @@ We've provided a script (`scripts/verify_attestations.sh`) to simplify the verif
 
 ```bash
 # Basic usage
-./scripts/verify_attestations.sh --image yourusername/social-flood --tag 1.0.0 --key cosign.pub
+./scripts/verify_attestations.sh --image yourusername/headwater --tag 1.0.0 --key cosign.pub
 ```
 
 You can also use the Makefile command:
@@ -156,16 +156,16 @@ For manual verification, you can use the Cosign CLI directly:
 
 ```bash
 # Verify signature
-cosign verify --key cosign.pub yourusername/social-flood:1.0.0
+cosign verify --key cosign.pub yourusername/headwater:1.0.0
 
 # Verify provenance attestation
-cosign verify-attestation --key cosign.pub yourusername/social-flood:1.0.0
+cosign verify-attestation --key cosign.pub yourusername/headwater:1.0.0
 
 # Verify SBOM attestation
-cosign verify-attestation --key cosign.pub --type spdx yourusername/social-flood:1.0.0
+cosign verify-attestation --key cosign.pub --type spdx yourusername/headwater:1.0.0
 
 # Verify vulnerability attestation
-cosign verify-attestation --key cosign.pub --type vuln yourusername/social-flood:1.0.0
+cosign verify-attestation --key cosign.pub --type vuln yourusername/headwater:1.0.0
 ```
 
 ## CI/CD Integration
@@ -220,7 +220,7 @@ jobs:
         with:
           context: .
           push: false
-          tags: social-flood:pr-${{ github.event.pull_request.number }}
+          tags: headwater:pr-${{ github.event.pull_request.number }}
           platforms: linux/amd64,linux/arm64
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -233,8 +233,8 @@ jobs:
           context: .
           push: true
           tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/social-flood:latest
-            ${{ secrets.DOCKERHUB_USERNAME }}/social-flood:${{ env.VERSION }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/headwater:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/headwater:${{ env.VERSION }}
           platforms: linux/amd64,linux/arm64
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -253,19 +253,19 @@ jobs:
         env:
           COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
         run: |
-          cosign sign --key cosign.key ${{ secrets.DOCKERHUB_USERNAME }}/social-flood:${{ env.VERSION }}
-          cosign sign --key cosign.key ${{ secrets.DOCKERHUB_USERNAME }}/social-flood:latest
+          cosign sign --key cosign.key ${{ secrets.DOCKERHUB_USERNAME }}/headwater:${{ env.VERSION }}
+          cosign sign --key cosign.key ${{ secrets.DOCKERHUB_USERNAME }}/headwater:latest
 
       - name: Create provenance attestation
         if: github.event_name != 'pull_request'
         env:
           COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
         run: |
-          cosign attest --predicate <(cosign generate-attestation ${{ secrets.DOCKERHUB_USERNAME }}/social-flood:${{ env.VERSION }}) \
-            --key cosign.key ${{ secrets.DOCKERHUB_USERNAME }}/social-flood:${{ env.VERSION }}
+          cosign attest --predicate <(cosign generate-attestation ${{ secrets.DOCKERHUB_USERNAME }}/headwater:${{ env.VERSION }}) \
+            --key cosign.key ${{ secrets.DOCKERHUB_USERNAME }}/headwater:${{ env.VERSION }}
           
-          cosign attest --predicate <(cosign generate-attestation ${{ secrets.DOCKERHUB_USERNAME }}/social-flood:latest) \
-            --key cosign.key ${{ secrets.DOCKERHUB_USERNAME }}/social-flood:latest
+          cosign attest --predicate <(cosign generate-attestation ${{ secrets.DOCKERHUB_USERNAME }}/headwater:latest) \
+            --key cosign.key ${{ secrets.DOCKERHUB_USERNAME }}/headwater:latest
 
       # Generate and attest SBOM
       - name: Install Syft
@@ -275,7 +275,7 @@ jobs:
       - name: Generate SBOM
         if: github.event_name != 'pull_request'
         run: |
-          syft ${{ secrets.DOCKERHUB_USERNAME }}/social-flood:${{ env.VERSION }} -o spdx-json > sbom.json
+          syft ${{ secrets.DOCKERHUB_USERNAME }}/headwater:${{ env.VERSION }} -o spdx-json > sbom.json
 
       - name: Attest SBOM
         if: github.event_name != 'pull_request'
@@ -283,10 +283,10 @@ jobs:
           COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
         run: |
           cosign attest --predicate sbom.json --key cosign.key --type spdx \
-            ${{ secrets.DOCKERHUB_USERNAME }}/social-flood:${{ env.VERSION }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/headwater:${{ env.VERSION }}
           
           cosign attest --predicate sbom.json --key cosign.key --type spdx \
-            ${{ secrets.DOCKERHUB_USERNAME }}/social-flood:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/headwater:latest
 ```
 
 This workflow:
@@ -316,10 +316,10 @@ build_sign_push:
     - echo "$COSIGN_KEY" > cosign.key
     - docker login -u $DOCKERHUB_USERNAME -p $DOCKERHUB_TOKEN
   script:
-    - docker build -t $DOCKERHUB_USERNAME/social-flood:latest .
-    - docker push $DOCKERHUB_USERNAME/social-flood:latest
-    - cosign sign --key cosign.key $DOCKERHUB_USERNAME/social-flood:latest
-    - cosign attest --predicate <(cosign generate-attestation $DOCKERHUB_USERNAME/social-flood:latest) --key cosign.key $DOCKERHUB_USERNAME/social-flood:latest
+    - docker build -t $DOCKERHUB_USERNAME/headwater:latest .
+    - docker push $DOCKERHUB_USERNAME/headwater:latest
+    - cosign sign --key cosign.key $DOCKERHUB_USERNAME/headwater:latest
+    - cosign attest --predicate <(cosign generate-attestation $DOCKERHUB_USERNAME/headwater:latest) --key cosign.key $DOCKERHUB_USERNAME/headwater:latest
   only:
     - main
     - tags

@@ -1,10 +1,10 @@
 # Roadmap
 
-This document outlines the planned development roadmap for the Social Flood API, including upcoming features, improvements, and timeline estimates.
+This document outlines the planned development roadmap for the Headwater API, including upcoming features, improvements, and timeline estimates.
 
 ## Current Version: v1.0.0
 
-The Social Flood API is currently in its initial release with core functionality for Google News, Autocomplete, Trends, and YouTube Transcripts.
+The Headwater API is currently in its initial release with core functionality for Google News, Autocomplete, Trends, and YouTube Transcripts.
 
 ## Upcoming Releases
 
@@ -233,10 +233,10 @@ We welcome community input on our development roadmap. You can:
 
 ## Support & Feedback
 
-- **Documentation**: <https://docs.socialflood.com>
-- **Community Forum**: <https://community.socialflood.com>
-- **Support Email**: [support@socialflood.com](mailto:support@socialflood.com)
-- **GitHub Issues**: <https://github.com/socialflood/api/issues>
+- **Documentation**: <https://docs.headwater.com>
+- **Community Forum**: <https://community.headwater.com>
+- **Support Email**: [support@headwater.com](mailto:support@headwater.com)
+- **GitHub Issues**: <https://github.com/headwater/api/issues>
 
 ---
 

@@ -73,7 +73,7 @@ class TestSettingsDefaults:
         # Application settings
         assert test_settings.DEBUG is False
         assert test_settings.ENVIRONMENT == "development"
-        assert test_settings.PROJECT_NAME == "Social Flood"
+        assert test_settings.PROJECT_NAME == "Headwater"
         assert test_settings.VERSION == expected_version
 
     def test_settings_autocomplete_defaults(self):

@@ -1,5 +1,5 @@
 """
-Shared Redis connection manager for the Social Flood application.
+Shared Redis connection manager for the Headwater application.
 
 This module provides a centralized, async-compatible Redis connection manager
 that can be used by caching, rate limiting, and other Redis-dependent features.

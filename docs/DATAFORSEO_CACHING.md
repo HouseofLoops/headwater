@@ -244,22 +244,22 @@ Assuming DataForSEO pricing of ~$0.01 per API call:
 
 1. **Check if caching is enabled:**
    ```bash
-   docker exec social_flood_app python3 -c "from app.core.cache_manager import cache_manager; print('Enabled:', cache_manager.enabled)"
+   docker exec headwater_app python3 -c "from app.core.cache_manager import cache_manager; print('Enabled:', cache_manager.enabled)"
    ```
 
 2. **Check Redis connection:**
    ```bash
-   docker exec social_flood_redis redis-cli PING
+   docker exec headwater_redis redis-cli PING
    ```
 
 3. **View cache keys:**
    ```bash
-   docker exec social_flood_redis redis-cli KEYS "*"
+   docker exec headwater_redis redis-cli KEYS "*"
    ```
 
 4. **Check cache TTL:**
    ```bash
-   docker exec social_flood_redis redis-cli TTL "cache:google_maps:search:v3:..."
+   docker exec headwater_redis redis-cli TTL "cache:google_maps:search:v3:..."
    ```
 
 ### Viewing Logs

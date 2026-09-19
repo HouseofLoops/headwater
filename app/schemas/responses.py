@@ -1,5 +1,5 @@
 """
-Central response model definitions for the Social Flood API.
+Central response model definitions for the Headwater API.
 
 This module provides base response models that can be extended
 by specific API endpoints for consistent response structure.

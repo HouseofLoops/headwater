@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Environment validation script for Social Flood.
+Environment validation script for Headwater.
 
 This script checks for required environment variables and dependencies
 to ensure the application can run properly.
@@ -184,7 +184,7 @@ def check_api_services():
     
 def main():
     """Run all checks."""
-    print(f"{BOLD}{BLUE}Social Flood Environment Check{RESET}")
+    print(f"{BOLD}{BLUE}Headwater Environment Check{RESET}")
     print(f"Time: {time.strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"Python: {sys.version}")
     print(f"Platform: {sys.platform}")

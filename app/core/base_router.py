@@ -207,7 +207,7 @@ class BaseRouter:
         """
         # Ensure type is a proper URI
         if not type.startswith(("http://", "https://")):
-            type = f"https://socialflood.com/problems/{type}"
+            type = f"https://headwater.com/problems/{type}"
             
         error = {
             "type": type,

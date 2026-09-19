@@ -117,7 +117,7 @@ class TestDocsExposure:
     def _app_for(self, environment):
         import main
         stub = MagicMock()
-        stub.PROJECT_NAME = "Social Flood"
+        stub.PROJECT_NAME = "Headwater"
         stub.DESCRIPTION = "desc"
         stub.VERSION = "1.2.0"
         stub.DEBUG = False
@@ -162,7 +162,7 @@ class TestMainApplication:
     def mock_settings(self):
         """Mock application settings."""
         settings = MagicMock()
-        settings.PROJECT_NAME = "Social Flood"
+        settings.PROJECT_NAME = "Headwater"
         settings.DESCRIPTION = "API for social media data aggregation and analysis"
         settings.VERSION = "1.2.0"
         settings.DEBUG = False  # Ensure debug is False for tests
@@ -190,7 +190,7 @@ class TestMainApplication:
             app = create_application()
 
             assert isinstance(app, FastAPI)
-            assert app.title == "Social Flood"
+            assert app.title == "Headwater"
             assert app.description == "API for social media data aggregation and analysis"
             assert app.version == "1.2.0"
             assert app.debug is False
@@ -453,7 +453,7 @@ class TestMainApplication:
         assert response.status_code == 200
         data = response.json()
 
-        assert data["name"] == "Social Flood"
+        assert data["name"] == "Headwater"
         assert data["version"] == "1.2.0"
         assert data["environment"] == "development"
         assert "rate_limiting" in data
@@ -589,7 +589,7 @@ class TestMainApplication:
         # Test that OpenAPI schema can be generated
         schema = app.openapi()
         assert "info" in schema
-        assert schema["info"]["title"] == "Social Flood"
+        assert schema["info"]["title"] == "Headwater"
         assert schema["info"]["version"] == "1.2.0"
 
     @patch('main.settings')

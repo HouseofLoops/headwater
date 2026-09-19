@@ -1,9 +1,9 @@
 """
-Social Flood API - Main Application Entry Point
+Headwater API - Main Application Entry Point
 
 This module initializes the FastAPI application with all necessary middleware,
 exception handlers, and API routers. It serves as the main entry point for the
-Social Flood API service.
+Headwater API service.
 """
 import logging
 import os
@@ -24,7 +24,7 @@ from starlette.exceptions import HTTPException
 # Import application modules
 from app.core.config import get_settings, Settings
 from app.core.exceptions import (
-    SocialFloodException, 
+    HeadwaterException, 
     configure_exception_handlers,
 )
 from app.core.middleware import setup_middleware

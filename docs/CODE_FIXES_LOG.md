@@ -1,6 +1,6 @@
 # Code Fixes Log
 
-This document tracks code improvements and bug fixes for the Social Flood API.
+This document tracks code improvements and bug fixes for the Headwater API.
 
 ## Overview
 
@@ -635,7 +635,7 @@ The current autocomplete implementation fetches suggestions directly from Google
 
 User-Agent strings and Referer URLs were hardcoded in multiple locations:
 
-- `http_client.py` - "Mozilla/5.0 (compatible; SocialFlood/1.0)"
+- `http_client.py` - "Mozilla/5.0 (compatible; Headwater/1.0)"
 - `google_news_api.py` - Full Chrome User-Agent
 - `google_trends_service.py` - USER_AGENT_LIST and REFERER_LIST (~25 lines)
 - `google_trends_api.py` - USER_AGENT_LIST and REFERER_LIST (~25 lines)
@@ -653,7 +653,7 @@ User-Agent strings and Referer URLs were hardcoded in multiple locations:
 
    ```python
    # Default User-Agent
-   DEFAULT_USER_AGENT = "Mozilla/5.0 (compatible; SocialFlood/1.0)"
+   DEFAULT_USER_AGENT = "Mozilla/5.0 (compatible; Headwater/1.0)"
 
    # User-Agent dictionary for specific browser simulation
    USER_AGENTS = {

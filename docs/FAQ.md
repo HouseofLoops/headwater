@@ -2,13 +2,13 @@
 
 ## General Questions
 
-### What is Social Flood API?
+### What is Headwater API?
 
-Social Flood API is a comprehensive REST API that provides access to Google services including News, Trends, Autocomplete, and YouTube Transcripts. It offers developers a unified interface to access multiple Google data sources with consistent authentication and rate limiting.
+Headwater API is a comprehensive REST API that provides access to Google services including News, Trends, Autocomplete, and YouTube Transcripts. It offers developers a unified interface to access multiple Google data sources with consistent authentication and rate limiting.
 
 ### How do I get started?
 
-1. Sign up for an API key at [our website](https://socialflood.com)
+1. Sign up for an API key at [our website](https://headwater.com)
 2. Review the [API Reference](API_REFERENCE.md) for available endpoints
 3. Check out the [Examples](EXAMPLES.md) for sample code
 4. Start with the [Quick Start Guide](README.md#quick-start)
@@ -43,7 +43,7 @@ Yes, we implement multiple security measures:
 
 ### What happens if I lose my API key?
 
-Contact our support team immediately at [support@socialflood.com](mailto:support@socialflood.com). We'll help you revoke the old key and generate a new one.
+Contact our support team immediately at [support@headwater.com](mailto:support@headwater.com). We'll help you revoke the old key and generate a new one.
 
 ## Usage & Limits
 
@@ -61,7 +61,7 @@ Rate limits reset daily at midnight UTC.
 You can check your usage statistics through:
 
 - API response headers (`X-RateLimit-Remaining`, `X-RateLimit-Reset`)
-- Dashboard at [socialflood.com/dashboard](https://socialflood.com/dashboard)
+- Dashboard at [headwater.com/dashboard](https://headwater.com/dashboard)
 - Programmatic access via the `/usage` endpoint
 
 ### Can I upgrade my plan?
@@ -170,7 +170,7 @@ We offer a 30-day money-back guarantee for all paid plans. Contact support withi
 
 ### Do you offer enterprise discounts?
 
-Yes! Contact our sales team at [enterprise@socialflood.com](mailto:enterprise@socialflood.com) for custom pricing and features.
+Yes! Contact our sales team at [enterprise@headwater.com](mailto:enterprise@headwater.com) for custom pricing and features.
 
 ## Development & Integration
 
@@ -180,13 +180,13 @@ Not currently, but it's on our roadmap. For now, you can poll our endpoints or u
 
 ### Can I use this for commercial applications?
 
-Yes, all plans include commercial usage rights. Review our [Terms of Service](https://socialflood.com/terms) for details.
+Yes, all plans include commercial usage rights. Review our [Terms of Service](https://headwater.com/terms) for details.
 
 ### How do I report bugs or request features?
 
-- Bugs: Create an issue on our [GitHub repository](https://github.com/socialflood/social-flood/issues)
-- Features: Use our [feature request form](https://socialflood.com/feature-request)
-- General support: Email [support@socialflood.com](mailto:support@socialflood.com)
+- Bugs: Create an issue on our [GitHub repository](https://github.com/headwater/headwater/issues)
+- Features: Use our [feature request form](https://headwater.com/feature-request)
+- General support: Email [support@headwater.com](mailto:support@headwater.com)
 
 ## Troubleshooting
 
@@ -212,7 +212,7 @@ Performance optimization tips:
 This usually indicates a temporary server issue. Try:
 
 - Retrying your request after a few minutes
-- Checking our [status page](https://status.socialflood.com)
+- Checking our [status page](https://status.headwater.com)
 - Contacting support if the issue persists
 
 ## Legal & Compliance

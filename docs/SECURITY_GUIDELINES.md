@@ -1,6 +1,6 @@
 # Security Guidelines
 
-This document outlines security best practices and guidelines for the Social Flood API.
+This document outlines security best practices and guidelines for the Headwater API.
 
 ## Table of Contents
 
@@ -27,13 +27,13 @@ This document outlines security best practices and guidelines for the Social Flo
 
 ```bash
 # Environment variables (recommended)
-export SOCIAL_FLOOD_API_KEY="your_production_key_here"
+export HEADWATER_API_KEY="your_production_key_here"
 
 # .env file (development only)
-SOCIAL_FLOOD_API_KEY=your_development_key_here
+HEADWATER_API_KEY=your_development_key_here
 
 # Docker secrets
-echo "your_api_key" | docker secret create social_flood_api_key -
+echo "your_api_key" | docker secret create headwater_api_key -
 ```
 
 ### Rate Limiting
@@ -45,7 +45,7 @@ echo "your_api_key" | docker secret create social_flood_api_key -
 
 ```bash
 # Check rate limit status
-curl -I -H "x-api-key: your_key" https://api.socialflood.com/health
+curl -I -H "x-api-key: your_key" https://api.headwater.com/health
 
 # Response headers
 X-RateLimit-Limit: 100
@@ -111,7 +111,7 @@ class NewsSearchRequest(BaseModel):
 # Nginx HTTPS configuration
 server {
     listen 443 ssl http2;
-    server_name api.socialflood.com;
+    server_name api.headwater.com;
 
     ssl_certificate /path/to/certificate.crt;
     ssl_certificate_key /path/to/private.key;
@@ -189,7 +189,7 @@ CMD ["python", "main.py"]
 apiVersion: v1
 kind: Pod
 metadata:
-  name: social-flood-api
+  name: headwater-api
 spec:
   securityContext:
     runAsNonRoot: true
@@ -198,7 +198,7 @@ spec:
     fsGroup: 1001
   containers:
   - name: api
-    image: socialflood/api:latest
+    image: headwater/api:latest
     securityContext:
       allowPrivilegeEscalation: false
       readOnlyRootFilesystem: true
@@ -373,7 +373,7 @@ pip install pip-audit
 pip-audit
 
 # Docker image scanning
-docker scan socialflood/api:latest
+docker scan headwater/api:latest
 
 # GitHub Dependabot
 # Enable in .github/dependabot.yml
@@ -446,15 +446,15 @@ def decrypt_api_key(encrypted_key: bytes) -> str:
 
 ### Security Issues
 
-- **Report vulnerabilities**: security@socialflood.com
-- **PGP Key**: [Download PGP public key](https://socialflood.com/pgp-key.txt)
+- **Report vulnerabilities**: security@headwater.com
+- **PGP Key**: [Download PGP public key](https://headwater.com/pgp-key.txt)
 - **Response time**: Within 24 hours for critical issues
 
 ### Security Team
 
-- **Security Lead**: security@socialflood.com
-- **Incident Response**: incident@socialflood.com
-- **Compliance**: compliance@socialflood.com
+- **Security Lead**: security@headwater.com
+- **Incident Response**: incident@headwater.com
+- **Compliance**: compliance@headwater.com
 
 ## Resources
 

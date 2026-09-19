@@ -12,7 +12,7 @@ help:
 	@echo "  make docker-compose-up  - Start with Docker Compose"
 	@echo "  make docker-compose-down- Stop Docker Compose containers"
 	@echo ""
-	@echo "Social Flood specific commands:"
+	@echo "Headwater specific commands:"
 	@echo "  make test-proxy         - Test proxy configuration"
 	@echo "  make test-apis          - Test external API integrations"
 	@echo "  make clear-cache        - Clear Redis cache"
@@ -74,10 +74,10 @@ lint:
 	pylint app/
 
 docker-build:
-	docker build -t social-flood .
+	docker build -t headwater .
 
 docker-nocache-build:
-	docker build --no-cache -t social-flood .
+	docker build --no-cache -t headwater .
 
 docker-buildx:
 	@echo "Building multi-arch Docker image (linux/amd64,linux/arm64)..."
@@ -88,7 +88,7 @@ docker-buildx-no-cache:
 	@./scripts/docker_multiarch.sh build-no-cache
 
 docker-run:
-	docker run -p 8000:8000 --env-file .env social-flood
+	docker run -p 8000:8000 --env-file .env headwater
 
 docker-compose-up:
 	docker-compose up -d
@@ -96,7 +96,7 @@ docker-compose-up:
 docker-compose-down:
 	docker-compose down
 
-# Social Flood specific commands
+# Headwater specific commands
 test-proxy:
 	@echo "Testing proxy configuration..."
 	@if [ -z "$$PROXY_URL" ]; then \
@@ -166,20 +166,20 @@ check-env:
 	python scripts/check_env.py
 
 debug-docker:
-	docker-compose run --rm social-flood python /app/scripts/check_env.py
+	docker-compose run --rm headwater python /app/scripts/check_env.py
 
 docker-push:
 	@echo "Building and pushing Docker image to Docker Hub..."
 	@python -c "from app.__version__ import __version__; print(f'Current version: {__version__}')"
 	@VERSION=$$(python -c "from app.__version__ import __version__; print(__version__)") && \
 	echo "Building version $$VERSION" && \
-	docker build -t social-flood:$$VERSION -t social-flood:latest . && \
+	docker build -t headwater:$$VERSION -t headwater:latest . && \
 	echo "Enter your Docker Hub username:" && \
 	read DOCKER_USER && \
-	docker tag social-flood:$$VERSION $$DOCKER_USER/social-flood:$$VERSION && \
-	docker tag social-flood:latest $$DOCKER_USER/social-flood:latest && \
-	docker push $$DOCKER_USER/social-flood:$$VERSION && \
-	docker push $$DOCKER_USER/social-flood:latest && \
+	docker tag headwater:$$VERSION $$DOCKER_USER/headwater:$$VERSION && \
+	docker tag headwater:latest $$DOCKER_USER/headwater:latest && \
+	docker push $$DOCKER_USER/headwater:$$VERSION && \
+	docker push $$DOCKER_USER/headwater:latest && \
 	echo "Successfully pushed version $$VERSION to Docker Hub"
 
 docker-pushx:
@@ -196,7 +196,7 @@ docker-pushx-no-cache:
 # The private signing key lives OUTSIDE the repo so it can never enter the
 # Docker build context (Dockerfile ends in `COPY . .`). Override with:
 #   make docker-sign COSIGN_KEY=/path/to/cosign.key
-COSIGN_KEY ?= $(HOME)/.secrets/social-flood/cosign.key
+COSIGN_KEY ?= $(HOME)/.secrets/headwater/cosign.key
 COSIGN_PUB ?= cosign.pub
 
 docker-sign:
@@ -206,7 +206,7 @@ docker-sign:
 	echo "Enter image tag (default: latest):" && \
 	read IMAGE_TAG && \
 	IMAGE_TAG=$${IMAGE_TAG:-latest} && \
-	./scripts/sign_image.sh --image $$DOCKER_USER/social-flood --tag $$IMAGE_TAG --key $(COSIGN_KEY)
+	./scripts/sign_image.sh --image $$DOCKER_USER/headwater --tag $$IMAGE_TAG --key $(COSIGN_KEY)
 
 docker-sign-sbom:
 	@echo "Signing Docker image and creating SBOM attestation..."
@@ -215,7 +215,7 @@ docker-sign-sbom:
 	echo "Enter image tag (default: latest):" && \
 	read IMAGE_TAG && \
 	IMAGE_TAG=$${IMAGE_TAG:-latest} && \
-	./scripts/sign_image.sh --image $$DOCKER_USER/social-flood --tag $$IMAGE_TAG --key $(COSIGN_KEY) --attestation sbom
+	./scripts/sign_image.sh --image $$DOCKER_USER/headwater --tag $$IMAGE_TAG --key $(COSIGN_KEY) --attestation sbom
 
 docker-sign-vuln:
 	@echo "Signing Docker image and creating vulnerability attestation..."
@@ -224,7 +224,7 @@ docker-sign-vuln:
 	echo "Enter image tag (default: latest):" && \
 	read IMAGE_TAG && \
 	IMAGE_TAG=$${IMAGE_TAG:-latest} && \
-	./scripts/sign_image.sh --image $$DOCKER_USER/social-flood --tag $$IMAGE_TAG --key $(COSIGN_KEY) --attestation vulnerability
+	./scripts/sign_image.sh --image $$DOCKER_USER/headwater --tag $$IMAGE_TAG --key $(COSIGN_KEY) --attestation vulnerability
 
 docker-verify:
 	@echo "Verifying Docker image signatures and attestations..."
@@ -233,7 +233,7 @@ docker-verify:
 	echo "Enter image tag (default: latest):" && \
 	read IMAGE_TAG && \
 	IMAGE_TAG=$${IMAGE_TAG:-latest} && \
-	./scripts/verify_attestations.sh --image $$DOCKER_USER/social-flood --tag $$IMAGE_TAG --key $(COSIGN_PUB)
+	./scripts/verify_attestations.sh --image $$DOCKER_USER/headwater --tag $$IMAGE_TAG --key $(COSIGN_PUB)
 
 # Base image management
 update-base-image:

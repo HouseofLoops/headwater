@@ -96,7 +96,7 @@ You can test Docker builds locally using the provided scripts:
 ./scripts/docker_multiarch.sh push your-dockerhub-username
 
 # Sign images (requires cosign)
-./scripts/sign_image.sh -i your-dockerhub-username/social-flood -t 1.0.0 -k /path/to/cosign.key
+./scripts/sign_image.sh -i your-dockerhub-username/headwater -t 1.0.0 -k /path/to/cosign.key
 ```
 
 ## Release Process

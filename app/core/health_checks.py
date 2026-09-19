@@ -1,5 +1,5 @@
 """
-Health check utilities for the Social Flood application.
+Health check utilities for the Headwater application.
 
 This module provides functions to check the health of various
 dependencies like Redis, external APIs, and system resources.

@@ -1,4 +1,4 @@
-"""Shared pytest configuration and fixtures for the Social Flood test suite.
+"""Shared pytest configuration and fixtures for the Headwater test suite.
 
 This file exists to make the suite *deterministic*. Two guarantees, both
 enforced here rather than left to each test author to remember:
@@ -108,7 +108,7 @@ def _isolate_settings() -> None:
             f"cannot guarantee .env isolation. Original error: {exc!r}"
         ) from exc
 
-    handle, path = tempfile.mkstemp(prefix="social-flood-tests-", suffix=".env")
+    handle, path = tempfile.mkstemp(prefix="headwater-tests-", suffix=".env")
     os.close(handle)
     _EMPTY_ENV_FILE = Path(path)
 

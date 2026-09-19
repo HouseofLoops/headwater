@@ -1,5 +1,5 @@
 """
-Configuration settings for the Social Flood application.
+Configuration settings for the Headwater application.
 
 This module provides a centralized way to access configuration settings
 from environment variables using Pydantic's BaseSettings.
@@ -170,7 +170,7 @@ class Settings(BaseSettings):
     # Application settings
     DEBUG: bool = False
     ENVIRONMENT: str = "development"
-    PROJECT_NAME: str = "Social Flood"
+    PROJECT_NAME: str = "Headwater"
     VERSION: str = app_version  # Use version from __version__.py
     DESCRIPTION: str = "API for social media data aggregation and analysis"
     

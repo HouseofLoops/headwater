@@ -1,10 +1,10 @@
 # Architecture Overview
 
-This document provides a high-level overview of the Social Flood API architecture, including its components, data flow, and design principles.
+This document provides a high-level overview of the Headwater API architecture, including its components, data flow, and design principles.
 
 ## System Architecture
 
-The Social Flood API follows a layered architecture pattern with clear separation of concerns:
+The Headwater API follows a layered architecture pattern with clear separation of concerns:
 
 ```
 ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
@@ -25,7 +25,7 @@ The Social Flood API follows a layered architecture pattern with clear separatio
 
 ### Key Components
 
-1. **Client Applications**: External applications that consume the Social Flood API.
+1. **Client Applications**: External applications that consume the Headwater API.
 
 2. **API Gateway (FastAPI)**: The entry point for all API requests, responsible for:
    - Request routing
@@ -106,7 +106,7 @@ The Social Flood API follows a layered architecture pattern with clear separatio
 
 ## Design Principles
 
-The Social Flood API is built on the following design principles:
+The Headwater API is built on the following design principles:
 
 ### 1. Separation of Concerns
 
@@ -138,7 +138,7 @@ The API uses asynchronous I/O throughout to maximize performance:
 All errors follow the RFC7807 Problem Details format:
 ```json
 {
-  "type": "https://socialflood.com/problems/validation_error",
+  "type": "https://headwater.com/problems/validation_error",
   "title": "Bad Request",
   "status": 400,
   "detail": "Invalid parameter: query cannot be empty"
@@ -161,7 +161,7 @@ The API includes extensive monitoring capabilities:
 
 ## Deployment Architecture
 
-The Social Flood API is designed to be deployed in a containerized environment:
+The Headwater API is designed to be deployed in a containerized environment:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐

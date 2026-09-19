@@ -19,7 +19,7 @@ usage() {
   echo "  -h, --help                Display this help message"
   echo ""
   echo "Example:"
-  echo "  $0 --image yourusername/social-flood --tag 1.0.0 --key /path/to/cosign.pub"
+  echo "  $0 --image yourusername/headwater --tag 1.0.0 --key /path/to/cosign.pub"
   exit 1
 }
 

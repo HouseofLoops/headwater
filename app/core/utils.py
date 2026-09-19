@@ -1,5 +1,5 @@
 """
-Utility functions for the Social Flood application.
+Utility functions for the Headwater application.
 
 This module provides shared helper functions for common tasks like
 datetime formatting, JSON serialization, and other utilities.

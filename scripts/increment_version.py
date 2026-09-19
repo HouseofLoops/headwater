@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Version increment utility for Social Flood.
+Version increment utility for Headwater.
 
 This script increments the version number in app/__version__.py
 according to semantic versioning rules.

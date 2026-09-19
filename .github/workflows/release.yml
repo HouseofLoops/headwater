@@ -175,7 +175,7 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/social-flood
+            ${{ secrets.DOCKERHUB_USERNAME }}/headwater
             ghcr.io/${{ github.repository }}
           tags: |
             type=raw,value=${{ env.VERSION }}
@@ -205,7 +205,7 @@ jobs:
           DOCKERHUB_USER: ${{ secrets.DOCKERHUB_USERNAME }}
         run: |
           set -euo pipefail
-          cosign sign --yes "${DOCKERHUB_USER}/social-flood@${DIGEST}"
+          cosign sign --yes "${DOCKERHUB_USER}/headwater@${DIGEST}"
           cosign sign --yes "ghcr.io/${GITHUB_REPOSITORY}@${DIGEST}"
 
       - name: Install Syft
@@ -219,9 +219,9 @@ jobs:
           SYFT: ${{ steps.syft.outputs.cmd }}
         run: |
           set -euo pipefail
-          "$SYFT" "${DOCKERHUB_USER}/social-flood@${DIGEST}" -o spdx-json > sbom.json
+          "$SYFT" "${DOCKERHUB_USER}/headwater@${DIGEST}" -o spdx-json > sbom.json
           cosign attest --yes --predicate sbom.json --type spdx \
-            "${DOCKERHUB_USER}/social-flood@${DIGEST}"
+            "${DOCKERHUB_USER}/headwater@${DIGEST}"
           cosign attest --yes --predicate sbom.json --type spdx \
             "ghcr.io/${GITHUB_REPOSITORY}@${DIGEST}"
 
@@ -259,7 +259,7 @@ jobs:
             echo ""
             echo "### Images"
             echo ""
-            echo "- \`${DOCKERHUB_USER}/social-flood:${VERSION}\`"
+            echo "- \`${DOCKERHUB_USER}/headwater:${VERSION}\`"
             echo "- \`ghcr.io/${GITHUB_REPOSITORY}:${VERSION}\`"
             echo "- Digest: \`${DIGEST}\`"
             echo ""

@@ -1,6 +1,6 @@
-# Contributing to Social Flood API
+# Contributing to Headwater API
 
-Thank you for your interest in contributing to the Social Flood API! This document provides guidelines and information for contributors.
+Thank you for your interest in contributing to the Headwater API! This document provides guidelines and information for contributors.
 
 ## Table of Contents
 
@@ -30,8 +30,8 @@ Before you begin, ensure you have the following installed:
 1. **Fork the repository**
 
    ```bash
-   git clone https://github.com/yourusername/social-flood.git
-   cd social-flood
+   git clone https://github.com/yourusername/headwater.git
+   cd headwater
    ```
 
 2. **Create a virtual environment**
@@ -103,7 +103,7 @@ This includes:
 
 ### 1. Choose an Issue
 
-- Check the [GitHub Issues](https://github.com/rainmanjam/social-flood/issues) for open tasks
+- Check the [GitHub Issues](https://github.com/rainmanjam/headwater/issues) for open tasks
 - Look for issues labeled `good first issue` or `help wanted`
 - Comment on the issue to indicate you're working on it
 
@@ -446,4 +446,4 @@ Contributors are recognized in:
 
 ---
 
-Thank you for contributing to Social Flood API! Your contributions help make this project better for everyone. 🚀
+Thank you for contributing to Headwater API! Your contributions help make this project better for everyone. 🚀

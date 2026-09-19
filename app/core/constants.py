@@ -1,5 +1,5 @@
 """
-Shared constants for the Social Flood application.
+Shared constants for the Headwater application.
 
 This module contains constants that are used across multiple modules
 to avoid code duplication and ensure consistency.
@@ -109,7 +109,7 @@ DEFAULT_KEYWORD_CATEGORIES = ["Questions", "Prepositions", "Alphabet"]
 # -----------------------------------------------------------------------------
 
 # Default User-Agent for the application
-DEFAULT_USER_AGENT = "Mozilla/5.0 (compatible; SocialFlood/1.0)"
+DEFAULT_USER_AGENT = "Mozilla/5.0 (compatible; Headwater/1.0)"
 
 # User-Agent strings for rotation (browser simulation)
 USER_AGENTS = {

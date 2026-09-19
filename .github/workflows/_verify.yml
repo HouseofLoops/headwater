@@ -1,4 +1,4 @@
-# Reusable verification pipeline for Social Flood.
+# Reusable verification pipeline for Headwater.
 #
 # This is the single definition of "does this code actually work?".
 # It is called by:
@@ -422,7 +422,7 @@ jobs:
           context: .
           push: false
           load: true
-          tags: social-flood:ci
+          tags: headwater:ci
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -433,27 +433,27 @@ jobs:
       # this job's contract is "the shipped image starts and self-reports
       # healthy on its built-in defaults".
       - name: Run container
-        run: docker run -d --name social-flood-ci -p 8000:8000 social-flood:ci
+        run: docker run -d --name headwater-ci -p 8000:8000 headwater:ci
 
       - name: Wait for the container HEALTHCHECK to pass
         run: |
           set -euo pipefail
           for i in $(seq 1 60); do
-            STATUS=$(docker inspect -f '{{.State.Health.Status}}' social-flood-ci 2>/dev/null || echo "missing")
-            RUNNING=$(docker inspect -f '{{.State.Running}}' social-flood-ci 2>/dev/null || echo "false")
+            STATUS=$(docker inspect -f '{{.State.Health.Status}}' headwater-ci 2>/dev/null || echo "missing")
+            RUNNING=$(docker inspect -f '{{.State.Running}}' headwater-ci 2>/dev/null || echo "false")
             echo "t=${i}s health=${STATUS} running=${RUNNING}"
             if [ "$STATUS" = "healthy" ]; then
               exit 0
             fi
             if [ "$RUNNING" != "true" ]; then
               echo "::error::container exited before becoming healthy"
-              docker logs social-flood-ci
+              docker logs headwater-ci
               exit 1
             fi
             sleep 2
           done
           echo "::error::container never reported healthy"
-          docker logs social-flood-ci
+          docker logs headwater-ci
           exit 1
 
       - name: Hit /health from the host
@@ -461,8 +461,8 @@ jobs:
 
       - name: Container logs
         if: always()
-        run: docker logs social-flood-ci || true
+        run: docker logs headwater-ci || true
 
       - name: Tear down
         if: always()
-        run: docker rm -f social-flood-ci || true
+        run: docker rm -f headwater-ci || true

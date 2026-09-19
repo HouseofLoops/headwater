@@ -1,6 +1,6 @@
 # Docker Multi-Architecture Build Helper
 
-This directory contains a helper script for building and managing multi-architecture Docker images for the Social Flood project.
+This directory contains a helper script for building and managing multi-architecture Docker images for the Headwater project.
 
 ## Overview
 
@@ -101,11 +101,11 @@ To verify the architecture of built images:
 
 ```bash
 # Check image details
-docker inspect social-flood:latest-amd64 | grep Architecture
-docker inspect social-flood:latest-arm64 | grep Architecture
+docker inspect headwater:latest-amd64 | grep Architecture
+docker inspect headwater:latest-arm64 | grep Architecture
 
 # For pushed multi-arch images
-docker manifest inspect yourusername/social-flood:latest
+docker manifest inspect yourusername/headwater:latest
 ```
 
 ## Advanced Usage

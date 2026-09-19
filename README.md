@@ -1,9 +1,9 @@
-# Social Flood API
+# Headwater API
 
 A powerful API for accessing and aggregating data from various Google services including Google Maps, Google News, Google Trends, Google Autocomplete, and YouTube Transcripts.
 
-[![Docker Hub](https://img.shields.io/docker/v/rainmanjam/social-flood?label=Docker%20Hub&logo=docker)](https://hub.docker.com/r/rainmanjam/social-flood)
-[![GitHub release](https://img.shields.io/github/v/release/rainmanjam/social-flood)](https://github.com/rainmanjam/social-flood/releases)
+[![Docker Hub](https://img.shields.io/docker/v/rainmanjam/headwater?label=Docker%20Hub&logo=docker)](https://hub.docker.com/r/rainmanjam/headwater)
+[![GitHub release](https://img.shields.io/github/v/release/rainmanjam/headwater)](https://github.com/rainmanjam/headwater/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ## Features
@@ -26,7 +26,7 @@ A powerful API for accessing and aggregating data from various Google services i
 
 ```bash
 # One-line install (Linux/macOS)
-curl -fsSL https://raw.githubusercontent.com/rainmanjam/social-flood/main/scripts/install.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/rainmanjam/headwater/main/scripts/install.sh | sudo bash
 ```
 
 The installer will:
@@ -47,8 +47,8 @@ The installer will:
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/rainmanjam/social-flood.git
-   cd social-flood
+   git clone https://github.com/rainmanjam/headwater.git
+   cd headwater
    ```
 
 2. Copy the example environment file and configure your settings:
@@ -69,7 +69,7 @@ The installer will:
 Pull the pre-built image directly:
 
 ```bash
-docker pull rainmanjam/social-flood:latest
+docker pull rainmanjam/headwater:latest
 ```
 
 ### API Documentation
@@ -268,21 +268,21 @@ After installation, these scripts are available:
 
 ```bash
 # Check service status
-/opt/social-flood/scripts/status.sh
+/opt/headwater/scripts/status.sh
 
 # Update to latest version
-/opt/social-flood/scripts/update.sh
+/opt/headwater/scripts/update.sh
 
 # Create backup
-/opt/social-flood/scripts/backup.sh
+/opt/headwater/scripts/backup.sh
 
 # Uninstall
-/opt/social-flood/scripts/uninstall.sh
+/opt/headwater/scripts/uninstall.sh
 ```
 
 ## Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=rainmanjam/social-flood&type=Date)](https://star-history.com/#rainmanjam/social-flood&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=rainmanjam/headwater&type=Date)](https://star-history.com/#rainmanjam/headwater&Date)
 
 ## Contributing
 

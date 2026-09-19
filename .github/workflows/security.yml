@@ -71,13 +71,13 @@ jobs:
           context: .
           push: false
           load: true
-          tags: social-flood:scan
+          tags: headwater:scan
           cache-from: type=gha
 
       - name: Trivy scan (SARIF for the Security tab)
         uses: aquasecurity/trivy-action@v0.36.0
         with:
-          image-ref: 'social-flood:scan'
+          image-ref: 'headwater:scan'
           format: 'sarif'
           output: 'trivy-container.sarif'
           severity: 'CRITICAL,HIGH,MEDIUM'
@@ -94,7 +94,7 @@ jobs:
       - name: Fail on CRITICAL findings
         uses: aquasecurity/trivy-action@v0.36.0
         with:
-          image-ref: 'social-flood:scan'
+          image-ref: 'headwater:scan'
           format: 'table'
           severity: 'CRITICAL'
           ignore-unfixed: true
