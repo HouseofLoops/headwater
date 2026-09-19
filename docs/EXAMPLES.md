@@ -75,7 +75,7 @@ curl -X GET "http://localhost:8000/api/v1/google-news/search?q=machine+learning&
 ### Get Trending Topics
 
 ```bash
-curl -X GET "http://localhost:8000/api/v1/google-trends/trending?geo=US&hours=24" \
+curl -X GET "http://localhost:8000/api/v1/google-trends/trending-now?geo=US&hours=24" \
   -H "x-api-key: $API_KEY"
 ```
 
@@ -109,7 +109,7 @@ curl -X GET "http://localhost:8000/api/v1/google-trends/trending?geo=US&hours=24
 ### Compare Multiple Keywords
 
 ```bash
-curl -X GET "http://localhost:8000/api/v1/google-trends/compare?keywords=python,javascript,rust&geo=US&timeframe=1-Y" \
+curl -X GET "http://localhost:8000/api/v1/google-trends/interest-over-time?keywords=python,javascript,rust&geo=US&timeframe=1-Y" \
   -H "x-api-key: $API_KEY"
 ```
 
@@ -123,7 +123,7 @@ curl -X GET "http://localhost:8000/api/v1/google-trends/interest-over-time?keywo
 ### Get Related Topics
 
 ```bash
-curl -X GET "http://localhost:8000/api/v1/google-trends/related?keywords=artificial+intelligence&geo=US" \
+curl -X GET "http://localhost:8000/api/v1/google-trends/related-queries?keywords=artificial+intelligence&geo=US" \
   -H "x-api-key: $API_KEY"
 ```
 
@@ -177,7 +177,7 @@ curl -X GET "http://localhost:8000/api/v1/google-autocomplete/autocomplete?q=mar
 ### Get Video Transcript
 
 ```bash
-curl -X GET "http://localhost:8000/api/v1/youtube-transcripts/get?video_id=dQw4w9WgXcQ&language=en" \
+curl -X GET "http://localhost:8000/api/v1/youtube-transcripts/get-transcript?video_id=dQw4w9WgXcQ&language=en" \
   -H "x-api-key: $API_KEY"
 ```
 
@@ -210,7 +210,7 @@ curl -X GET "http://localhost:8000/api/v1/youtube-transcripts/get?video_id=dQw4w
 ### Get Available Transcripts
 
 ```bash
-curl -X GET "http://localhost:8000/api/v1/youtube-transcripts/languages?video_id=dQw4w9WgXcQ" \
+curl -X GET "http://localhost:8000/api/v1/youtube-transcripts/list-transcripts?video_id=dQw4w9WgXcQ" \
   -H "x-api-key: $API_KEY"
 ```
 
@@ -426,7 +426,7 @@ class HeadwaterAPI {
 
   async getTrends(keywords, options = {}) {
     try {
-      const response = await this.client.get(`${this.baseURL}/google-trends/compare`, {
+      const response = await this.client.get(`${this.baseURL}/google-trends/interest-over-time`, {
         params: { keywords: keywords.join(','), ...options }
       });
       return response.data;

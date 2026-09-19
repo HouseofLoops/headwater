@@ -937,7 +937,7 @@ ab -n 500 -c 5 \
   -T 'application/json' \
   -H "x-api-key: your_api_key" \
   -p post_data.json \
-  "http://localhost:8000/api/v1/batch-search"
+  "http://localhost:8000/api/v1/google-maps/bulk-search"
 ```
 
 #### Using Locust
@@ -978,7 +978,7 @@ class HeadwaterUser(HttpUser):
     @task(1)  # 10% of requests
     def get_trends(self):
         self.client.get(
-            "/api/v1/google-trends/trending?geo=US&hours=24",
+            "/api/v1/google-trends/trending-now?geo=US&hours=24",
             headers={"x-api-key": self.api_key},
             name="get_trends"
         )
@@ -1043,7 +1043,7 @@ class APIPerformanceBenchmark:
             '/health',
             '/api/v1/google-news/search?q=test',
             '/api/v1/google-autocomplete/autocomplete?q=python',
-            '/api/v1/google-trends/trending?geo=US&hours=1'
+            '/api/v1/google-trends/trending-now?geo=US&hours=1'
         ]
 
         async with aiohttp.ClientSession() as session:

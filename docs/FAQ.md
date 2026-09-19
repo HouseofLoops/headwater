@@ -11,7 +11,7 @@ Headwater API is a comprehensive REST API that provides access to Google service
 1. Sign up for an API key at [our website](https://headwater.com)
 2. Review the [API Reference](API_REFERENCE.md) for available endpoints
 3. Check out the [Examples](EXAMPLES.md) for sample code
-4. Start with the [Quick Start Guide](README.md#quick-start)
+4. Start with the [Quick Start Guide](../README.md#install)
 
 ### What programming languages are supported?
 

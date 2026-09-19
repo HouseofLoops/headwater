@@ -106,7 +106,7 @@ Examples:
 - `/api/v1/google-news/search`
 - `/api/v1/google-trends/interest-over-time`
 - `/api/v1/google-autocomplete/autocomplete`
-- `/api/v1/youtube-transcripts/get`
+- `/api/v1/youtube-transcripts/get-transcript`
 
 ## Error Handling
 

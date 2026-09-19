@@ -1,5 +1,12 @@
 # Headwater API Endpoint Testing Report
 
+> **Historical record — do not treat as current.**
+> This report was run on 2025-12-27 against API version 1.5.3. The API is now on
+> 2.0.0 and several endpoints exercised below no longer exist, among them
+> `/google-maps/details`, `/google-maps/reviews/submit` and `/google-maps/batch/search`.
+> It is kept for the reasoning it captures, not for its endpoint list. For what the
+> API exposes today, read `/api/docs` on a running instance.
+
 **Date:** 2025-12-27 (Updated: 2025-12-28)
 **API Version:** 1.5.3
 **Base URL:** http://localhost:8000

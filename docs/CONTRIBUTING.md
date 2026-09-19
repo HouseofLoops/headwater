@@ -427,7 +427,7 @@ When making changes that affect users:
 
 ### Code of Conduct
 
-Please review and follow our [Code of Conduct](CODE_OF_CONDUCT.md).
+Please review and follow our Code of Conduct.
 
 ### Recognition
 
