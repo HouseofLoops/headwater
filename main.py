@@ -167,6 +167,28 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # interval and fires webhooks on change). Idempotent.
     start_monitor_scheduler()
 
+    # Assert record durability out loud at startup.
+    #
+    # RecordStore reaches Redis through a broad try/except that falls back to an
+    # in-memory dict. A typo there (is_available() on a @property) meant every
+    # Maps job, monitor and webhook was non-durable against a healthy Redis, and
+    # nothing said so: records simply vanished on restart and were invisible to
+    # sibling workers. It stayed hidden precisely because nothing asserted on it.
+    try:
+        from app.services.record_store import RecordStore
+
+        durable = await RecordStore("maps:jobs").is_durable()
+        if durable:
+            logger.info("Record storage is durable (Redis): records survive restart")
+        else:
+            logger.error(
+                "Record storage is NOT durable: jobs, monitors and webhooks are in "
+                "memory only. They will be lost on restart and are invisible to "
+                "sibling workers. Do not run multi-worker production like this."
+            )
+    except Exception as exc:  # never block startup on the check itself
+        logger.error("Could not determine record storage durability: %s", exc)
+
     # Log rate limiting status
     if settings.RATE_LIMIT_ENABLED:
         logger.info(f"Rate limiting enabled: {settings.RATE_LIMIT_REQUESTS} requests per {settings.RATE_LIMIT_TIMEFRAME} seconds")
@@ -297,7 +319,18 @@ def create_application() -> FastAPI:
     )
     async def detailed_health_check():
         """Detailed health check endpoint (requires an API key)."""
-        return await check_health(include_details=True, settings=settings)
+        result = await check_health(include_details=True, settings=settings)
+        # Surfaced as a field, not just a log line, so durability is assertable
+        # from outside the process. The bug this guards against was invisible
+        # for as long as nothing checked it.
+        try:
+            from app.services.record_store import RecordStore
+
+            result = dict(result) if isinstance(result, dict) else {"result": result}
+            result["record_storage_durable"] = await RecordStore("maps:jobs").is_durable()
+        except Exception as exc:
+            result["record_storage_durable"] = f"unknown: {exc}"
+        return result
 
     @app.get("/ping", tags=["Health"], summary="Simple ping endpoint")
     async def ping():
