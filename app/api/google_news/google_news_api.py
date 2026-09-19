@@ -13,7 +13,7 @@ import os
 import nltk
 from pydantic import BaseModel, validator, ValidationError
 import re
-from app.core.proxy import get_proxy  # adjust if needed
+from app.core.proxy import get_proxy  # adjust if needed, mask_proxy
 
 # ---------------------------------------------------------------------------
 # GNews resolves every Google News redirect by launching a *whole Chromium
@@ -560,7 +560,7 @@ async def get_gnews_instance(
             "https://": httpx.AsyncHTTPTransport(proxy=proxy_url_val),
         }
         gnews.session = httpx.AsyncClient(mounts=mounts)
-        logger.debug(f"GNews instance using proxy for httpx session: {proxy_url_val}")
+        logger.debug("GNews instance using proxy for httpx session: %s", mask_proxy(proxy_url_val))
         if proxy_url_val: # Logging for clarity that proxy is also set for feedparser
             logger.debug(f"GNews instance also configured with proxy for feedparser: {proxy_url_val}")
     else:

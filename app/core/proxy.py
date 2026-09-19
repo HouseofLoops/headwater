@@ -37,6 +37,7 @@ __all__ = [
     "get_proxy",
     "get_proxy_sync",
     "proxy_for",
+    "mask_proxy",
     "is_host_excluded",
     "rotate_proxy",
     "is_proxy_enabled",
@@ -151,7 +152,7 @@ async def get_proxy() -> Optional[str]:
 
     async with _proxy_lock:
         proxy_url = _next_proxy(urls)
-    logger.debug("Selected proxy: %s", proxy_url)
+    logger.debug("Selected proxy: %s", mask_proxy(proxy_url))
     return proxy_url
 
 
@@ -169,8 +170,22 @@ def get_proxy_sync() -> Optional[str]:
         _warn_enabled_but_empty()
         return None
 
-    logger.debug("Selected proxy (sync): %s", urls[0])
+    logger.debug("Selected proxy (sync): %s", mask_proxy(urls[0]))
     return urls[0]
+
+
+def mask_proxy(url: Optional[str]) -> str:
+    """Render a proxy URL safe to log, with the password replaced.
+
+    Proxy URLs carry credentials inline (``http://user:pass@host:port``). Eight
+    call sites logged them whole, so turning on DEBUG printed the zone password
+    into the application log -- and into anything shipping those logs onward.
+    Truncating with ``[:50]`` is not a fix either: it only hides the secret while
+    the username happens to be long.
+    """
+    if not url:
+        return "(none)"
+    return re.sub(r"://([^:/@]+):[^@]*@", r"://\1:***@", str(url))
 
 
 def _excluded_hosts() -> Tuple[str, ...]:
@@ -235,7 +250,7 @@ def rotate_proxy() -> Optional[str]:
         return None
 
     proxy_url = _next_proxy(urls)
-    logger.debug("Rotated to proxy: %s", proxy_url)
+    logger.debug("Rotated to proxy: %s", mask_proxy(proxy_url))
     return proxy_url
 
 

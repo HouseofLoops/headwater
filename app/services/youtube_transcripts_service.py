@@ -30,7 +30,7 @@ from youtube_transcript_api.formatters import WebVTTFormatter, SRTFormatter
 from requests.exceptions import ProxyError, ConnectionError as RequestsConnectionError
 from fastapi import HTTPException
 
-from app.core.proxy import get_proxy_sync, proxy_for, is_host_excluded, rotate_proxy, ENABLE_PROXY
+from app.core.proxy import get_proxy_sync, proxy_for, is_host_excluded, rotate_proxy, ENABLE_PROXY, mask_proxy
 
 # Everything this service fetches lives on youtube.com, so proxy decisions
 # are made against this one host.
@@ -186,7 +186,7 @@ class YouTubeTranscriptsService:
                     # Rotate to a new proxy
                     new_proxy = rotate_proxy()
                     if new_proxy:
-                        logger.info(f"Rotating to new proxy: {new_proxy[:50]}...")
+                        logger.info("Rotating to new proxy: %s", mask_proxy(new_proxy))
                         # Clear cache to force new API instance
                         self._api_cache.clear()
                     else:
