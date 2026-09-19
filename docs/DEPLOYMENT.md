@@ -49,7 +49,7 @@ DEBUG=true
 ENVIRONMENT=development
 PROJECT_NAME=Headwater
 VERSION=1.0.0
-DESCRIPTION=API for social media data aggregation and analysis
+DESCRIPTION=API for Google Search, News, Trends and Maps data, plus YouTube transcripts
 ```
 
 ### 3. Build and Run with Docker Compose
@@ -106,7 +106,7 @@ docker run -d \
   -e ENVIRONMENT=production \
   -e PROJECT_NAME="Headwater" \
   -e VERSION=1.0.0 \
-  -e DESCRIPTION="API for social media data aggregation and analysis" \
+  -e DESCRIPTION="API for Google Search, News, Trends and Maps data, plus YouTube transcripts" \
   headwater:1.0.0
 ```
 
@@ -139,7 +139,7 @@ kubectl create configmap headwater-config \
   --from-literal=ENVIRONMENT=production \
   --from-literal=PROJECT_NAME="Headwater" \
   --from-literal=VERSION=1.0.0 \
-  --from-literal=DESCRIPTION="API for social media data aggregation and analysis"
+  --from-literal=DESCRIPTION="API for Google Search, News, Trends and Maps data, plus YouTube transcripts"
 ```
 
 ### 3. Deploy Redis (if needed)

@@ -172,7 +172,7 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
     PROJECT_NAME: str = "Headwater"
     VERSION: str = app_version  # Use version from __version__.py
-    DESCRIPTION: str = "API for social media data aggregation and analysis"
+    DESCRIPTION: str = "API for Google Search, News, Trends and Maps data, plus YouTube transcripts"
     
     @field_validator(
         "API_KEYS",
