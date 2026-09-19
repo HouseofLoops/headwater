@@ -500,6 +500,15 @@ async def get_gnews_instance(
 ) -> GNews:
     proxy_url_val = await get_proxy()
 
+    # GNews hands this straight to requests as `proxies=`, which only accepts a
+    # mapping -- its own signature is `proxy: dict | None`. get_proxy() returns a
+    # single URL string, so passing it through raised "proxies must be a mapping"
+    # and every search 500'd the moment ENABLE_PROXY was turned on. The httpx
+    # paths above are unaffected: httpx does take a bare URL.
+    proxy_map = (
+        {"http": proxy_url_val, "https": proxy_url_val} if proxy_url_val else None
+    )
+
     # Initialize GNews with proxy for its internal feedparser usage
     gnews = GNews(
         language=language,
@@ -509,7 +518,7 @@ async def get_gnews_instance(
         start_date=start_date,
         end_date=end_date,
         # exclude_websites can be set if needed, GNews constructor supports it
-        proxy=proxy_url_val  # Pass the proxy URL to GNews constructor
+        proxy=proxy_map  # requests-style {scheme: url} mapping, not a bare URL
     )
 
     # Set attributes not available in constructor or that need to be dynamically set
