@@ -1,293 +1,312 @@
-# Headwater API
+# Headwater
 
-A powerful API for accessing and aggregating data from various Google services including Google Maps, Google News, Google Trends, Google Autocomplete, and YouTube Transcripts.
+One self-hosted API for Google Maps, News, Trends and Autocomplete, plus YouTube
+transcripts. Normalised JSON, no per-call vendor pricing, runs in Docker.
 
-[![Docker Hub](https://img.shields.io/docker/v/rainmanjam/headwater?label=Docker%20Hub&logo=docker)](https://hub.docker.com/r/rainmanjam/headwater)
 [![GitHub release](https://img.shields.io/github/v/release/rainmanjam/headwater)](https://github.com/rainmanjam/headwater/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-
-## Features
-
-- **Google Maps API** - Extract place data, reviews, photos, popular times, and live wait times
-  - Grid-based geo-targeting for comprehensive area coverage
-  - Bounding box coordinate search
-  - Location name geocoding (city, ZIP, address)
-- **Google News API** - Access and search news articles from Google News
-- **Google Trends API** - Retrieve trending topics and search interest data
-- **Google Autocomplete API** - Get search suggestions and keyword variations
-- **YouTube Transcripts API** - Extract transcripts from YouTube videos
-- **API Versioning** - All endpoints follow `/api/v1/` structure for future compatibility
-- **RFC7807 Error Handling** - Standardized problem details for all error responses
-- **Rate Limiting** - Configurable request throttling to prevent abuse
-- **Comprehensive Health Checks** - Monitor system status and dependencies
-- **Prometheus Metrics** - Track API usage and performance
-
-## Quick Install
+[![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/downloads/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-009688.svg?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 
 ```bash
-# One-line install (Linux/macOS)
+git clone https://github.com/rainmanjam/headwater.git && cd headwater
+cp .env.example .env          # set API_KEY
+docker compose up -d
+curl -H "X-API-Key: $API_KEY" \
+  "http://localhost:8000/api/v1/google-autocomplete/autocomplete?q=n8n"
+```
+
+```json
+{"suggestions":["n8n","n8n workflows","n8n ai","n8n pricing","n8n github"]}
+```
+
+---
+
+## Why Headwater
+
+These five sources have no single official API between them. Getting search
+interest, a place's reviews, a news feed and a video transcript into one pipeline
+normally means four vendors, four auth schemes, four response shapes and four
+invoices that scale per call.
+
+Headwater is the one service in front of all of them:
+
+- **One key, one base URL, one JSON convention** across 67 operations.
+- **Self-hosted.** Your infrastructure, your IP, your rate limits. No per-request
+  billing and no third party holding your query history.
+- **Built for pipelines, not dashboards.** Every response is flat JSON meant to be
+  consumed by n8n, an LLM step or a cron job.
+- **Honest about scraping.** Rate limiting, per-host proxy routing, caching and
+  politeness pacing are first-class, because the upstreams are real services that
+  will block you if you behave badly.
+
+It is not a Google Cloud wrapper. Nothing here needs a Google API key, and nothing
+here is an officially supported Google interface.
+
+## Install
+
+### Docker Compose (recommended)
+
+```bash
+git clone https://github.com/rainmanjam/headwater.git && cd headwater
+cp .env.example .env
+docker compose up -d
+```
+
+The stack is the API plus Redis. Redis is not optional in production: without it,
+Maps jobs, monitors and webhooks fall back to in-memory storage that is lost on
+restart and invisible to sibling workers. `/health/detailed` reports
+`record_storage_durable` so you can assert on this rather than hope.
+
+### One-line installer
+
+```bash
 curl -fsSL https://raw.githubusercontent.com/rainmanjam/headwater/main/scripts/install.sh | sudo bash
 ```
 
-The installer will:
-- Install Docker if not present
-- Configure PostgreSQL and Redis
-- Set up the API with secure defaults
-- Optionally configure SSL/HTTPS with Let's Encrypt
-- Create helper scripts (update, backup, uninstall)
+Installs Docker if absent, configures Redis, sets secure defaults, optionally
+issues a Let's Encrypt certificate, and writes update/backup/uninstall helpers to
+`/opt/headwater/scripts/`.
 
-## Getting Started
-
-### Prerequisites
-
-- Docker and Docker Compose
-- (Optional) [Webshare Proxy](https://www.webshare.io/?referral_code=o116umkbm8da) for production scraping
-
-### Manual Installation
-
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/rainmanjam/headwater.git
-   cd headwater
-   ```
-
-2. Copy the example environment file and configure your settings:
-   ```bash
-   cp .env.example .env
-   # Edit .env with your API keys and configuration
-   ```
-
-3. Build and start the containers:
-   ```bash
-   docker-compose up -d
-   ```
-
-4. The API is now running at http://localhost:8000
-
-### Docker Hub
-
-Pull the pre-built image directly:
-
-```bash
-docker pull rainmanjam/headwater:latest
-```
-
-### API Documentation
-
-- Swagger UI: [http://localhost:8000/api/docs](http://localhost:8000/api/docs)
-- ReDoc: [http://localhost:8000/api/redoc](http://localhost:8000/api/redoc)
-- OpenAPI Schema: [http://localhost:8000/api/openapi.json](http://localhost:8000/api/openapi.json)
-
-## Proxy Configuration
-
-For production web scraping, we recommend using a proxy service to avoid rate limiting and IP blocks.
-
-### Recommended: Webshare Proxy
-
-[Webshare](https://www.webshare.io/?referral_code=o116umkbm8da) offers affordable, high-quality proxies perfect for Google Maps scraping:
-
-| Feature | Details |
-|---------|---------|
-| **Free Tier** | 10 proxies, 1GB/month |
-| **Datacenter Proxies** | Starting at $0.03/IP |
-| **Residential Proxies** | Starting at $1.12/GB |
-| **Static ISP Proxies** | Starting at $0.30/IP with unlimited bandwidth |
-
-**Quick Setup:**
-
-1. [Sign up for Webshare](https://www.webshare.io/?referral_code=o116umkbm8da) (free tier available)
-2. Get your proxy credentials from the dashboard
-3. Configure in your `.env` file:
-
-```env
-ENABLE_PROXY=true
-# PROXY_URLS is comma-separated and rotated round-robin. Note the plural:
-# the singular PROXY_URL is accepted as a legacy alias, but PROXY_URLS is
-# what the code reads.
-PROXY_URLS=http://username:password@proxy.webshare.io:80
-# Several proxies, rotated per request:
-PROXY_URLS=http://user:pass@proxy.webshare.io:80,http://user:pass@p.webshare.io:80
-```
-
-## Configuration
-
-| Environment Variable | Description | Example |
-|----------------------|-------------|---------|
-| `API_KEYS` | Accepted API keys. Comma-separated **or** a JSON array | `key1,key2` or `["key1","key2"]` |
-| `API_KEY` | Single-key alias for `API_KEYS` | `sf_abc123...` |
-| `ENABLE_API_KEY_AUTH` | Enable/disable API key authentication | `true` |
-| `RATE_LIMIT_ENABLED` | Enable/disable rate limiting | `true` |
-| `RATE_LIMIT_REQUESTS` | Number of requests allowed per timeframe | `100` |
-| `RATE_LIMIT_TIMEFRAME` | Timeframe for rate limiting in seconds | `3600` |
-| `ENABLE_CACHE` | Enable/disable response caching | `true` |
-| `CACHE_TTL` | Cache time-to-live in seconds | `3600` |
-| `REDIS_URL` | Redis URL. Optional for a single-worker local run; **required** for multi-worker | `redis://localhost:6379/0` |
-| `ENABLE_PROXY` | Enable/disable proxy for external requests | `false` |
-| `PROXY_URLS` | Proxy URLs, comma-separated, rotated round-robin | `http://proxy:8080` |
-| `ENVIRONMENT` | Application environment | `development` |
-| `DEBUG` | Enable/disable debug mode | `false` |
-
-See [.env.example](.env.example) for a complete list of configuration options.
-
-### Configuration notes
-
-- **List-valued settings** (`API_KEYS`, `CORS_ORIGINS`, `CORS_METHODS`,
-  `CORS_HEADERS`, `SUSPICIOUS_PATTERNS`) accept either a comma-separated string
-  or a JSON array.
-- **Replace the placeholder values before setting `ENVIRONMENT` to anything
-  other than `development`.** The app refuses to start in production on the
-  placeholder API key or the default `SECRET_KEY`, rather than running on
-  credentials published in this repository. `scripts/install.sh` generates real
-  ones.
-- **`.env` does not support `${VAR}` interpolation.** Docker Compose passes the
-  file through verbatim, so a `${...}` reference is read as a literal string.
-- **Redis is optional locally.** Without it the rate limiter uses an in-process
-  store and caching falls back to memory. Because that store is per-process, a
-  multi-worker deployment would silently multiply every limit by the worker
-  count, so the app refuses to start in that configuration instead.
-- **Rate limiting fails closed.** If the limiter cannot reach its backend,
-  requests get `503` rather than passing unlimited. Set
-  `RATE_LIMIT_FAIL_OPEN=true` to prefer availability over enforcement.
-
-### Authentication and exposed endpoints
-
-| Endpoint | Auth |
-|----------|------|
-| `/health`, `/ping` | Public. Liveness only — no version or environment. |
-| `/health/detailed`, `/status`, `/api-config`, `/config-sources`, `/metrics` | **API key required** — they disclose host resources, dependency topology and configuration. |
-| `/docs`, `/redoc`, `/openapi.json` | Served outside production; **not registered at all in production**. |
-| All `/api/v1/*` | API key required. |
-
-## Usage Examples
-
-### Basic Health Check
+### Verify
 
 ```bash
 curl http://localhost:8000/health
+curl -H "X-API-Key: $API_KEY" http://localhost:8000/health/detailed
 ```
 
-Response:
+Interactive docs are at `/api/docs` (Swagger) and `/api/redoc`, and the raw
+schema at `/openapi.json`. Those are generated from the code, so they are always
+the authoritative endpoint list.
+
+## What you get back
+
+Every example below is a real response from a running instance, trimmed for
+length. All requests need `X-API-Key`.
+
+### Google Maps — places with coordinates, ratings and review counts
+
+```bash
+curl -H "X-API-Key: $API_KEY" \
+  "http://localhost:8000/api/v1/google-maps/search?query=bakery+Austin+Texas&max_results=2"
+```
+
 ```json
 {
-  "status": "healthy",
-  "version": "1.6.0",
-  "environment": "production",
-  "timestamp": 1622548800.123456
+  "success": true,
+  "query": "bakery Austin Texas",
+  "total_results": 2,
+  "places": [
+    {
+      "place_id": "0x8644ca76b9c9106d:0x3e0558783ef8b48b",
+      "name": "Quack's 43rd Street Bakery",
+      "address": "411 E 43rd St, Austin, TX 78751",
+      "phone": "(512) 453-3399",
+      "website": "https://quacks43rd.com/",
+      "latitude": "30.339001",
+      "longitude": "-97.7691042",
+      "rating": 4.5,
+      "review_count": 1781
+    }
+  ],
+  "job_id": "e1cccb14-e10c-411f-a196-0fe157bbeb26"
 }
 ```
 
-### Google Maps Search
+Maps is the expensive surface: roughly **12 seconds per result**, because each
+place is opened and read in turn. Ten results is about two minutes. Results are
+cached for an hour, so a repeated query returns immediately. `max_results` is
+capped at 45 and an unaffordable `max_results`/`timeout` pair is rejected with a
+400 that tells you what you can afford, rather than timing out five minutes later.
+
+### YouTube transcripts — full text with timings
 
 ```bash
-curl -X POST "http://localhost:8000/api/v1/google-maps/search" \
-  -H "X-API-Key: your_api_key" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "query": "restaurants near Times Square",
-    "max_results": 10,
-    "language": "en"
-  }'
+curl -H "X-API-Key: $API_KEY" \
+  "http://localhost:8000/api/v1/youtube-transcripts/get-transcript?video_id=-mc6-uem7vM"
 ```
 
-### Google Maps Grid Search (Area Coverage)
+```json
+{
+  "video_id": "-mc6-uem7vM",
+  "language": "English",
+  "language_code": "en",
+  "is_generated": true,
+  "is_translatable": true,
+  "transcript": [
+    { "text": "In my last Technicium tutorial, I built", "start": 0.08, "duration": 4.88 }
+  ]
+}
+```
+
+That video returns 529 segments in about two seconds. `POST
+/batch-get-transcripts` takes up to 50 ids as a JSON body, and
+`/translate-transcript` returns a translated track where one is offered.
+
+### Google News — real publisher URLs, not Google redirects
 
 ```bash
-curl -X POST "http://localhost:8000/api/v1/google-maps/grid-search" \
-  -H "X-API-Key: your_api_key" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "query": "coffee shops",
-    "center_lat": 40.7580,
-    "center_lng": -73.9855,
-    "radius_km": 2.0,
-    "grid_size": 5,
-    "max_results_per_point": 10
-  }'
+curl -H "X-API-Key: $API_KEY" \
+  "http://localhost:8000/api/v1/google-news/search/?query=n8n"
 ```
 
-### Google News Search
+```json
+{
+  "articles": [
+    {
+      "title": "How to use nexos.ai with n8n on Hostinger VPS",
+      "published_date": "Tue, 15 Sep 2026 18:30:28 GMT",
+      "description": "How to use nexos.ai with n8n on Hostinger VPS",
+      "url": "https://www.hostinger.com/support/how-to-use-nexos-ai-with-n8n",
+      "publisher": "Hostinger"
+    }
+  ]
+}
+```
+
+Google News hands out `news.google.com` redirect links. Headwater decodes them to
+the publisher's own URL, which is what you actually want to store or fetch.
+
+Search and topic endpoints return metadata only. For body text, pass a decoded URL
+to `/article-details/`, which extracts title, authors, publish date, full text and
+keywords. That endpoint refuses any host not on `NEWS_ARTICLE_ALLOWED_HOSTS`: it
+fetches arbitrary URLs, so it is deliberately an allow-list rather than a
+deny-list.
+
+### Google Trends — interest, related terms and reference data
 
 ```bash
-curl -X GET "http://localhost:8000/api/v1/google-news/search?q=artificial+intelligence&country=US&language=en&max_results=5" \
-  -H "X-API-Key: your_api_key"
+curl -H "X-API-Key: $API_KEY" \
+  "http://localhost:8000/api/v1/google-trends/geo?find=Tokyo"
 ```
 
-### Google Autocomplete Suggestions
+```json
+{ "data": [{ "name": "Tokyo", "id": "13" }] }
+```
+
+`/geo` resolves 3,681 locations and `/categories` 1,133 categories, both cached for
+a day since they change on the order of months. `/interest-over-time`,
+`/related-queries`, `/related-topics` and `/trending-now` cover the live series.
+
+Google enforces its own quota on related queries and topics; those endpoints
+return **502** when it is exhausted rather than pretending the data was empty.
+
+### Google Autocomplete — keyword expansion
 
 ```bash
-curl -X GET "http://localhost:8000/api/v1/google-autocomplete/autocomplete?q=python+programming&output=chrome&gl=US" \
-  -H "X-API-Key: your_api_key"
+curl -H "X-API-Key: $API_KEY" \
+  "http://localhost:8000/api/v1/google-autocomplete/autocomplete?q=n8n"
 ```
 
-For more examples, see the [docs/](docs/) folder.
+```json
+{
+  "suggestions": ["n8n", "n8n workflows", "n8n ai", "n8n pricing", "n8n github",
+                  "n8n cloud", "n8n login", "n8n careers", "n8n meaning"]
+}
+```
 
-## API Endpoints
+## Endpoints
 
-### Google Maps
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/v1/google-maps/search` | Search for places |
-| POST | `/api/v1/google-maps/details` | Get place details by ID |
-| POST | `/api/v1/google-maps/reviews` | Get place reviews |
-| POST | `/api/v1/google-maps/grid-search` | Grid-based area search |
-| POST | `/api/v1/google-maps/bounding-box-search` | Search within coordinates |
-| POST | `/api/v1/google-maps/location-search` | Search by city/ZIP/address |
+67 operations across 60 paths. The tables in this README would drift, so the
+authoritative list lives at **`/api/docs`** on your running instance.
 
-### Google News
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/v1/google-news/search` | Search news articles |
-| GET | `/api/v1/google-news/top/` | Get top headlines |
-| GET | `/api/v1/google-news/topic/{topic}` | Get news by topic |
+| Surface | Operations | What it covers |
+|---|---:|---|
+| `google-maps` | 36 | search, nearby, grid and bounding-box search, place details, reviews, photos, Q&A, menus, popular times, plus async jobs, monitors and webhooks |
+| `google-trends` | 10 | interest over time and by region, related queries and topics, trending now, geo and category reference data |
+| `google-news` | 9 | search, top stories, by topic, by source, by location, and full-article extraction |
+| `youtube-transcripts` | 5 | fetch, list, format, translate, batch |
+| `google-autocomplete` | 1 | search suggestions |
+| health / status | 6 | `/health`, `/health/detailed`, `/ping`, `/status`, `/api-config`, `/config-sources` |
 
-### Google Trends
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/v1/google-trends/trending-now` | Get currently trending topics |
-| GET | `/api/v1/google-trends/interest-over-time` | Get search interest data |
+Most Maps endpoints accept both `GET` (query parameters) and `POST` (JSON body).
+Long Maps work can run asynchronously: pass `wait_for_results=false` to get a
+`job_id`, then poll `/jobs/{job_id}` and read `/jobs/{job_id}/results`.
 
-### Google Autocomplete
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/v1/google-autocomplete/autocomplete` | Get search suggestions |
+## Configuration
 
-### YouTube Transcripts
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/v1/youtube-transcripts/get-transcript` | Get video transcript |
+Set these in `.env`. See `.env.example` for the full list.
+
+| Variable | Purpose |
+|---|---|
+| `API_KEY` | Required. Sent as `X-API-Key` on every request. |
+| `REDIS_URL` | Cache and durable record storage. |
+| `ENABLE_PROXY` | Turn outbound proxying on. |
+| `PROXY_URLS` | Comma-separated proxy URLs, rotated round-robin. `PROXY_URL` is accepted as a legacy alias. |
+| `NO_PROXY_HOSTS` | Hosts that must bypass the proxy. Suffix match on a dot boundary. |
+| `NEWS_ARTICLE_ALLOWED_HOSTS` | Hosts `/article-details/` may fetch. |
+| `RATE_LIMIT_ENABLED`, `RATE_LIMIT_REQUESTS`, `RATE_LIMIT_TIMEFRAME` | Request throttling. |
+| `CORS_ORIGINS` | Explicit allow-list. A wildcard disables credentialed cross-origin requests. |
+
+### Proxying is per host, not all-or-nothing
+
+`ENABLE_PROXY` used to be global, which forced one choice for every upstream. It
+is not one decision, because the upstreams disagree:
+
+- **Reddit and similar** answer `429` to datacentre IPs and need a proxy.
+- **YouTube** is refused by some providers at the tunnel. Bright Data returns
+  `policy_20050`, "target site requires special permission", on `youtube.com` —
+  an account-level compliance gate, so no zone type avoids it.
+- **Google Maps** loads fine through a plain `GET` but a full browser navigation
+  through a datacentre proxy never settles, so scraping it must go direct.
+
+`NO_PROXY_HOSTS` resolves that. A sensible starting point:
+
+```dotenv
+ENABLE_PROXY=true
+PROXY_URLS=http://user:pass@proxy.example.com:8080
+NO_PROXY_HOSTS=youtube.com,youtu.be,ytimg.com,google.com
+```
+
+Proxy credentials are masked in logs. Never log a proxy URL yourself: it carries
+`user:pass@` inline, and truncating it is not redaction.
+
+## Operating notes
+
+**Caching.** Redis-backed, per endpoint. Reference data lives a day; Maps searches
+an hour; trend series follow the default. Repeated identical requests are cheap;
+the first one is not.
+
+**Rate limiting.** Applies per key and returns `429` with the seconds remaining.
+It exists to keep you inside the upstreams' tolerance, so raising it is a decision
+about their patience, not just yours.
+
+**Errors** follow RFC 7807. A `502` means an upstream genuinely failed; an empty
+result set is a `200` with an empty list. The distinction is deliberate — a quiet
+week and a broken scraper should never look the same.
+
+**Observability.** Prometheus metrics, `/health/detailed` with per-dependency
+status including Redis and record durability, and structured logs.
 
 ## Documentation
 
-- [docs/features/](docs/features/) - Feature documentation
-- [docs/comparisons/](docs/comparisons/) - Service comparisons
-- [scripts/README.md](scripts/README.md) - Installer and helper scripts
+| Guide | |
+|---|---|
+| [API reference](docs/API_REFERENCE.md) | Endpoint detail beyond `/api/docs` |
+| [Deployment](docs/DEPLOYMENT.md) | Production deployment and secrets |
+| [Performance tuning](docs/PERFORMANCE_TUNING.md) | Caching, concurrency, proxy pools |
+| [Troubleshooting](docs/TROUBLESHOOTING.md) | Symptoms and causes |
+| [Security guidelines](docs/SECURITY_GUIDELINES.md) | Hardening and key handling |
+| [Architecture](docs/ARCHITECTURE_OVERVIEW.md) | How the pieces fit |
+| [Contributing](docs/CONTRIBUTING.md) | Development setup and conventions |
+| [Examples](docs/EXAMPLES.md) | Longer worked examples |
 
-## Helper Scripts
+## Limits worth knowing before you adopt it
 
-After installation, these scripts are available:
-
-```bash
-# Check service status
-/opt/headwater/scripts/status.sh
-
-# Update to latest version
-/opt/headwater/scripts/update.sh
-
-# Create backup
-/opt/headwater/scripts/backup.sh
-
-# Uninstall
-/opt/headwater/scripts/uninstall.sh
-```
-
-## Star History
-
-[![Star History Chart](https://api.star-history.com/svg?repos=rainmanjam/headwater&type=Date)](https://star-history.com/#rainmanjam/headwater&Date)
+- **Maps costs about 12s per result** and is the slowest thing here by an order of
+  magnitude. Plan around the cache, or use the async job endpoints.
+- **These are unofficial interfaces.** Google changes its markup and parameters
+  without notice. The Maps scraper reports `selectors_stale` when extraction stops
+  matching, so breakage surfaces as a signal rather than as silently empty results.
+- **Upstream quotas are real.** Google Trends limits related queries and topics
+  independently of anything configured here.
+- **Some sources need a proxy and some are broken by one.** See the proxy section;
+  there is no single setting that is right for every host.
 
 ## Contributing
 
-Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+See [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md). Issues and pull requests welcome.
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+MIT — see [LICENSE](LICENSE).
