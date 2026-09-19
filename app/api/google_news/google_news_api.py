@@ -13,7 +13,7 @@ import os
 import nltk
 from pydantic import BaseModel, validator, ValidationError
 import re
-from app.core.proxy import get_proxy  # adjust if needed, mask_proxy
+from app.core.proxy import get_proxy, mask_proxy
 
 # ---------------------------------------------------------------------------
 # GNews resolves every Google News redirect by launching a *whole Chromium
