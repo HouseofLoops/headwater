@@ -8,7 +8,6 @@ Headwater API service.
 import logging
 import os
 import time
-import nltk
 from contextlib import asynccontextmanager
 from typing import AsyncIterator, Dict, Any, Optional
 

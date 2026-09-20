@@ -19,7 +19,9 @@ httpx==0.28.1
 
 # Data Processing
 pandas==3.0.5
-nltk==3.10.3
+# nltk removed: PYSEC-2026-3740 / GHSA-8mgp-746c-j5xp, no fixed release exists.
+# Optional extra for newspaper4k, used only for article summary/keywords.
+# Re-add when nltk > 3.10.3 ships (nltk/nltk#3753).
 
 # Google Services Integration
 trendspy==0.1.6

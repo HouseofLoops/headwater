@@ -10,7 +10,22 @@ from urllib.parse import quote, urlparse
 import httpx
 from selectolax.parser import HTMLParser
 import os
-import nltk
+# nltk is OPTIONAL and is deliberately not in requirements.txt.
+#
+# nltk 3.10.3 carries PYSEC-2026-3740 / GHSA-8mgp-746c-j5xp (path traversal in
+# the model-artifact APIs) and 3.10.3 is the newest release, so there is nothing
+# to upgrade to; the fix is open and unmerged at nltk/nltk#3753. Rather than
+# ship a known-vulnerable package, the dependency is dropped.
+#
+# It is only ever needed for article.nlp(), which populates `summary` and
+# `keywords`. newspaper4k imports nltk lazily inside split_sentences(), so
+# parsing, text, authors, dates and images all work without it. When a fixed
+# nltk is released, re-add the pin to requirements.txt and both fields come back
+# with no code change: the paths below already handle either state.
+try:  # pragma: no cover - presence depends on the environment
+    import nltk
+except ImportError:  # nltk not installed: NLP features degrade, nothing else
+    nltk = None
 from pydantic import BaseModel, validator, ValidationError
 import re
 from app.core.proxy import get_proxy, mask_proxy
@@ -52,7 +67,13 @@ from app.core.log_safety import scrub
 
 # Initialize NLTK asynchronously at module level
 async def setup_nltk():
-    """Setup NLTK resources once at startup."""
+    """Setup NLTK resources once at startup, if nltk is installed at all."""
+    if nltk is None:
+        logger.info(
+            "nltk is not installed; article summary and keywords are disabled. "
+            "Everything else in /article-details/ is unaffected."
+        )
+        return
     try:
         # Set NLTK data path to a writable directory
         nltk_data_dir = os.path.join(os.getcwd(), "nltk_data")
@@ -1390,8 +1411,13 @@ async def get_article_details(
             nlp_success = True
             try:
                 await loop.run_in_executor(None, article.nlp)
-            except LookupError as le:  # Specific exception for NLTK resource not found
-                logger.warning("NLTK resource not found for %s: %s", validated.host, le)
+            except (LookupError, ImportError) as le:
+                # LookupError: nltk is installed but the punkt corpus is absent.
+                # ImportError: nltk is not installed at all, which is the normal
+                # state while PYSEC-2026-3740 is unfixed - newspaper4k raises it
+                # from split_sentences(). Both degrade to "no summary/keywords"
+                # rather than failing the request.
+                logger.warning("NLP unavailable for %s: %s", validated.host, le)
                 nlp_success = False
 
             # Build response (convert publish_date to string for JSON serialization)
@@ -1418,7 +1444,9 @@ async def get_article_details(
                     "keywords": article.keywords
                 })
             else:
-                response_data["error"] = "Unable to perform NLP analysis due to missing NLTK resource."
+                response_data["summary"] = None
+                response_data["keywords"] = None
+                response_data["nlp_available"] = False
 
             return response_data
 

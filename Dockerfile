@@ -39,10 +39,12 @@ COPY requirements.lock .
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir --require-hashes -r requirements.lock
 
-# Download NLTK data to a portable location
-RUN python -c "import nltk; \
-    nltk.download('punkt_tab', download_dir='/opt/nltk_data'); \
-    nltk.download('punkt', download_dir='/opt/nltk_data')"
+# NLTK corpora are no longer baked in: nltk is not installed. See the note in
+# app/api/google_news/google_news_api.py - it carries an unfixed advisory
+# (PYSEC-2026-3740) and is only needed for article summary and keywords. This
+# also removes a network call from the image build.
+# Restore this RUN, the NLTK_DATA env and the two /opt/nltk_data lines below
+# when a fixed nltk is re-pinned.
 
 
 # =============================================================================
@@ -57,7 +59,6 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONFAULTHANDLER=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    NLTK_DATA=/opt/nltk_data \
     PLAYWRIGHT_BROWSERS_PATH=/opt/playwright-browsers
 
 WORKDIR /app
@@ -95,7 +96,6 @@ RUN groupadd -r appuser && useradd -r -g appuser -d /app appuser
 
 # Copy virtual environment from builder
 COPY --from=builder /opt/venv /opt/venv
-COPY --from=builder /opt/nltk_data /opt/nltk_data
 ENV PATH="/opt/venv/bin:$PATH"
 
 # Install Playwright browsers (Chromium only for smaller size)
@@ -106,7 +106,7 @@ RUN mkdir -p /opt/playwright-browsers && \
 
 # Create required directories with proper permissions
 RUN mkdir -p /app/.tldextract_cache && \
-    chown -R appuser:appuser /app /opt/nltk_data /opt/playwright-browsers
+    chown -R appuser:appuser /app /opt/playwright-browsers
 
 # Copy application code
 COPY --chown=appuser:appuser . .
