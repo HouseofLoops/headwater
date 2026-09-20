@@ -180,6 +180,13 @@ jobs:
           tags: |
             type=raw,value=${{ env.VERSION }}
             type=raw,value=latest
+          # metadata-action derives org.opencontainers.image.description from the
+          # GitHub repository description, and its labels override the Dockerfile's
+          # LABELs. The repo description was empty when 2.1.0 was built, so that
+          # image shipped with an empty description despite the Dockerfile setting
+          # one. Pin it here so the label never depends on a mutable GitHub field.
+          labels: |
+            org.opencontainers.image.description=One self-hosted API for Google Maps, News, Trends and Autocomplete, plus YouTube transcripts. Normalised JSON, no per-call vendor pricing, runs in Docker.
 
       # sbom and provenance are attestations attached to the image in the
       # registry, not files in the build. Without them `docker scout` reports
