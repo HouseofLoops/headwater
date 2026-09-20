@@ -60,6 +60,30 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # python:3.14-slim-bookworm as of 2026-09-19 (keep in sync with the builder stage)
 FROM python:3.14-slim-bookworm@sha256:82bc3c539b8813ada9d68c63b40158fa002f7f33de9bf3312a3dfdc0620dff56 AS production
 
+# OCI image metadata. The image carried none before, so `docker inspect` on a
+# pulled image said nothing about what it was, where it came from or how it is
+# licensed, and registry UIs had nothing to show. These are the standard
+# org.opencontainers.image.* keys, which Docker Hub, GHCR, Trivy and Syft all
+# read.
+#
+# revision and created are build arguments rather than hardcoded values: baking
+# a commit into a tracked file means it is wrong the moment anything else is
+# committed. CI passes the real ones; a local build leaves them empty rather
+# than claiming a provenance it does not have.
+ARG VCS_REF=""
+ARG BUILD_DATE=""
+LABEL org.opencontainers.image.title="Headwater" \
+      org.opencontainers.image.description="One self-hosted API for Google Maps, News, Trends and Autocomplete, plus YouTube transcripts. Normalised JSON, no per-call vendor pricing." \
+      org.opencontainers.image.source="https://github.com/rainmanjam/headwater" \
+      org.opencontainers.image.url="https://github.com/rainmanjam/headwater" \
+      org.opencontainers.image.documentation="https://github.com/rainmanjam/headwater/blob/main/README.md" \
+      org.opencontainers.image.licenses="MIT" \
+      org.opencontainers.image.vendor="rainmanjam" \
+      org.opencontainers.image.version="2.0.0" \
+      org.opencontainers.image.base.name="python:3.14-slim-bookworm" \
+      org.opencontainers.image.revision="$VCS_REF" \
+      org.opencontainers.image.created="$BUILD_DATE"
+
 # Security: Set environment variables early
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
