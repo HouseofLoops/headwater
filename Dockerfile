@@ -41,7 +41,17 @@ ENV PATH="/opt/venv/bin:$PATH"
 # loose spec so the image's transitive closure is reproducible and auditable.
 # Regenerate with:
 #   uv pip compile requirements.txt --python-version 3.14 --universal \
-#       --generate-hashes --no-header -o requirements.lock
+#       --generate-hashes -o requirements.lock
+#
+# Note the two details that command depends on. `--no-header` is NOT used: the
+# committed lock carries uv's header, and adding the flag produces a file that
+# differs from it. And -o must point AT the existing requirements.lock, because
+# uv preserves the pins already in the output file and changes only what the new
+# constraints force; compiling to a fresh path re-resolves the whole graph
+# against today's PyPI, which turns a one-package bump into a ~700-line diff.
+#
+# scripts/check_lock_parity.py enforces that this file and requirements.txt
+# agree, because the image installs from the lock and Dependabot edits the spec.
 COPY requirements.lock .
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir --require-hashes -r requirements.lock

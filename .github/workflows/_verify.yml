@@ -170,6 +170,13 @@ jobs:
       - name: Audit the full locked closure
         run: pip-audit --requirement requirements.lock --no-deps --strict --progress-spinner=off
 
+      # Both audits above can pass while the two files disagree with each other.
+      # The image installs from requirements.lock alone, and Dependabot only
+      # ever edits requirements.txt, so a merged bump that skipped the lock
+      # changes nothing that ships. Compare the files directly.
+      - name: Assert requirements.lock carries the pins in requirements.txt
+        run: python scripts/check_lock_parity.py
+
   # ---------------------------------------------------------------------------
   # Test
   # ---------------------------------------------------------------------------
