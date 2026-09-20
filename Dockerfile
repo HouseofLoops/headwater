@@ -16,9 +16,9 @@
 # ACTION REQUIRED (owner of scripts/): scripts/update_base_image.sh:10 still
 # defaults BASE_IMAGE_TAG to "3.11-slim-bookworm" and .github/workflows/
 # update-base-image.yml invokes it with no --tag, so its grep will not match
-# the FROM lines below until that default becomes "3.14-slim-bookworm".
-# python:3.14-slim-bookworm as of 2026-09-19
-FROM python:3.14-slim-bookworm@sha256:82bc3c539b8813ada9d68c63b40158fa002f7f33de9bf3312a3dfdc0620dff56 AS builder
+# the FROM lines below until that default becomes "3.14-slim-trixie".
+# python:3.14-slim-trixie as of 2026-09-19
+FROM python:3.14-slim-trixie@sha256:caaf356f40667c496d405780745b9ac25771c189a51dfcc42430d531ea09f8a2 AS builder
 
 WORKDIR /build
 
@@ -57,8 +57,8 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # =============================================================================
 # Stage 2: Production - Minimal runtime image with Playwright
 # =============================================================================
-# python:3.14-slim-bookworm as of 2026-09-19 (keep in sync with the builder stage)
-FROM python:3.14-slim-bookworm@sha256:82bc3c539b8813ada9d68c63b40158fa002f7f33de9bf3312a3dfdc0620dff56 AS production
+# python:3.14-slim-trixie as of 2026-09-19 (keep in sync with the builder stage)
+FROM python:3.14-slim-trixie@sha256:caaf356f40667c496d405780745b9ac25771c189a51dfcc42430d531ea09f8a2 AS production
 
 # OCI image metadata. The image carried none before, so `docker inspect` on a
 # pulled image said nothing about what it was, where it came from or how it is
@@ -80,7 +80,7 @@ LABEL org.opencontainers.image.title="Headwater" \
       org.opencontainers.image.licenses="MIT" \
       org.opencontainers.image.vendor="rainmanjam" \
       org.opencontainers.image.version="2.0.0" \
-      org.opencontainers.image.base.name="python:3.14-slim-bookworm" \
+      org.opencontainers.image.base.name="python:3.14-slim-trixie" \
       org.opencontainers.image.revision="$VCS_REF" \
       org.opencontainers.image.created="$BUILD_DATE"
 
@@ -96,31 +96,15 @@ WORKDIR /app
 
 # Install runtime dependencies including Playwright browser deps
 # Note: We need more packages for Playwright/Chromium
+# Debian 13 renamed many of these in the 64-bit time_t transition
+# (libasound2 -> libasound2t64, libgtk-3-0 -> libgtk-3-0t64 and so on), so the
+# hardcoded bookworm list no longer resolves. `playwright install-deps` carries
+# that mapping upstream and keeps carrying it, which is a better place for it
+# than a list here that silently breaks on the next distro bump.
 RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
     curl \
-    # Playwright/Chromium dependencies
-    libnss3 \
-    libnspr4 \
-    libatk1.0-0 \
-    libatk-bridge2.0-0 \
-    libcups2 \
-    libdrm2 \
-    libxkbcommon0 \
-    libxcomposite1 \
-    libxdamage1 \
-    libxfixes3 \
-    libxrandr2 \
-    libgbm1 \
-    libasound2 \
-    libpango-1.0-0 \
-    libcairo2 \
-    libatspi2.0-0 \
-    libgtk-3-0 \
-    # Fonts for proper rendering
     fonts-liberation \
-    fonts-noto-color-emoji \
-    && rm -rf /var/lib/apt/lists/* \
-    && apt-get clean
+    && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user for security
 RUN groupadd -r appuser && useradd -r -g appuser -d /app appuser
@@ -132,7 +116,7 @@ ENV PATH="/opt/venv/bin:$PATH"
 # Install Playwright browsers (Chromium only for smaller size)
 # Do this as root before switching to appuser
 RUN mkdir -p /opt/playwright-browsers && \
-    playwright install chromium && \
+    playwright install --with-deps chromium && \
     chmod -R 755 /opt/playwright-browsers
 
 # Create required directories with proper permissions
