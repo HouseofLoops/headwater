@@ -5,7 +5,9 @@
 # CodeQL + Trivy + dependency review wired up but was never merged.
 #
 # Re-targeted for main:
-#   * Python 3.13 -> 3.12 (the version the rest of CI and the test suite use).
+#   * Python pinned to the version the image ships and the lock resolves
+#     against; 3.14 as of this change. A scanner running a different
+#     interpreter audits a package set nobody deploys.
 #   * `safety check` replaced with `pip-audit`: `safety check` is deprecated and
 #     now requires an authenticated account, so it silently degraded to a no-op.
 #   * Scans are reported to the Security tab; only Trivy CRITICAL findings on a
@@ -173,7 +175,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v7
         with:
-          python-version: '3.12'
+          python-version: '3.14'
           cache: 'pip'
           cache-dependency-path: requirements-dev.txt
 
@@ -216,7 +218,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v7
         with:
-          python-version: '3.12'
+          python-version: '3.14'
           cache: 'pip'
 
       - name: Install Bandit
