@@ -1,0 +1,137 @@
+# .github/workflows/lock-sync.yml
+#
+# Regenerate requirements.lock on Dependabot pull requests.
+#
+# WHY THIS EXISTS
+# ---------------
+# The image installs from requirements.lock and nothing else. Dependabot only
+# edits requirements.txt. A bump merged without regenerating the lock therefore
+# changes nothing that ships. scripts/check_lock_parity.py turns that into a
+# loud CI failure; this workflow fixes it instead of just reporting it.
+#
+# WHY A PAT AND NOT GITHUB_TOKEN
+# ------------------------------
+# GitHub does not trigger workflow runs from pushes made with GITHUB_TOKEN
+# (loop protection). If this job pushed with it, the regenerated commit would
+# land with NO checks against it, and with required status checks on main the
+# pull request would be permanently unmergeable. A push authenticated with a
+# PAT is attributed to a real account, so it re-runs the full suite against the
+# commit that will actually be merged.
+#
+# WHY A *DEPENDABOT* SECRET AND NOT AN ACTIONS SECRET
+# ---------------------------------------------------
+# From GitHub's docs: "When a Dependabot event triggers a workflow, the only
+# secrets available to the workflow are Dependabot secrets. GitHub Actions
+# secrets are not available."
+#
+# LOCK_SYNC_TOKEN must therefore live in Settings -> Secrets and variables ->
+# Dependabot, NOT under Actions. Putting it in the Actions store is the silent
+# failure mode: the secret resolves to an empty string, checkout falls back to
+# GITHUB_TOKEN, and the push fails on a protected push or lands without
+# triggering CI. The preflight step below asserts it is non-empty so that
+# mistake fails loudly on the first run instead of looking like a flake.
+#
+# Dependabot events also get a read-only GITHUB_TOKEN by default; the
+# `permissions` block below raises it, which GitHub documents as the supported
+# way to let these runs write.
+name: Lock sync
+
+on:
+  pull_request:
+    paths:
+      - requirements.txt
+
+permissions:
+  contents: write
+
+# A second push to the same branch supersedes an in-flight run.
+concurrency:
+  group: lock-sync-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  sync:
+    name: Regenerate requirements.lock
+    runs-on: ubuntu-latest
+    # Dependabot only, and only for branches in this repository. A fork pull
+    # request must never reach a job holding a write-scoped token. Because of
+    # this gate, head.ref is a branch name created by Dependabot rather than
+    # anything an outside contributor controls.
+    if: >-
+      github.actor == 'dependabot[bot]' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    steps:
+      - name: Confirm the Dependabot secret is actually present
+        env:
+          TOKEN: ${{ secrets.LOCK_SYNC_TOKEN }}
+        run: |
+          if [ -z "${TOKEN}" ]; then
+            echo "::error::LOCK_SYNC_TOKEN is empty."
+            echo "It must be stored as a DEPENDABOT secret, not an Actions secret:"
+            echo "  Settings -> Secrets and variables -> Dependabot -> New repository secret"
+            echo "Actions secrets are not exposed to Dependabot-triggered runs."
+            exit 1
+          fi
+          echo "LOCK_SYNC_TOKEN is present."
+
+      # Checked out by SHA, not by branch name. A commit SHA is immutable and
+      # cannot carry a crafted value, so nothing untrusted reaches `ref:`. This
+      # leaves a detached HEAD; the push step below targets the branch
+      # explicitly, with the branch name passed through the environment rather
+      # than interpolated into the shell.
+      - name: Checkout the pull request head
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          token: ${{ secrets.LOCK_SYNC_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.14'
+
+      # Pinned to the version the regeneration was verified against, so a uv
+      # release cannot silently change how the lock resolves.
+      - name: Install uv
+        run: pip install --disable-pip-version-check uv==0.8.12
+
+      # -o MUST point at the existing requirements.lock. uv preserves the pins
+      # already recorded there and changes only what the new constraints force.
+      # Compiling to a fresh path re-resolves the whole graph against today's
+      # PyPI: tried that way, a one-package bump produced a ~700-line diff that
+      # silently upgraded anyio and others. Deliberately no --no-header; the
+      # committed lock carries uv's header.
+      - name: Regenerate requirements.lock in place
+        run: |
+          uv pip compile requirements.txt \
+            --python-version 3.14 \
+            --universal \
+            --generate-hashes \
+            -o requirements.lock
+
+      - name: Commit and push if the lock changed
+        env:
+          # Through the environment, never interpolated into the script body.
+          BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- requirements.lock; then
+            echo "requirements.lock already matches requirements.txt; nothing to do."
+            exit 0
+          fi
+
+          echo "Lock changed:"
+          git diff --stat -- requirements.lock
+
+          git config user.name  "dependabot[bot]"
+          git config user.email "49699333+dependabot[bot]@users.noreply.github.com"
+          git add requirements.lock
+          git commit -m "chore(deps): regenerate requirements.lock" \
+                     -m "Regenerated by lock-sync.yml. The image installs from the lock, so a requirements.txt bump does not reach the image until this file is recompiled."
+
+          # HEAD is detached at the PR head. Push it back to the branch by an
+          # explicit refspec. No --force: if the branch has moved since this run
+          # started, the push is rejected rather than clobbering the newer work.
+          git push origin "HEAD:refs/heads/${BRANCH}"
+
+          echo "Pushed. The PAT push re-runs the full suite against the new commit."
