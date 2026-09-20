@@ -1,14 +1,15 @@
 # .github/workflows/update-base-image.yml
 #
-# NOTE (CRT-6): this workflow has never had anything to do. `scripts/
-# update_base_image.sh` looks for a digest-pinned base image, but the Dockerfile
-# uses the floating tag `python:3.11-slim-bookworm`, so there is no digest to
-# compare against and the check is always a no-op.
+# This note used to say the workflow had nothing to do, because the Dockerfile
+# carried a floating tag with no digest to compare against. That is no longer
+# true: both FROM lines are digest-pinned.
 #
-# Digest-pinning the Dockerfile is owned by another change (the Dockerfile is
-# not this branch's to edit). Until that lands, the workflow is kept but its
-# actions are modernised (checkout@v3 -> v4, buildx@v2 -> v3) and it now says
-# out loud when it found nothing to do, instead of reporting a silent success.
+# Having two pinned FROM lines is what then broke it. scripts/
+# update_base_image.sh captured every matching digest rather than the first, so
+# CURRENT_DIGEST held two values separated by a newline, that newline was
+# interpolated into a sed "s|...|...|" expression, and sed exited with
+# "unterminated `s' command". The nightly run failed that way from the moment
+# pinning landed until the head -1 fix.
 #
 # Dependabot's `docker` ecosystem entry in .github/dependabot.yml also watches
 # the base image, so this workflow is a backstop rather than the only mechanism.
