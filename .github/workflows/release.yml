@@ -181,6 +181,16 @@ jobs:
             type=raw,value=${{ env.VERSION }}
             type=raw,value=latest
 
+      # sbom and provenance are attestations attached to the image in the
+      # registry, not files in the build. Without them `docker scout` reports
+      # "Required supply chain attestations missing" and has to pull and
+      # analyse the whole image to say anything about it; with them it reads
+      # the SBOM directly, and a consumer can verify how the image was built
+      # rather than taking the tag's word for it.
+      #
+      # provenance mode=max records the full build: the Dockerfile, the build
+      # arguments and the source commit, rather than just the fact that a build
+      # happened.
       - name: Build and push Docker image
         id: build
         uses: docker/build-push-action@v7
@@ -190,6 +200,15 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          sbom: true
+          provenance: mode=max
+          # Only VCS_REF. metadata-action already emits
+          # org.opencontainers.image.created and .revision in its labels, and
+          # labels passed here override Dockerfile LABELs, so a BUILD_DATE
+          # build-arg would be redundant - and metadata-action exposes no
+          # `created` output to read it from anyway.
+          build-args: |
+            VCS_REF=${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
