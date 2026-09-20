@@ -415,13 +415,13 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       # Single-arch on purpose: a multi-arch build cannot be `load`ed into the
       # local daemon, and we need a runnable image to smoke test. The release
       # workflow still publishes amd64 + arm64.
       - name: Build image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           push: false
