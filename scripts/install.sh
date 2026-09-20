@@ -18,13 +18,13 @@ set -e
 
 INSTALL_DIR="/opt/headwater"
 GITHUB_REPO="https://github.com/rainmanjam/headwater.git"
-# Docker Hub has no rainmanjam/headwater repository: the published image is
-# still rainmanjam/social-flood (1608 pulls, last pushed 2026-09-02). Unlike
-# GitHub, Docker Hub does not redirect a renamed repo, and this one was never
-# renamed - it simply does not exist under the new name. Pointing this at
-# headwater made the installer fail on docker pull.
-# Flip this to rainmanjam/headwater once an image is pushed under that name.
-DOCKER_IMAGE="rainmanjam/social-flood"
+# rainmanjam/headwater is published and public: multi-arch (linux/amd64 and
+# linux/arm64), tags latest and 2.0.0, verified pullable anonymously.
+#
+# Kept as a variable rather than inlined because Docker Hub does not redirect a
+# renamed repository the way GitHub does. If this image ever moves again, every
+# reference below follows from here.
+DOCKER_IMAGE="rainmanjam/headwater"
 MIN_DOCKER_VERSION="20.10.0"
 MIN_COMPOSE_VERSION="2.0.0"
 
@@ -562,7 +562,7 @@ version: '3.8'
 
 services:
   web:
-    image: rainmanjam/social-flood:latest
+    image: rainmanjam/headwater:latest
     container_name: headwater-web
     restart: unless-stopped
     ports:
@@ -836,7 +836,7 @@ docker compose rm -f
 # Remove images
 echo "Removing Docker images..."
 docker rmi headwater-web 2>/dev/null || true
-docker rmi rainmanjam/social-flood 2>/dev/null || true
+docker rmi rainmanjam/headwater 2>/dev/null || true
 
 # Handle backups
 if [[ ! "$keep_backups" =~ ^[Nn]$ ]] && [ -d "$INSTALL_DIR/backups" ] && [ "$(ls -A $INSTALL_DIR/backups)" ]; then
