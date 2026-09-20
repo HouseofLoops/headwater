@@ -980,9 +980,9 @@ newspaper4k==0.9.6 \
     --hash=sha256:9e6cec341492ece65949543bd98d05142c99e38ee771778d4f2afa103f943556 \
     --hash=sha256:a3f2f0e017dddb6f1019ee77aaa8980e13e6ecea0b949abc7167aae4770d2d0e
     # via -r requirements.txt
-nltk==3.10.3 \
-    --hash=sha256:bb9327a461c3811c2fa4900e03840401f2126adfb30c0072827c433bd2444ea4 \
-    --hash=sha256:ff9598a8e20518ee0d557745890cc4435b9578489e2dcbc69c4f81fa060caf7c
+# nltk removed: PYSEC-2026-3740 / GHSA-8mgp-746c-j5xp, no fixed release exists.
+# Optional extra for newspaper4k, used only for article summary/keywords.
+# Re-add when nltk > 3.10.3 ships (nltk/nltk#3753).
     # via -r requirements.txt
 numpy==2.5.2 \
     --hash=sha256:0090ccdd57ec2703e9b49d0bf554767370581c1dd0a6b2bb2b2d9def317d042a \

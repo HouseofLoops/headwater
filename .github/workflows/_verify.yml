@@ -160,44 +160,15 @@ jobs:
           echo "Installing ${PIN}"
           pip install "${PIN}"
 
-      # TEMPORARY IGNORE - REMOVE BY 2026-12-19
-      #
-      # nltk==3.10.3, PYSEC-2026-3740 / GHSA-8mgp-746c-j5xp: path traversal in
-      # the model-artifact APIs, which bypass pathsec enforcement using raw file
-      # operations on caller-controlled paths.
-      #
-      # There is no version to upgrade to. 3.10.3 is the newest release on PyPI
-      # and the advisory reads "through 3.10.3". The upstream fix is open and
-      # unmerged at https://github.com/nltk/nltk/pull/3753 (titled "[Do not merge
-      # yet]"), so this is not a pin we are lagging on.
-      #
-      # Exposure here is narrow: the only nltk use is setup_nltk() in
-      # app/api/google_news/google_news_api.py, which downloads the standard
-      # punkt tokenizers into a fixed directory. No caller-controlled path
-      # reaches nltk.
-      #
-      # Deliberately scoped to this blocking gate only. The scheduled sweep in
-      # security.yml still reports it, so the advisory stays visible weekly and
-      # we find out when a fixed release ships. Watch for nltk > 3.10.3; when it
-      # exists, bump the pin and delete this block and the flags below.
-      #
-      # If 2026-12-19 passes and nltk has still not shipped a fix, that is a
-      # decision to make again, not a date to quietly extend.
       - name: Audit the direct pins
-        run: |
-          pip-audit --requirement requirements.txt --strict --progress-spinner=off \
-            --ignore-vuln PYSEC-2026-3740 \
-            --ignore-vuln GHSA-8mgp-746c-j5xp
+        run: pip-audit --requirement requirements.txt --strict --progress-spinner=off
 
       # --no-deps because requirements.lock is already the complete resolved
       # closure; letting pip-audit re-resolve it would also make pip enforce
       # --require-hashes during resolution, which is slow and can fail for
       # reasons that have nothing to do with vulnerabilities.
       - name: Audit the full locked closure
-        run: |
-          pip-audit --requirement requirements.lock --no-deps --strict --progress-spinner=off \
-            --ignore-vuln PYSEC-2026-3740 \
-            --ignore-vuln GHSA-8mgp-746c-j5xp
+        run: pip-audit --requirement requirements.lock --no-deps --strict --progress-spinner=off
 
   # ---------------------------------------------------------------------------
   # Test
@@ -282,8 +253,10 @@ jobs:
           print(f"OK: all {len(locked)} locked packages installed at the locked version")
           PY
 
-      - name: Download NLTK data
-        run: python -c "import nltk; nltk.download('punkt'); nltk.download('punkt_tab')"
+      # No NLTK corpus download: nltk is not a dependency. It carries
+      # PYSEC-2026-3740 with no fixed release, and newspaper4k only needs it for
+      # article summary and keywords, which now degrade to null. Restore this
+      # step alongside the requirements.txt pin when a fixed nltk ships.
 
       # No .env is created here. tests/conftest.py pins the settings source so
       # the suite behaves identically whether or not a .env exists on disk.
@@ -370,8 +343,10 @@ jobs:
           pip install --require-hashes --requirement requirements.lock
           pip install --requirement requirements-dev.txt
 
-      - name: Download NLTK data
-        run: python -c "import nltk; nltk.download('punkt'); nltk.download('punkt_tab')"
+      # No NLTK corpus download: nltk is not a dependency. It carries
+      # PYSEC-2026-3740 with no fixed release, and newspaper4k only needs it for
+      # article summary and keywords, which now degrade to null. Restore this
+      # step alongside the requirements.txt pin when a fixed nltk ships.
 
       # VERBATIM. Do not edit, filter or template this file. If the shipped
       # example config cannot boot the app, that is a bug in the app or in the
