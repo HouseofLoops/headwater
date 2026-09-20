@@ -18,7 +18,7 @@ requests==2.34.2
 httpx==0.28.1
 
 # Data Processing
-pandas==3.0.5
+pandas==3.0.6
 # nltk removed: PYSEC-2026-3740 / GHSA-8mgp-746c-j5xp, no fixed release exists.
 # Optional extra for newspaper4k, used only for article summary/keywords.
 # Re-add when nltk > 3.10.3 ships (nltk/nltk#3753).
@@ -26,12 +26,12 @@ pandas==3.0.5
 # Google Services Integration
 trendspy==0.1.6
 gnews==0.8.2
-google-auth==2.57.0
+google-auth==2.58.0
 
 # News & Content Parsing
 newspaper4k==0.9.6
 lxml-html-clean==0.4.5
-selectolax==0.4.11
+selectolax==0.4.12
 # Imported unconditionally by app/services/google_news_service.py; the module
 # cannot be imported without it. Previously undeclared.
 tldextract==5.3.2
@@ -40,7 +40,7 @@ tldextract==5.3.2
 youtube-transcript-api==1.2.4
 
 # Browser Automation (Google Maps scraping)
-playwright==1.62.0
+playwright==1.63.0
 
 # Caching
 # redis-py 8.x flips DEFAULT_RESP_VERSION from 2 to 3 (verified: it is 3 on
