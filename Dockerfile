@@ -16,12 +16,17 @@
 # update-base-image.yml invokes it with no --tag, so its grep will not match
 # the FROM lines below until that default becomes "3.12-slim-bookworm".
 # python:3.12-slim-bookworm as of 2026-09-01
-FROM python:3.12-slim-bookworm@sha256:782412e85d0f0984994c290652577d4018aff08145c85b262bb63dc0c7522254 AS builder
+FROM python:3.12-slim-bookworm@sha256:392307d22300de8b5986851a12d9176dfc0fc073e65bf6523ebd7dcbeb23564e AS builder
 
 WORKDIR /build
 
 # Install build dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# apt-get upgrade, not just install. The base image ships packages that are
+# never touched again otherwise: a Trivy scan found libpcre2-8-0 pinned at
+# 10.42-1 with 10.42-1+deb12u1 available, carrying three HIGH CVEs that a
+# plain `install` leaves in place. The digest pin above still makes the build
+# reproducible; this only applies security updates published against it.
+RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
@@ -51,7 +56,7 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # Stage 2: Production - Minimal runtime image with Playwright
 # =============================================================================
 # python:3.12-slim-bookworm as of 2026-09-01 (keep in sync with the builder stage)
-FROM python:3.12-slim-bookworm@sha256:782412e85d0f0984994c290652577d4018aff08145c85b262bb63dc0c7522254 AS production
+FROM python:3.12-slim-bookworm@sha256:392307d22300de8b5986851a12d9176dfc0fc073e65bf6523ebd7dcbeb23564e AS production
 
 # Security: Set environment variables early
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -65,7 +70,7 @@ WORKDIR /app
 
 # Install runtime dependencies including Playwright browser deps
 # Note: We need more packages for Playwright/Chromium
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
     curl \
     # Playwright/Chromium dependencies
     libnss3 \
