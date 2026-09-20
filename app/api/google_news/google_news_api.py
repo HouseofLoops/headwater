@@ -300,9 +300,14 @@ def is_cacheable(value: Any) -> bool:
     * ``partial`` -- some articles were lost this time. Cache it and the short
       list is served to everyone until it expires.
     * ``error`` -- the article was fetched but part of the processing failed
-      (NLP, when the NLTK corpus is unavailable). Caching it means that even
-      once the corpus is installed, callers keep getting the summary-less
-      version for an hour.
+      *transiently*: nltk is installed and the punkt corpus is not. Caching it
+      means that even once the corpus lands, callers keep getting the
+      summary-less version for an hour.
+
+      Note the case this deliberately does NOT refuse: nltk not being installed
+      at all. That is a steady state, not a gap, so those responses carry
+      ``nlp_available: false`` and no ``error`` key, and are cached normally.
+      Refusing them would disable caching for this endpoint entirely.
     """
     if not isinstance(value, dict):
         return True
@@ -1412,11 +1417,17 @@ async def get_article_details(
             try:
                 await loop.run_in_executor(None, article.nlp)
             except (LookupError, ImportError) as le:
-                # LookupError: nltk is installed but the punkt corpus is absent.
-                # ImportError: nltk is not installed at all, which is the normal
-                # state while PYSEC-2026-3740 is unfixed - newspaper4k raises it
-                # from split_sentences(). Both degrade to "no summary/keywords"
-                # rather than failing the request.
+                # Two different states, and they must not be cached the same way.
+                #
+                # ImportError: nltk is not installed. That is the steady state
+                # while PYSEC-2026-3740 is unfixed, not a transient gap, so the response is
+                # as complete as it will ever be and is safe to cache.
+                #
+                # LookupError: nltk IS installed but the punkt corpus is missing.
+                # That is transient - it resolves the moment the corpus lands -
+                # so the response must not be pinned for the TTL. is_cacheable()
+                # refuses anything carrying an `error` key, which is how.
+                nlp_permanently_absent = isinstance(le, ImportError)
                 logger.warning("NLP unavailable for %s: %s", validated.host, le)
                 nlp_success = False
 
@@ -1447,6 +1458,11 @@ async def get_article_details(
                 response_data["summary"] = None
                 response_data["keywords"] = None
                 response_data["nlp_available"] = False
+                if not nlp_permanently_absent:
+                    # Transient: keep the key that stops is_cacheable() storing it.
+                    response_data["error"] = (
+                        "Unable to perform NLP analysis due to missing NLTK resource."
+                    )
 
             return response_data
 
