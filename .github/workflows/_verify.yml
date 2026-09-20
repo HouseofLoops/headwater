@@ -16,7 +16,7 @@ on:
         description: 'Python version used for lint / test / boot jobs.'
         required: false
         type: string
-        default: '3.12'
+        default: '3.14'
       coverage-floor:
         description: >-
           Minimum statement coverage of app/. A ratchet: raise it as coverage

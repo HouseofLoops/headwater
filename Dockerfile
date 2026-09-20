@@ -7,16 +7,18 @@
 # =============================================================================
 # Base image is digest-pinned so the weekly update-base-image workflow has a
 # concrete reference to diff against; a bare tag silently floats and gives the
-# workflow nothing to update. Moved 3.11 -> 3.12 to match the interpreter the
-# test suite and requirements.lock are resolved against (3.12), and because
-# 3.12 has a year more upstream security support than 3.11.
+# workflow nothing to update. Moved 3.12 -> 3.14 to match the interpreter the
+# test suite and requirements.lock are resolved against, and for the longer
+# upstream security window. The move needed hiredis off 3.2.1, which ships no
+# cp314 wheel; the regenerated lock takes 3.4.1, which does. Every other pin is
+# either pure-Python or already publishes a cp314 build.
 #
 # ACTION REQUIRED (owner of scripts/): scripts/update_base_image.sh:10 still
 # defaults BASE_IMAGE_TAG to "3.11-slim-bookworm" and .github/workflows/
 # update-base-image.yml invokes it with no --tag, so its grep will not match
-# the FROM lines below until that default becomes "3.12-slim-bookworm".
-# python:3.12-slim-bookworm as of 2026-09-01
-FROM python:3.12-slim-bookworm@sha256:392307d22300de8b5986851a12d9176dfc0fc073e65bf6523ebd7dcbeb23564e AS builder
+# the FROM lines below until that default becomes "3.14-slim-bookworm".
+# python:3.14-slim-bookworm as of 2026-09-19
+FROM python:3.14-slim-bookworm@sha256:82bc3c539b8813ada9d68c63b40158fa002f7f33de9bf3312a3dfdc0620dff56 AS builder
 
 WORKDIR /build
 
@@ -38,7 +40,7 @@ ENV PATH="/opt/venv/bin:$PATH"
 # Install from the fully-resolved, hash-pinned lock file rather than the
 # loose spec so the image's transitive closure is reproducible and auditable.
 # Regenerate with:
-#   uv pip compile requirements.txt --python-version 3.12 --universal \
+#   uv pip compile requirements.txt --python-version 3.14 --universal \
 #       --generate-hashes --no-header -o requirements.lock
 COPY requirements.lock .
 RUN pip install --no-cache-dir --upgrade pip && \
@@ -55,8 +57,8 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # =============================================================================
 # Stage 2: Production - Minimal runtime image with Playwright
 # =============================================================================
-# python:3.12-slim-bookworm as of 2026-09-01 (keep in sync with the builder stage)
-FROM python:3.12-slim-bookworm@sha256:392307d22300de8b5986851a12d9176dfc0fc073e65bf6523ebd7dcbeb23564e AS production
+# python:3.14-slim-bookworm as of 2026-09-19 (keep in sync with the builder stage)
+FROM python:3.14-slim-bookworm@sha256:82bc3c539b8813ada9d68c63b40158fa002f7f33de9bf3312a3dfdc0620dff56 AS production
 
 # Security: Set environment variables early
 ENV PYTHONDONTWRITEBYTECODE=1 \
