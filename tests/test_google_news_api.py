@@ -852,12 +852,17 @@ def test_article_details_caps_the_response_body(
 def test_degraded_nlp_result_is_not_cached(
     mock_article_class, allow_example_articles, stub_article_fetch
 ):
-    """A response missing its NLP fields must not be pinned for an hour.
+    """A TRANSIENTLY degraded response must not be pinned for an hour.
 
-    ``article.nlp()`` raises LookupError when the NLTK corpus is unavailable,
-    and the endpoint still answers 200 with the article minus its summary.
-    Caching that means callers keep getting the degraded version long after
-    the corpus is installed.
+    ``article.nlp()`` raises LookupError when nltk is installed but its punkt
+    corpus is not. That resolves the moment the corpus lands, so the endpoint
+    answers 200 with a summary-less article and the result must not be cached,
+    or callers keep getting the degraded version long afterwards.
+
+    The other degraded state is deliberately not covered here: when nltk is not
+    installed at all, newspaper4k raises ImportError instead, and that IS
+    cached, because it is a steady state rather than a gap that will close. See
+    test_missing_nltk_result_is_cached.
     """
     degraded = _stub_parsed_article("No NLP")
     degraded.nlp.side_effect = LookupError("punkt not found")
@@ -868,8 +873,16 @@ def test_degraded_nlp_result_is_not_cached(
     )
 
     assert first.status_code == 200
+    # `error` is what is_cacheable() keys on, so it must survive: it is the
+    # marker that keeps a transiently-degraded article out of the cache.
     assert "error" in first.json()
-    assert "summary" not in first.json()
+    # The NLP fields are now present and null rather than absent, so a caller
+    # reading response["summary"] gets None instead of a KeyError. Nothing
+    # branches on their presence - is_cacheable() looks only at `partial` and
+    # `error` - so this is a response-shape choice, not a behavioural one.
+    assert first.json()["summary"] is None
+    assert first.json()["keywords"] is None
+    assert first.json()["nlp_available"] is False
     assert cache_manager_module._cache_store == {}
 
     # NLTK becomes available; the next request must get the full article.
@@ -886,6 +899,36 @@ def test_degraded_nlp_result_is_not_cached(
     assert second.json()["summary"] == "A summary"
     assert "error" not in second.json()
     # A complete result is worth keeping.
+    assert cache_manager_module._cache_store != {}
+
+
+
+@patch('app.api.google_news.google_news_api.Article')
+def test_missing_nltk_result_is_cached(
+    mock_article_class, allow_example_articles, stub_article_fetch
+):
+    """No nltk at all is a steady state, so the article is still worth caching.
+
+    newspaper4k raises ImportError from split_sentences() when nltk is absent.
+    Unlike a missing corpus, that does not resolve on its own - nltk is not a
+    dependency while PYSEC-2026-3740 is unfixed - so refusing to cache it would
+    disable caching on this endpoint permanently, for a gap that is never
+    going to close.
+    """
+    degraded = _stub_parsed_article("No nltk")
+    degraded.nlp.side_effect = ImportError("nltk is required for NLP features.")
+    mock_article_class.return_value = degraded
+
+    response = client.get(
+        "/news/article-details/", params={"url": "https://example.com/article"}
+    )
+
+    assert response.status_code == 200
+    assert response.json()["summary"] is None
+    assert response.json()["keywords"] is None
+    assert response.json()["nlp_available"] is False
+    # No `error` key: that is what makes it cacheable.
+    assert "error" not in response.json()
     assert cache_manager_module._cache_store != {}
 
 
