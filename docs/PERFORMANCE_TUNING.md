@@ -1,6 +1,6 @@
 # Performance Tuning Guide
 
-This guide provides recommendations for optimizing the performance of the Social Flood API.
+This guide provides recommendations for optimizing the performance of the Headwater API.
 
 ## Table of Contents
 
@@ -215,7 +215,7 @@ class OptimizedHTTPClient:
             'timeout': self.timeout,
             'follow_redirects': True,
             'headers': {
-                'User-Agent': 'SocialFlood-API/1.0',
+                'User-Agent': 'Headwater-API/1.0',
                 'Accept': 'application/json,text/html,*/*',
             }
         }
@@ -331,11 +331,11 @@ services:
       context: .
       dockerfile: Dockerfile
       target: production
-    image: socialflood/api:latest
+    image: headwater/api:latest
     environment:
       - ENVIRONMENT=production
       - REDIS_URL=redis://redis:6379/0
-      - DATABASE_URL=postgresql://user:pass@db:5432/socialflood
+      - DATABASE_URL=postgresql://user:pass@db:5432/headwater
     ports:
       - "8000:8000"
     depends_on:
@@ -364,7 +364,7 @@ services:
   db:
     image: postgres:14-alpine
     environment:
-      - POSTGRES_DB=socialflood
+      - POSTGRES_DB=headwater
       - POSTGRES_USER=user
       - POSTGRES_PASSWORD=pass
     volumes:
@@ -426,7 +426,7 @@ http {
     limit_req_zone $binary_remote_addr zone=api:10m rate=10r/s;
     limit_req_zone $binary_remote_addr zone=health:10m rate=100r/s;
 
-    upstream social_flood_api {
+    upstream headwater_api {
         least_conn;
         server api1:8000 max_fails=3 fail_timeout=30s;
         server api2:8000 max_fails=3 fail_timeout=30s;
@@ -435,12 +435,12 @@ http {
 
     server {
         listen 80;
-        server_name api.socialflood.com;
+        server_name api.headwater.com;
 
         # Health check endpoint - higher rate limit
         location /health {
             limit_req zone=health burst=200 nodelay;
-            proxy_pass http://social_flood_api;
+            proxy_pass http://headwater_api;
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $remote_addr;
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -452,7 +452,7 @@ http {
         # API endpoints - standard rate limit
         location /api/ {
             limit_req zone=api burst=20 nodelay;
-            proxy_pass http://social_flood_api;
+            proxy_pass http://headwater_api;
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $remote_addr;
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -613,7 +613,7 @@ def cache_metrics(cache_type: str):
 ```yaml
 # Prometheus alerting rules
 groups:
-  - name: social_flood_api
+  - name: headwater_api
     rules:
       # High error rate alert
       - alert: HighErrorRate
@@ -666,13 +666,13 @@ groups:
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: social-flood-hpa
+  name: headwater-hpa
   namespace: production
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: social-flood-api
+    name: headwater-api
   minReplicas: 3
   maxReplicas: 20
   metrics:
@@ -724,12 +724,12 @@ spec:
   replicas: 5
   selector:
     matchLabels:
-      cluster.x-k8s.io/cluster-name: social-flood
+      cluster.x-k8s.io/cluster-name: headwater
   template:
     spec:
       bootstrap:
         dataSecretName: ""
-      clusterName: social-flood
+      clusterName: headwater
       infrastructureRef:
         apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
         kind: AWSMachineTemplate
@@ -745,7 +745,7 @@ spec:
     spec:
       iamInstanceProfile: nodes.cluster-api-provider-aws.sigs.k8s.io
       instanceType: t3.medium
-      sshKeyName: social-flood-key
+      sshKeyName: headwater-key
 ```
 
 ### Vertical Scaling
@@ -937,7 +937,7 @@ ab -n 500 -c 5 \
   -T 'application/json' \
   -H "x-api-key: your_api_key" \
   -p post_data.json \
-  "http://localhost:8000/api/v1/batch-search"
+  "http://localhost:8000/api/v1/google-maps/bulk-search"
 ```
 
 #### Using Locust
@@ -947,7 +947,7 @@ ab -n 500 -c 5 \
 from locust import HttpUser, task, between
 import random
 
-class SocialFloodUser(HttpUser):
+class HeadwaterUser(HttpUser):
     wait_time = between(1, 3)
 
     def on_start(self):
@@ -978,7 +978,7 @@ class SocialFloodUser(HttpUser):
     @task(1)  # 10% of requests
     def get_trends(self):
         self.client.get(
-            "/api/v1/google-trends/trending?geo=US&hours=24",
+            "/api/v1/google-trends/trending-now?geo=US&hours=24",
             headers={"x-api-key": self.api_key},
             name="get_trends"
         )
@@ -1043,7 +1043,7 @@ class APIPerformanceBenchmark:
             '/health',
             '/api/v1/google-news/search?q=test',
             '/api/v1/google-autocomplete/autocomplete?q=python',
-            '/api/v1/google-trends/trending?geo=US&hours=1'
+            '/api/v1/google-trends/trending-now?geo=US&hours=1'
         ]
 
         async with aiohttp.ClientSession() as session:
@@ -1096,7 +1096,7 @@ if __name__ == "__main__":
 
 ## Implemented Optimizations
 
-This section documents the actual performance optimizations that have been implemented across all API endpoints in the Social Flood API.
+This section documents the actual performance optimizations that have been implemented across all API endpoints in the Headwater API.
 
 ### Caching Implementation
 
@@ -1176,7 +1176,7 @@ class HTTPClientManager:
                 timeout=self.timeout,
                 follow_redirects=True,
                 headers={
-                    'User-Agent': 'SocialFlood-API/1.1',
+                    'User-Agent': 'Headwater-API/1.1',
                     'Accept': 'application/json,text/html,*/*'
                 }
             )
@@ -1499,6 +1499,6 @@ This section documents the actual performance optimizations implemented across a
 
 ---
 
-This performance tuning guide provides comprehensive strategies for optimizing the Social Flood API. Regular monitoring and profiling are essential for maintaining optimal performance as the system evolves.
+This performance tuning guide provides comprehensive strategies for optimizing the Headwater API. Regular monitoring and profiling are essential for maintaining optimal performance as the system evolves.
 
 For more information, see the [Troubleshooting Guide](TROUBLESHOOTING.md) and [API Reference](API_REFERENCE.md).

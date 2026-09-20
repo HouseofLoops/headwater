@@ -1,5 +1,5 @@
 """
-Caching utilities for the Social Flood application.
+Caching utilities for the Headwater application.
 
 This module provides caching functionality to improve performance
 by storing frequently accessed data in memory or Redis.

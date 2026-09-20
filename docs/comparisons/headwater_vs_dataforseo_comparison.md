@@ -1,14 +1,14 @@
-# Social Flood vs DataForSEO: Feature Comparison
+# Headwater vs DataForSEO: Feature Comparison
 
 **Generated:** December 28, 2025
 
-A detailed comparison of Google Maps data extraction capabilities between Social Flood (self-hosted) and DataForSEO (cloud API).
+A detailed comparison of Google Maps data extraction capabilities between Headwater (self-hosted) and DataForSEO (cloud API).
 
 ---
 
 ## Quick Overview
 
-| Aspect | Social Flood | DataForSEO |
+| Aspect | Headwater | DataForSEO |
 |--------|--------------|------------|
 | **Type** | Self-hosted (Docker) | Cloud API |
 | **Cost Model** | Proxy data only | Pay-per-request |
@@ -35,7 +35,7 @@ A detailed comparison of Google Maps data extraction capabilities between Social
 - `calculate_rectangles` parameter: 2x
 - `depth` parameter: multiplied per 100 results
 
-### Social Flood Pricing
+### Headwater Pricing
 
 | Component | Cost |
 |-----------|------|
@@ -71,14 +71,14 @@ Based on actual usage with residential proxy at **$3.50/GB**:
 
 ### Monthly Cost Examples (Including Proxy)
 
-| Volume | DataForSEO (Standard) | DataForSEO (Live) | Social Flood (with proxy) |
+| Volume | DataForSEO (Standard) | DataForSEO (Live) | Headwater (with proxy) |
 |--------|----------------------|-------------------|---------------------------|
 | 1,000 | $0.60 | $2.00 | **$0.045** |
 | 10,000 | $6.00 | $20.00 | **$0.45** |
 | 100,000 | $60.00 | $200.00 | **$4.50** |
 | 1,000,000 | $600.00 | $2,000.00 | **$45.00** |
 
-**Social Flood is 13-44x cheaper than DataForSEO even when including proxy costs.**
+**Headwater is 13-44x cheaper than DataForSEO even when including proxy costs.**
 
 ---
 
@@ -86,7 +86,7 @@ Based on actual usage with residential proxy at **$3.50/GB**:
 
 ### Basic Business Information
 
-| Data Field | Social Flood | DataForSEO Maps SERP |
+| Data Field | Headwater | DataForSEO Maps SERP |
 |------------|:------------:|:--------------------:|
 | Place ID / CID | Yes | Yes |
 | Business Name | Yes | Yes |
@@ -97,7 +97,7 @@ Based on actual usage with residential proxy at **$3.50/GB**:
 
 ### Location Data
 
-| Data Field | Social Flood | DataForSEO |
+| Data Field | Headwater | DataForSEO |
 |------------|:------------:|:----------:|
 | Latitude | Yes | Yes |
 | Longitude | Yes | Yes |
@@ -106,7 +106,7 @@ Based on actual usage with residential proxy at **$3.50/GB**:
 
 ### Ratings & Reviews
 
-| Data Field | Social Flood | DataForSEO Maps | DataForSEO Reviews API* |
+| Data Field | Headwater | DataForSEO Maps | DataForSEO Reviews API* |
 |------------|:------------:|:---------------:|:----------------------:|
 | Average Rating | Yes | Yes | Yes |
 | Review Count | Yes | Yes | Yes |
@@ -124,7 +124,7 @@ Based on actual usage with residential proxy at **$3.50/GB**:
 
 ### Business Hours & Timing
 
-| Data Field | Social Flood | DataForSEO |
+| Data Field | Headwater | DataForSEO |
 |------------|:------------:|:----------:|
 | Operating Hours | Yes | Yes |
 | Hours by Day | Yes | Yes |
@@ -136,7 +136,7 @@ Based on actual usage with residential proxy at **$3.50/GB**:
 
 ### Service Options & Features
 
-| Data Field | Social Flood | DataForSEO |
+| Data Field | Headwater | DataForSEO |
 |------------|:------------:|:----------:|
 | Service Options (Dine-in, Delivery, etc.) | Yes | No |
 | Accessibility Features | Yes | No |
@@ -146,14 +146,14 @@ Based on actual usage with residential proxy at **$3.50/GB**:
 
 ### Pricing Information
 
-| Data Field | Social Flood | DataForSEO |
+| Data Field | Headwater | DataForSEO |
 |------------|:------------:|:----------:|
 | Price Level ($-$$$$) | Yes | No |
 | Price Per Person Range | Yes | No |
 
 ### Media & Content
 
-| Data Field | Social Flood | DataForSEO |
+| Data Field | Headwater | DataForSEO |
 |------------|:------------:|:----------:|
 | Photo URLs | Yes | No |
 | High-res Photos | Yes | No |
@@ -163,7 +163,7 @@ Based on actual usage with residential proxy at **$3.50/GB**:
 
 ### Related Data
 
-| Data Field | Social Flood | DataForSEO |
+| Data Field | Headwater | DataForSEO |
 |------------|:------------:|:----------:|
 | Related Places ("People also search for") | Yes | No |
 | Category | Yes | Yes |
@@ -171,7 +171,7 @@ Based on actual usage with residential proxy at **$3.50/GB**:
 
 ### Contact Enrichment
 
-| Data Field | Social Flood | DataForSEO |
+| Data Field | Headwater | DataForSEO |
 |------------|:------------:|:----------:|
 | Email Extraction | Yes | No |
 | Social Media Links | Yes | No |
@@ -183,7 +183,7 @@ Based on actual usage with residential proxy at **$3.50/GB**:
 
 ## API Endpoints Comparison
 
-### Social Flood Endpoints (30+)
+### Headwater Endpoints (30+)
 
 | Endpoint | Description | DataForSEO Equivalent |
 |----------|-------------|----------------------|
@@ -224,7 +224,7 @@ Based on actual usage with residential proxy at **$3.50/GB**:
 
 ## Advanced Features Comparison
 
-| Feature | Social Flood | DataForSEO |
+| Feature | Headwater | DataForSEO |
 |---------|:------------:|:----------:|
 | **Q&A Extraction** | Yes | No |
 | **Menu Extraction** | Yes | No |
@@ -245,7 +245,7 @@ Based on actual usage with residential proxy at **$3.50/GB**:
 
 ## Search Capabilities
 
-| Capability | Social Flood | DataForSEO |
+| Capability | Headwater | DataForSEO |
 |------------|:------------:|:----------:|
 | Keyword Search | Yes | Yes |
 | Location-based Search | Yes | Yes |
@@ -265,7 +265,7 @@ Based on actual usage with residential proxy at **$3.50/GB**:
 
 ## Technical Comparison
 
-| Aspect | Social Flood | DataForSEO |
+| Aspect | Headwater | DataForSEO |
 |--------|--------------|------------|
 | **Architecture** | Self-hosted Docker | Cloud SaaS |
 | **Language** | Python/FastAPI | REST API |
@@ -281,7 +281,7 @@ Based on actual usage with residential proxy at **$3.50/GB**:
 
 ## Response Time Comparison
 
-| Scenario | Social Flood | DataForSEO |
+| Scenario | Headwater | DataForSEO |
 |----------|--------------|------------|
 | Single Place Search | 2-5 sec | 6 sec (Live) |
 | 10 Places | 5-15 sec | 6 sec (Live) |
@@ -293,7 +293,7 @@ Based on actual usage with residential proxy at **$3.50/GB**:
 
 ## Use Case Recommendations
 
-### Choose Social Flood If:
+### Choose Headwater If:
 
 1. **Cost is a priority** - Zero per-request costs
 2. **You need advanced features** like:
@@ -321,7 +321,7 @@ Based on actual usage with residential proxy at **$3.50/GB**:
 
 ## Feature Summary Matrix
 
-| Category | Social Flood | DataForSEO |
+| Category | Headwater | DataForSEO |
 |----------|:------------:|:----------:|
 | **Basic Listing Data** | Full | Full |
 | **Reviews (text)** | Yes | Separate API |
@@ -345,7 +345,7 @@ Based on actual usage with residential proxy at **$3.50/GB**:
 
 ## Conclusion
 
-**Social Flood provides significantly more data points and features** than DataForSEO's Google Maps API, including:
+**Headwater provides significantly more data points and features** than DataForSEO's Google Maps API, including:
 
 - 40+ data fields vs ~10 for basic DataForSEO Maps SERP
 - Review topics, popular times, Q&A, menus (not available in DataForSEO)
@@ -357,7 +357,7 @@ Based on actual usage with residential proxy at **$3.50/GB**:
 
 ### Cost Summary (with Real Proxy Data)
 
-| Metric | Social Flood | DataForSEO |
+| Metric | Headwater | DataForSEO |
 |--------|--------------|------------|
 | Cost per 1K businesses | **$0.045** | $0.60 - $2.00 |
 | 100K businesses/month | **$4.50** | $60 - $200 |
@@ -372,7 +372,7 @@ Based on actual usage with residential proxy at **$3.50/GB**:
 - Enterprise SLA and support
 - Better for pure SEO rank tracking use cases
 
-**For most data extraction use cases**, Social Flood offers better value due to:
+**For most data extraction use cases**, Headwater offers better value due to:
 1. **13-44x lower cost** even including proxy expenses
 2. **3-4x more data fields** extracted per business
 3. Advanced analytical features (Q&A, menus, monitoring)

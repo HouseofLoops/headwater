@@ -1,4 +1,11 @@
-# Social Flood API Endpoint Testing Report
+# Headwater API Endpoint Testing Report
+
+> **Historical record — do not treat as current.**
+> This report was run on 2025-12-27 against API version 1.5.3. The API is now on
+> 2.0.0 and several endpoints exercised below no longer exist, among them
+> `/google-maps/details`, `/google-maps/reviews/submit` and `/google-maps/batch/search`.
+> It is kept for the reasoning it captures, not for its endpoint list. For what the
+> API exposes today, read `/api/docs` on a running instance.
 
 **Date:** 2025-12-27 (Updated: 2025-12-28)
 **API Version:** 1.5.3
@@ -217,7 +224,7 @@ news_by_location = await loop.run_in_executor(None, gnews.get_news_by_location, 
 
 ## Test Environment
 
-- **Docker Image:** social-flood-web:latest
+- **Docker Image:** headwater-web:latest
 - **Python Version:** 3.11
 - **Container Status:** Healthy
 - **Redis:** Connected (0.33ms latency)

@@ -1,6 +1,6 @@
 # API Usage Examples
 
-This document provides comprehensive examples for using the Social Flood API.
+This document provides comprehensive examples for using the Headwater API.
 
 ## Table of Contents
 
@@ -75,7 +75,7 @@ curl -X GET "http://localhost:8000/api/v1/google-news/search?q=machine+learning&
 ### Get Trending Topics
 
 ```bash
-curl -X GET "http://localhost:8000/api/v1/google-trends/trending?geo=US&hours=24" \
+curl -X GET "http://localhost:8000/api/v1/google-trends/trending-now?geo=US&hours=24" \
   -H "x-api-key: $API_KEY"
 ```
 
@@ -109,7 +109,7 @@ curl -X GET "http://localhost:8000/api/v1/google-trends/trending?geo=US&hours=24
 ### Compare Multiple Keywords
 
 ```bash
-curl -X GET "http://localhost:8000/api/v1/google-trends/compare?keywords=python,javascript,rust&geo=US&timeframe=1-Y" \
+curl -X GET "http://localhost:8000/api/v1/google-trends/interest-over-time?keywords=python,javascript,rust&geo=US&timeframe=1-Y" \
   -H "x-api-key: $API_KEY"
 ```
 
@@ -123,7 +123,7 @@ curl -X GET "http://localhost:8000/api/v1/google-trends/interest-over-time?keywo
 ### Get Related Topics
 
 ```bash
-curl -X GET "http://localhost:8000/api/v1/google-trends/related?keywords=artificial+intelligence&geo=US" \
+curl -X GET "http://localhost:8000/api/v1/google-trends/related-queries?keywords=artificial+intelligence&geo=US" \
   -H "x-api-key: $API_KEY"
 ```
 
@@ -177,7 +177,7 @@ curl -X GET "http://localhost:8000/api/v1/google-autocomplete/autocomplete?q=mar
 ### Get Video Transcript
 
 ```bash
-curl -X GET "http://localhost:8000/api/v1/youtube-transcripts/get?video_id=dQw4w9WgXcQ&language=en" \
+curl -X GET "http://localhost:8000/api/v1/youtube-transcripts/get-transcript?video_id=dQw4w9WgXcQ&language=en" \
   -H "x-api-key: $API_KEY"
 ```
 
@@ -210,7 +210,7 @@ curl -X GET "http://localhost:8000/api/v1/youtube-transcripts/get?video_id=dQw4w
 ### Get Available Transcripts
 
 ```bash
-curl -X GET "http://localhost:8000/api/v1/youtube-transcripts/languages?video_id=dQw4w9WgXcQ" \
+curl -X GET "http://localhost:8000/api/v1/youtube-transcripts/list-transcripts?video_id=dQw4w9WgXcQ" \
   -H "x-api-key: $API_KEY"
 ```
 
@@ -245,11 +245,11 @@ curl -X GET "http://localhost:8000/api/v1/youtube-transcripts/languages?video_id
 
 ```python
 import asyncio
-from socialflood import SocialFloodClient
+from headwater import HeadwaterClient
 
 async def main():
     api_key = "your_api_key_here"
-    client = SocialFloodClient(api_key)
+    client = HeadwaterClient(api_key)
 
     # Get news
     news = await client.google_news.search("artificial intelligence")
@@ -271,10 +271,10 @@ asyncio.run(main())
 ```python
 import asyncio
 import json
-from socialflood import SocialFloodClient
+from headwater import HeadwaterClient
 
 async def comprehensive_example():
-    client = SocialFloodClient("your_api_key_here")
+    client = HeadwaterClient("your_api_key_here")
 
     try:
         # Get news with filters
@@ -326,17 +326,17 @@ asyncio.run(comprehensive_example())
 
 ```python
 import asyncio
-from socialflood import SocialFloodClient, SocialFloodError
+from headwater import HeadwaterClient, HeadwaterError
 
 async def robust_example():
-    client = SocialFloodClient("your_api_key_here")
+    client = HeadwaterClient("your_api_key_here")
 
     try:
         # This might fail if the API key is invalid
         response = await client.google_news.search("test query")
         print(f"Success: {response.status}")
 
-    except SocialFloodError as e:
+    except HeadwaterError as e:
         if e.status_code == 401:
             print("API key is invalid or expired")
         elif e.status_code == 429:
@@ -392,7 +392,7 @@ axios.get(`${baseURL}/google-autocomplete/autocomplete`, {
 ```javascript
 const axios = require('axios');
 
-class SocialFloodAPI {
+class HeadwaterAPI {
   constructor(apiKey) {
     this.apiKey = apiKey;
     this.baseURL = 'http://localhost:8000/api/v1';
@@ -426,7 +426,7 @@ class SocialFloodAPI {
 
   async getTrends(keywords, options = {}) {
     try {
-      const response = await this.client.get(`${this.baseURL}/google-trends/compare`, {
+      const response = await this.client.get(`${this.baseURL}/google-trends/interest-over-time`, {
         params: { keywords: keywords.join(','), ...options }
       });
       return response.data;
@@ -437,7 +437,7 @@ class SocialFloodAPI {
 }
 
 // Usage
-const api = new SocialFloodAPI('your_api_key_here');
+const api = new HeadwaterAPI('your_api_key_here');
 
 async function example() {
   try {
@@ -563,7 +563,7 @@ asyncio.run(handle_errors())
 ```javascript
 // Example error response
 {
-  "type": "https://socialflood.com/problems/rate_limit_exceeded",
+  "type": "https://headwater.com/problems/rate_limit_exceeded",
   "title": "Too Many Requests",
   "status": 429,
   "detail": "Rate limit exceeded. Try again in 60 seconds.",
@@ -739,4 +739,4 @@ asyncio.run(stream_large_response())
 
 ---
 
-These examples demonstrate the full range of Social Flood API capabilities. For more detailed information, see the [API Reference](API_REFERENCE.md) and [Troubleshooting Guide](TROUBLESHOOTING.md).
+These examples demonstrate the full range of Headwater API capabilities. For more detailed information, see the [API Reference](API_REFERENCE.md) and [Troubleshooting Guide](TROUBLESHOOTING.md).

@@ -1,5 +1,5 @@
 """
-Central enum definitions for the Social Flood API.
+Central enum definitions for the Headwater API.
 
 This module consolidates all enums used across different API endpoints
 to prevent duplication and ensure consistency.

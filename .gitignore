@@ -119,3 +119,6 @@ test_output.txt
 .gitnexus/
 graphify-out/
 AGENTS.md
+
+# Claude Code project instructions (local, not shared)
+CLAUDE.md

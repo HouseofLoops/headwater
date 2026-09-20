@@ -1,6 +1,6 @@
 # Google Autocomplete API Parameters Reference
 
-This document tracks all parameters implemented in the Social Flood Google Autocomplete API endpoint.
+This document tracks all parameters implemented in the Headwater Google Autocomplete API endpoint.
 
 ## Endpoint
 `GET /api/v1/google-autocomplete/autocomplete`

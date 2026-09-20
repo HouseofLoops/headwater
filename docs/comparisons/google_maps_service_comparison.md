@@ -2,7 +2,7 @@
 
 **Generated:** December 28, 2025
 
-This document compares the Social Flood Google Maps implementation with commercial and open-source alternatives for extracting business data from Google Maps.
+This document compares the Headwater Google Maps implementation with commercial and open-source alternatives for extracting business data from Google Maps.
 
 ---
 
@@ -10,7 +10,7 @@ This document compares the Social Flood Google Maps implementation with commerci
 
 | Service | Type | Cost per 1K Results | Self-Hosted | API Access | Best For |
 |---------|------|---------------------|-------------|------------|----------|
-| **Social Flood** | Self-hosted | **$0** (infrastructure only) | Yes | REST API | Full control, no limits |
+| **Headwater** | Self-hosted | **$0** (infrastructure only) | Yes | REST API | Full control, no limits |
 | Apify | Cloud SaaS | $4-$10 | No | Yes | Easy automation |
 | Outscraper | Cloud SaaS | $1-$3 | No | Yes | High volume |
 | BrightData | Cloud SaaS | $1.50-$2.50 | No | Yes | Enterprise scale |
@@ -24,7 +24,7 @@ This document compares the Social Flood Google Maps implementation with commerci
 
 ## Detailed Comparison
 
-### 1. Social Flood (This Project)
+### 1. Headwater (This Project)
 
 **Type:** Self-hosted Python/FastAPI application with Playwright
 
@@ -314,13 +314,13 @@ This document compares the Social Flood Google Maps implementation with commerci
 
 **Cons:**
 - Go codebase (not Python)
-- Less feature-rich than Social Flood
+- Less feature-rich than Headwater
 
 ---
 
 ## Feature Comparison Matrix
 
-| Feature | Social Flood | Apify | Outscraper | BrightData | SerpAPI |
+| Feature | Headwater | Apify | Outscraper | BrightData | SerpAPI |
 |---------|--------------|-------|------------|------------|---------|
 | Place Search | Full | Full | Full | Full | Partial |
 | Place Details | Full | Full | Full | Full | Partial |
@@ -345,7 +345,7 @@ This document compares the Social Flood Google Maps implementation with commerci
 
 | Service | Cost |
 |---------|------|
-| **Social Flood** | **$0** (+ hosting) |
+| **Headwater** | **$0** (+ hosting) |
 | omkarcloud (open source) | **$0** |
 | gosom (open source) | **$0** |
 | Outscraper | $30 |
@@ -361,7 +361,7 @@ This document compares the Social Flood Google Maps implementation with commerci
 
 | Service | Monthly Cost |
 |---------|--------------|
-| **Social Flood** | **$0** (+ ~$20-50 hosting) |
+| **Headwater** | **$0** (+ ~$20-50 hosting) |
 | Outscraper | $300 |
 | Apify | $400 |
 | DataForSEO | $60-200 |
@@ -373,7 +373,7 @@ This document compares the Social Flood Google Maps implementation with commerci
 
 ## Recommendations
 
-### Choose Social Flood If:
+### Choose Headwater If:
 - You want **zero per-request costs**
 - You need **full control** over your data
 - You want **unlimited usage**
@@ -406,14 +406,14 @@ This document compares the Social Flood Google Maps implementation with commerci
 
 ## Conclusion
 
-**Social Flood offers the most comprehensive feature set among self-hosted solutions**, with capabilities that match or exceed paid services like Apify. The key advantages are:
+**Headwater offers the most comprehensive feature set among self-hosted solutions**, with capabilities that match or exceed paid services like Apify. The key advantages are:
 
 1. **Zero marginal cost** - No per-request fees
 2. **Full feature parity** - Reviews, Q&A, menus, monitoring
 3. **Complete control** - Self-hosted, extensible
 4. **Production-ready** - Docker, Redis caching, async jobs
 
-For organizations doing **regular, high-volume** Google Maps data extraction, Social Flood provides significant cost savings while maintaining feature completeness.
+For organizations doing **regular, high-volume** Google Maps data extraction, Headwater provides significant cost savings while maintaining feature completeness.
 
 ---
 

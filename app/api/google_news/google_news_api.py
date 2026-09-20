@@ -13,7 +13,32 @@ import os
 import nltk
 from pydantic import BaseModel, validator, ValidationError
 import re
-from app.core.proxy import get_proxy  # adjust if needed
+from app.core.proxy import get_proxy, mask_proxy
+
+# ---------------------------------------------------------------------------
+# GNews resolves every Google News redirect by launching a *whole Chromium
+# browser per article* (gnews/utils/utils.py:resolve_url -> _resolve_with_
+# playwright), with no reuse and a 10s wait_for_url timeout. Measured at
+# ~16s per article: a five-article search spent 80.1s, of which only 2.5s was
+# network. Behind a proxy the redirect often misses that 10s window, so the
+# full timeout is burned every time.
+#
+# It is also redundant. decode_and_process_articles() below decodes the same
+# URLs through Google's own parameters in ~0.2s for five articles, which is
+# what the response actually uses. Turning the browser pass off took the same
+# query from 80.8s to 2.9s with byte-identical article URLs.
+#
+# Restore by deleting this block if GNews ever changes how process_url works.
+# ---------------------------------------------------------------------------
+import gnews.utils.utils as _gnews_utils
+
+
+def _skip_gnews_url_resolution(url: str, proxies: Optional[dict] = None) -> str:
+    """Leave the URL alone; decode_google_news_url() resolves it far faster."""
+    return url
+
+
+_gnews_utils.resolve_url = _skip_gnews_url_resolution
 import datetime
 from app.core.rate_limiter import rate_limit
 from app.core.cache_manager import cache_manager
@@ -500,6 +525,15 @@ async def get_gnews_instance(
 ) -> GNews:
     proxy_url_val = await get_proxy()
 
+    # GNews hands this straight to requests as `proxies=`, which only accepts a
+    # mapping -- its own signature is `proxy: dict | None`. get_proxy() returns a
+    # single URL string, so passing it through raised "proxies must be a mapping"
+    # and every search 500'd the moment ENABLE_PROXY was turned on. The httpx
+    # paths above are unaffected: httpx does take a bare URL.
+    proxy_map = (
+        {"http": proxy_url_val, "https": proxy_url_val} if proxy_url_val else None
+    )
+
     # Initialize GNews with proxy for its internal feedparser usage
     gnews = GNews(
         language=language,
@@ -509,7 +543,7 @@ async def get_gnews_instance(
         start_date=start_date,
         end_date=end_date,
         # exclude_websites can be set if needed, GNews constructor supports it
-        proxy=proxy_url_val  # Pass the proxy URL to GNews constructor
+        proxy=proxy_map  # requests-style {scheme: url} mapping, not a bare URL
     )
 
     # Set attributes not available in constructor or that need to be dynamically set
@@ -526,7 +560,7 @@ async def get_gnews_instance(
             "https://": httpx.AsyncHTTPTransport(proxy=proxy_url_val),
         }
         gnews.session = httpx.AsyncClient(mounts=mounts)
-        logger.debug(f"GNews instance using proxy for httpx session: {proxy_url_val}")
+        logger.debug("GNews instance using proxy for httpx session: %s", mask_proxy(proxy_url_val))
         if proxy_url_val: # Logging for clarity that proxy is also set for feedparser
             logger.debug(f"GNews instance also configured with proxy for feedparser: {proxy_url_val}")
     else:

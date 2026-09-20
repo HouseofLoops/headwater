@@ -64,7 +64,7 @@ class TestResolveCorsPolicy:
 
     def test_explicit_origins_accepted_in_production(self):
         policy = resolve_cors_policy(
-            make_settings("production", ["https://app.socialflood.com"])
+            make_settings("production", ["https://app.headwater.com"])
         )
 
         assert policy["allow_credentials"] is True

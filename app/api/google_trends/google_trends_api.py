@@ -14,7 +14,7 @@ import pandas as pd
 import numpy as np
 from typing import List, Optional, Union
 from trendspy import Trends, BatchPeriod
-from app.core.proxy import get_proxy
+from app.core.proxy import get_proxy, mask_proxy
 from app.core.cache_manager import generate_cache_key, get_cached_or_fetch
 from app.core.rate_limiter import rate_limit
 from app.core.http_client import get_http_client_manager
@@ -160,6 +160,63 @@ class UpstreamUnavailable(Exception):
         self.detail = detail
 
 
+# /geo and /categories are reference data: 3681 locations and 1133 categories that
+# change on the order of months. The default TTL is tuned for trend series, which
+# move hourly, so these were re-fetched from Google far more often than the data
+# can possibly change.
+REFERENCE_DATA_TTL_SECONDS = 24 * 60 * 60
+
+
+def flatten_geo_tree(node, out=None):
+    """Flatten Google's geo tree into ``[{"name": ..., "id": ...}, ...]``.
+
+    trendspy fetches and parses this tree correctly, then reads
+    ``HierarchicalIndex.name_to_location``, an attribute that does not exist in
+    0.1.6 -- every /geo call raised AttributeError and surfaced as a 502. 0.1.6
+    is the newest release (December 2024), so there is no version to upgrade to.
+
+    The parsed payload is a plain ``{"name", "id", "children"}`` tree, so we walk
+    it here instead of depending on that accessor. Nodes without an id are
+    grouping levels and contribute only their children.
+    """
+    if out is None:
+        out = []
+    if isinstance(node, dict):
+        if node.get("id"):
+            out.append({"name": node.get("name"), "id": node["id"]})
+        for child in node.get("children") or ():
+            flatten_geo_tree(child, out)
+    elif isinstance(node, (list, tuple)):
+        for child in node:
+            flatten_geo_tree(child, out)
+    return out
+
+
+def fetch_geo_locations(trends_obj, find=None):
+    """Return Google Trends locations, optionally filtered by substring."""
+    from trendspy.client import API_GEO_DATA_URL
+
+    raw = trends_obj._get(API_GEO_DATA_URL, {"hl": trends_obj.language, "tz": trends_obj.tzs})
+    rows = flatten_geo_tree(trends_obj._parse_protected_json(raw))
+    if find:
+        needle = find.strip().lower()
+        rows = [r for r in rows if needle in (r["name"] or "").lower()
+                or needle in (r["id"] or "").lower()]
+    return rows
+
+
+def trend_kwargs(**kwargs):
+    """Drop unset options so trendspy applies its own defaults.
+
+    Its signatures default to ``geo=''``, ``cat=0`` and ``gprop=''`` -- not
+    ``None``. These endpoints declare the same options as ``Query(None)``, so an
+    unset option arrived as ``None`` and was forwarded verbatim, which is not a
+    value trendspy builds a valid request from. Omitting the key is the only
+    thing that reproduces "the caller did not ask for this option".
+    """
+    return {k: v for k, v in kwargs.items() if v is not None}
+
+
 async def run_trends_call(operation: str, call):
     """Run a blocking trendspy call off the event loop.
 
@@ -301,7 +358,7 @@ async def get_trends_instance():
     proxy_url = await get_proxy()
     headers = get_random_headers()
     if proxy_url:
-        logger.debug(f"TrendSpy is using proxy: {proxy_url}")
+        logger.debug("TrendSpy is using proxy: %s", mask_proxy(proxy_url))
         return Trends(proxy=proxy_url, headers=headers)
     else:
         logger.debug("TrendSpy is not using any proxy.")
@@ -346,10 +403,7 @@ async def interest_over_time(
                 "interest_over_time",
                 lambda: trends_obj.interest_over_time(
                     kw_list,
-                    timeframe=timeframe,
-                    geo=geo,
-                    cat=cat,
-                    gprop=gprop,
+                    **trend_kwargs(timeframe=timeframe, geo=geo, cat=cat, gprop=gprop),
                 ),
             )
 
@@ -404,10 +458,7 @@ async def interest_by_region(
                 "interest_by_region",
                 lambda: trends_obj.interest_by_region(
                     keyword,
-                    timeframe=timeframe,
-                    geo=geo,
-                    cat=cat,
-                    resolution=resolution,
+                    **trend_kwargs(timeframe=timeframe, geo=geo, cat=cat, resolution=resolution),
                 ),
             )
 
@@ -461,10 +512,7 @@ async def related_queries(
                 "related_queries",
                 lambda: trends_obj.related_queries(
                     keyword,
-                    timeframe=timeframe,
-                    geo=geo,
-                    cat=cat,
-                    gprop=gprop,
+                    **trend_kwargs(timeframe=timeframe, geo=geo, cat=cat, gprop=gprop),
                 ),
             )
 
@@ -518,10 +566,7 @@ async def related_topics(
                 "related_topics",
                 lambda: trends_obj.related_topics(
                     keyword,
-                    timeframe=timeframe,
-                    geo=geo,
-                    cat=cat,
-                    gprop=gprop,
+                    **trend_kwargs(timeframe=timeframe, geo=geo, cat=cat, gprop=gprop),
                 ),
             )
 
@@ -777,7 +822,7 @@ async def get_categories(
             return {"data": encode_trends_payload("categories", raw_results)}
 
         # Get cached result or fetch and cache
-        return await cached_trends_response(cache_key, fetch_categories)
+        return await cached_trends_response(cache_key, fetch_categories, ttl=REFERENCE_DATA_TTL_SECONDS)
 
     except HTTPException as http_exc:
         raise http_exc
@@ -798,18 +843,40 @@ async def get_geo(
     """Search available geolocation codes (countries, states, cities)."""
     try:
         # Generate cache key
+        # The tree is served per language, so the key must carry it or two
+        # languages collide on one entry.
         cache_key = generate_cache_key(
             "trends_geo",
-            find=find
+            find=find,
+            language=(await get_trends_instance()).language,
         )
 
         async def fetch_geo():
             trends_obj = await get_trends_instance()
 
-            raw_results = await run_trends_call(
-                "geo",
-                lambda: trends_obj.geo(find=find),
-            )
+            # Fetch and cache the whole tree per language, then filter here.
+            # Caching per `find` would send an identical upstream request for
+            # every distinct search term against data that never differs.
+            async def fetch_all():
+                rows = await run_trends_call(
+                    "geo",
+                    lambda: fetch_geo_locations(trends_obj, None),
+                )
+                return {"rows": rows}
+
+            all_rows = (await cached_trends_response(
+                generate_cache_key("trends_geo_all", language=trends_obj.language),
+                fetch_all,
+                ttl=REFERENCE_DATA_TTL_SECONDS,
+            ) or {}).get("rows") or []
+
+            if find:
+                needle = find.strip().lower()
+                raw_results = [r for r in all_rows
+                               if needle in (r.get("name") or "").lower()
+                               or needle in (r.get("id") or "").lower()]
+            else:
+                raw_results = all_rows
 
             if is_empty_result(raw_results):
                 logger.info("Google Trends returned no geo rows")
@@ -818,7 +885,7 @@ async def get_geo(
             return {"data": encode_trends_payload("geo", raw_results)}
 
         # Get cached result or fetch and cache
-        return await cached_trends_response(cache_key, fetch_geo)
+        return await cached_trends_response(cache_key, fetch_geo, ttl=REFERENCE_DATA_TTL_SECONDS)
 
     except HTTPException as http_exc:
         raise http_exc

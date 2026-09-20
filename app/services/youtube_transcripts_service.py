@@ -30,7 +30,11 @@ from youtube_transcript_api.formatters import WebVTTFormatter, SRTFormatter
 from requests.exceptions import ProxyError, ConnectionError as RequestsConnectionError
 from fastapi import HTTPException
 
-from app.core.proxy import get_proxy_sync, rotate_proxy, ENABLE_PROXY
+from app.core.proxy import get_proxy_sync, proxy_for, is_host_excluded, rotate_proxy, ENABLE_PROXY, mask_proxy
+
+# Everything this service fetches lives on youtube.com, so proxy decisions
+# are made against this one host.
+YOUTUBE_HOST = "https://www.youtube.com"
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +65,13 @@ class YouTubeTranscriptsService:
 
         if cache_key not in self._api_cache:
             if proxy_url:
-                logger.debug(f"Creating YouTube API with proxy: {proxy_url[:50]}...")
+                # This used to log ``proxy_url[:50]``. Truncation is not redaction:
+                # it hides the password only while the username runs past the cut.
+                # This deployment's username is 52 characters, so the secret stayed
+                # off the line by luck; a shorter one printed it, which is how a
+                # credential turned up in real log output. mask_proxy replaces the
+                # password regardless of length.
+                logger.debug("Creating YouTube API with proxy: %s", mask_proxy(proxy_url))
                 proxy_config = GenericProxyConfig(
                     http_url=proxy_url,
                     https_url=proxy_url
@@ -80,9 +90,11 @@ class YouTubeTranscriptsService:
         Returns:
             YouTubeTranscriptApi instance with current proxy
         """
-        proxy_url = None
-        if ENABLE_PROXY:
-            proxy_url = get_proxy_sync()
+        # Ask for the proxy by host rather than globally. Bright Data refuses
+        # CONNECT to youtube.com with policy_20050 (a compliance permission, not
+        # a zone setting), so listing it in NO_PROXY_HOSTS lets Reddit and news
+        # keep their proxy while transcripts go direct, which is where they work.
+        proxy_url = proxy_for(YOUTUBE_HOST) if ENABLE_PROXY else None
         return self._get_youtube_api(proxy_url)
 
     def _handle_youtube_exception(self, e: Exception, video_id: str, operation: str) -> None:
@@ -113,13 +125,22 @@ class YouTubeTranscriptsService:
                 detail="The specified video is unavailable."
             )
         elif isinstance(e, (IpBlocked, RequestBlocked)):
-            logger.error(f"IP blocked while {operation} for video_id {video_id}: {e}")
+            logger.error(
+                "IP blocked while %s for video_id %s: %s",
+                operation, video_id, mask_proxy(str(e)),
+            )
             raise HTTPException(
                 status_code=503,
                 detail="YouTube is temporarily blocking requests. Please try again later."
             )
         elif isinstance(e, (ProxyError, RequestsConnectionError)):
-            logger.error(f"Proxy error while {operation} for video_id {video_id}: {e}")
+            # requests embeds the full proxy URL, credentials and all, in the text
+            # of ProxyError and ConnectionError ("Cannot connect to proxy ...").
+            # Printing str(e) raw is the same leak as the truncated debug line was.
+            logger.error(
+                "Proxy error while %s for video_id %s: %s",
+                operation, video_id, mask_proxy(str(e)),
+            )
             raise HTTPException(
                 status_code=502,
                 detail="Proxy connection failed. Please check proxy configuration."
@@ -127,7 +148,12 @@ class YouTubeTranscriptsService:
         elif isinstance(e, HTTPException):
             raise e
         else:
-            logger.error(f"Error {operation} for video_id {video_id}: {e}")
+            # Catch-all branch: whatever requests raised underneath may carry the
+            # proxy URL in its message, so mask before logging.
+            logger.error(
+                "Error %s for video_id %s: %s",
+                operation, video_id, mask_proxy(str(e)),
+            )
             raise HTTPException(
                 status_code=500,
                 detail=f"Internal Server Error while {operation}."
@@ -170,11 +196,17 @@ class YouTubeTranscriptsService:
                     f"(video_id={video_id}): {type(e).__name__}"
                 )
 
-                if ENABLE_PROXY and attempt < MAX_RETRY_ATTEMPTS - 1:
+                # No point rotating when this host bypasses the proxy: every
+                # candidate would be skipped and we would just retry direct.
+                if (
+                    ENABLE_PROXY
+                    and not is_host_excluded(YOUTUBE_HOST)
+                    and attempt < MAX_RETRY_ATTEMPTS - 1
+                ):
                     # Rotate to a new proxy
                     new_proxy = rotate_proxy()
                     if new_proxy:
-                        logger.info(f"Rotating to new proxy: {new_proxy[:50]}...")
+                        logger.info("Rotating to new proxy: %s", mask_proxy(new_proxy))
                         # Clear cache to force new API instance
                         self._api_cache.clear()
                     else:

@@ -20,12 +20,12 @@ check_buildx() {
 
 # Create a buildx builder if it doesn't exist
 create_builder() {
-    if ! docker buildx inspect socialflood-builder > /dev/null 2>&1; then
-        echo "Creating buildx builder 'socialflood-builder'..."
-        docker buildx create --name socialflood-builder --use
+    if ! docker buildx inspect headwater-builder > /dev/null 2>&1; then
+        echo "Creating buildx builder 'headwater-builder'..."
+        docker buildx create --name headwater-builder --use
     else
-        echo "Using existing buildx builder 'socialflood-builder'..."
-        docker buildx use socialflood-builder
+        echo "Using existing buildx builder 'headwater-builder'..."
+        docker buildx use headwater-builder
     fi
 }
 
@@ -40,11 +40,11 @@ build_platform() {
     if [ "$no_cache" = "true" ]; then
         echo "Using --no-cache option..."
         docker buildx build --platform $platform \
-            -t social-flood:$version-$arch -t social-flood:latest-$arch \
+            -t headwater:$version-$arch -t headwater:latest-$arch \
             --no-cache --load .
     else
         docker buildx build --platform $platform \
-            -t social-flood:$version-$arch -t social-flood:latest-$arch \
+            -t headwater:$version-$arch -t headwater:latest-$arch \
             --load .
     fi
 }
@@ -69,16 +69,16 @@ push_multiarch() {
         read docker_user
     fi
     
-    echo "Building and pushing multi-arch image for $docker_user/social-flood:$version..."
+    echo "Building and pushing multi-arch image for $docker_user/headwater:$version..."
     
     if [ "$no_cache" = "true" ]; then
         echo "Using --no-cache option..."
         docker buildx build --platform linux/amd64,linux/arm64 \
-            -t $docker_user/social-flood:$version -t $docker_user/social-flood:latest \
+            -t $docker_user/headwater:$version -t $docker_user/headwater:latest \
             --no-cache --push .
     else
         docker buildx build --platform linux/amd64,linux/arm64 \
-            -t $docker_user/social-flood:$version -t $docker_user/social-flood:latest \
+            -t $docker_user/headwater:$version -t $docker_user/headwater:latest \
             --push .
     fi
     
@@ -102,7 +102,7 @@ show_help() {
     echo "Examples:"
     echo "  $0 build           # Build for amd64 and arm64"
     echo "  $0 build-no-cache  # Build for amd64 and arm64 without cache"
-    echo "  $0 push username   # Push to Docker Hub as username/social-flood"
+    echo "  $0 push username   # Push to Docker Hub as username/headwater"
     echo "  $0 push-no-cache u # Push to Docker Hub without using cache"
 }
 

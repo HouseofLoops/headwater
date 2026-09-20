@@ -1,5 +1,5 @@
 """
-Configuration settings for the Social Flood application.
+Configuration settings for the Headwater application.
 
 This module provides a centralized way to access configuration settings
 from environment variables using Pydantic's BaseSettings.
@@ -108,6 +108,9 @@ class Settings(BaseSettings):
     # Proxy settings
     ENABLE_PROXY: bool = False
     PROXY_URL: Optional[str] = None
+    # Hosts that must never be proxied, comma separated. Suffix match, so
+    # "youtube.com" also covers www. and m. See proxy.proxy_for().
+    NO_PROXY_HOSTS: Optional[str] = None
     
     # CORS settings
     CORS_ORIGINS: CsvList = ["*"]
@@ -167,9 +170,9 @@ class Settings(BaseSettings):
     # Application settings
     DEBUG: bool = False
     ENVIRONMENT: str = "development"
-    PROJECT_NAME: str = "Social Flood"
+    PROJECT_NAME: str = "Headwater"
     VERSION: str = app_version  # Use version from __version__.py
-    DESCRIPTION: str = "API for social media data aggregation and analysis"
+    DESCRIPTION: str = "API for Google Search, News, Trends and Maps data, plus YouTube transcripts"
     
     @field_validator(
         "API_KEYS",

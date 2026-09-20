@@ -116,10 +116,10 @@ MAX_BACKOFF_SECONDS = 30.0
 DELIVERY_TIMEOUT_SECONDS = 10.0
 MAX_REDIRECT_HOPS = 2
 
-SIGNATURE_HEADER = "X-Social-Flood-Signature"
-EVENT_HEADER = "X-Social-Flood-Event"
-DELIVERY_HEADER = "X-Social-Flood-Delivery"
-TIMESTAMP_HEADER = "X-Social-Flood-Timestamp"
+SIGNATURE_HEADER = "X-Headwater-Signature"
+EVENT_HEADER = "X-Headwater-Event"
+DELIVERY_HEADER = "X-Headwater-Delivery"
+TIMESTAMP_HEADER = "X-Headwater-Timestamp"
 
 MONITOR_CHANGED_EVENT = "monitor.changed"
 
@@ -586,7 +586,7 @@ async def deliver_webhook(
         EVENT_HEADER: event,
         DELIVERY_HEADER: delivery_id,
         TIMESTAMP_HEADER: envelope["timestamp"],
-        "User-Agent": "social-flood-webhooks/1",
+        "User-Agent": "headwater-webhooks/1",
     }
 
     attempts = 0
@@ -807,7 +807,7 @@ async def _deliver_inline(
         "Content-Type": "application/json",
         EVENT_HEADER: event,
         DELIVERY_HEADER: delivery_id,
-        "User-Agent": "social-flood-webhooks/1",
+        "User-Agent": "headwater-webhooks/1",
     }
 
     attempts = 0

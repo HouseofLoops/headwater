@@ -1,16 +1,16 @@
-# Social Flood Scripts
+# Headwater Scripts
 
-This directory contains installation and management scripts for Social Flood.
+This directory contains installation and management scripts for Headwater.
 
 ## Quick Install
 
 ```bash
 # One-line install (requires root/sudo on Linux)
-curl -fsSL https://raw.githubusercontent.com/rainmanjam/social-flood/main/scripts/install.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/rainmanjam/headwater/main/scripts/install.sh | sudo bash
 
 # Or clone and run locally
-git clone https://github.com/rainmanjam/social-flood.git
-cd social-flood/scripts
+git clone https://github.com/rainmanjam/headwater.git
+cd headwater/scripts
 sudo ./install.sh
 ```
 
@@ -31,18 +31,18 @@ Main installation script that:
 
 ### Generated Helper Scripts
 
-After installation, these scripts are created in `/opt/social-flood/scripts/`:
+After installation, these scripts are created in `/opt/headwater/scripts/`:
 
 | Script | Description |
 |--------|-------------|
 | `status.sh` | Check health and status of all services |
 | `update.sh` | Update to latest version (creates backup first) |
 | `backup.sh` | Create backup of database and configuration |
-| `uninstall.sh` | Remove Social Flood (with option to keep backups) |
+| `uninstall.sh` | Remove Headwater (with option to keep backups) |
 
 ## Configuration
 
-The installer creates a `.env` file at `/opt/social-flood/.env` with:
+The installer creates a `.env` file at `/opt/headwater/.env` with:
 
 - `API_KEY` - API authentication key
 - `POSTGRES_PASSWORD` - PostgreSQL password
@@ -67,10 +67,10 @@ The installer creates a `.env` file at `/opt/social-flood/.env` with:
 
 ```bash
 # Check status
-/opt/social-flood/scripts/status.sh
+/opt/headwater/scripts/status.sh
 
 # View logs
-docker compose -f /opt/social-flood/docker-compose.yml logs -f
+docker compose -f /opt/headwater/docker-compose.yml logs -f
 
 # Test API
 curl -H "X-API-Key: YOUR_API_KEY" http://localhost:8000/health
@@ -84,20 +84,20 @@ open http://localhost:8000/docs
 ### Services not starting
 ```bash
 # Check container logs
-docker compose -f /opt/social-flood/docker-compose.yml logs
+docker compose -f /opt/headwater/docker-compose.yml logs
 
 # Restart services
-docker compose -f /opt/social-flood/docker-compose.yml restart
+docker compose -f /opt/headwater/docker-compose.yml restart
 ```
 
 ### Database connection issues
 ```bash
 # Check PostgreSQL health
-docker compose -f /opt/social-flood/docker-compose.yml exec db pg_isready
+docker compose -f /opt/headwater/docker-compose.yml exec db pg_isready
 ```
 
 ### Permission issues on Linux
 ```bash
 # Ensure you're running with sudo
-sudo /opt/social-flood/scripts/update.sh
+sudo /opt/headwater/scripts/update.sh
 ```

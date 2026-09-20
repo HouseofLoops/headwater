@@ -3,7 +3,7 @@
 **Date:** December 28, 2025
 **Status:** IMPLEMENTED
 
-This document outlines the upgrades made to Social Flood's geo-targeting to match DataForSEO's "Excellent" rating and the implementation of live wait times extraction.
+This document outlines the upgrades made to Headwater's geo-targeting to match DataForSEO's "Excellent" rating and the implementation of live wait times extraction.
 
 ---
 
@@ -520,7 +520,7 @@ All features have been implemented:
 | Bounding box | No | **Yes** | DONE |
 | Location names | No | **Yes** | DONE |
 
-Social Flood now matches or exceeds DataForSEO's geo-targeting capabilities while adding live wait times that DataForSEO doesn't offer.
+Headwater now matches or exceeds DataForSEO's geo-targeting capabilities while adding live wait times that DataForSEO doesn't offer.
 
 ---
 

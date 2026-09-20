@@ -1,4 +1,4 @@
-# Social Flood API - Production Dependencies
+# Headwater API - Production Dependencies
 # For development dependencies, see requirements-dev.txt
 # For the fully-resolved transitive closure, see requirements.lock
 # Last updated: 2026-09-01

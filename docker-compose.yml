@@ -9,7 +9,7 @@
 services:
   web:
     build: .
-    container_name: social_flood_app
+    container_name: headwater_app
     env_file: .env
     environment:
       # `environment:` overrides `env_file:`, so container-only hostnames live
@@ -42,7 +42,7 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: social_flood_redis
+    container_name: headwater_redis
     command: redis-server --requirepass ${REDIS_PASSWORD:-changeme} --appendonly yes
     volumes:
       - redis_data:/data

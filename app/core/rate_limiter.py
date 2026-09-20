@@ -1,5 +1,5 @@
 """
-Rate limiting implementation for the Social Flood application.
+Rate limiting implementation for the Headwater application.
 
 This module provides rate limiting functionality to protect the API
 from abuse and ensure fair usage.
@@ -738,7 +738,7 @@ class RateLimiter:
                 return JSONResponse(
                     status_code=429,
                     content={
-                        "type": "https://socialflood.com/problems/rate_limit_exceeded",
+                        "type": "https://headwater.com/problems/rate_limit_exceeded",
                         "title": "Too Many Requests",
                         "status": 429,
                         "detail": detail,
@@ -809,7 +809,7 @@ class RateLimiter:
             return JSONResponse(
                 status_code=503,
                 content={
-                    "type": "https://socialflood.com/problems/service_unavailable",
+                    "type": "https://headwater.com/problems/service_unavailable",
                     "title": "Service Unavailable",
                     "status": 503,
                     "detail": detail,

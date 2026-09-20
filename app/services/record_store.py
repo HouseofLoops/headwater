@@ -140,7 +140,12 @@ class RecordStore:
             from app.core.redis_manager import RedisManager
 
             manager = await RedisManager.get_instance()
-            if not manager.is_available():
+            # is_available is a @property. Calling it raised
+            # "'bool' object is not callable" on every access, which this
+            # except block swallowed into the memory fallback -- so Maps jobs,
+            # monitors and webhooks were never durable, which is exactly the
+            # failure this class documents as unacceptable in production.
+            if not manager.is_available:
                 return None
             return await manager.get_client()
         except Exception as exc:

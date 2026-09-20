@@ -36,6 +36,9 @@ logger = logging.getLogger("uvicorn")
 __all__ = [
     "get_proxy",
     "get_proxy_sync",
+    "proxy_for",
+    "mask_proxy",
+    "is_host_excluded",
     "rotate_proxy",
     "is_proxy_enabled",
     "get_available_proxies",
@@ -149,7 +152,7 @@ async def get_proxy() -> Optional[str]:
 
     async with _proxy_lock:
         proxy_url = _next_proxy(urls)
-    logger.debug("Selected proxy: %s", proxy_url)
+    logger.debug("Selected proxy: %s", mask_proxy(proxy_url))
     return proxy_url
 
 
@@ -167,8 +170,74 @@ def get_proxy_sync() -> Optional[str]:
         _warn_enabled_but_empty()
         return None
 
-    logger.debug("Selected proxy (sync): %s", urls[0])
+    logger.debug("Selected proxy (sync): %s", mask_proxy(urls[0]))
     return urls[0]
+
+
+def mask_proxy(url: Optional[str]) -> str:
+    """Render a proxy URL safe to log, with the password replaced.
+
+    Proxy URLs carry credentials inline (``http://user:pass@host:port``). Eight
+    call sites logged them whole, so turning on DEBUG printed the zone password
+    into the application log -- and into anything shipping those logs onward.
+    Truncating with ``[:50]`` is not a fix either: it only hides the secret while
+    the username happens to be long.
+    """
+    if not url:
+        return "(none)"
+    return re.sub(r"://([^:/@]+):[^@]*@", r"://\1:***@", str(url))
+
+
+def _excluded_hosts() -> Tuple[str, ...]:
+    """Hosts that must bypass the proxy, from ``NO_PROXY_HOSTS``.
+
+    Read through ``Settings`` rather than ``os.getenv`` for the reason given in
+    this module's docstring: pydantic-settings does not export ``.env`` values
+    into ``os.environ``, so a getenv read is empty under a bare uvicorn run and
+    the exclusion would silently never apply.
+    """
+    try:
+        from app.core.config import get_settings
+
+        raw = getattr(get_settings(), "NO_PROXY_HOSTS", None)
+    except Exception:  # pragma: no cover - defensive
+        return ()
+    if not raw:
+        return ()
+    values = raw if isinstance(raw, (list, tuple)) else str(raw).split(",")
+    return tuple(h.strip().lower().lstrip(".") for h in values if h and h.strip())
+
+
+def is_host_excluded(url_or_host: Optional[str]) -> bool:
+    """True when this target must bypass the proxy.
+
+    Matches on domain suffix, so ``youtube.com`` also covers ``www.youtube.com``
+    and ``m.youtube.com`` -- Bright Data refuses CONNECT to all three with
+    ``policy_20050``, while the transcript endpoint works fine direct.
+    """
+    if not url_or_host:
+        return False
+    host = url_or_host.strip().lower()
+    if "//" in host:
+        host = host.split("//", 1)[1]
+    host = host.split("/", 1)[0].split("@")[-1].split(":")[0]
+    for excluded in _excluded_hosts():
+        if host == excluded or host.endswith("." + excluded):
+            return True
+    return False
+
+
+def proxy_for(url_or_host: Optional[str] = None) -> Optional[str]:
+    """The proxy to use for this target, or ``None`` to go direct.
+
+    Callers that route to a mix of targets should prefer this over
+    ``get_proxy_sync()``: one blocked domain would otherwise force the whole
+    deployment to choose between proxying everything and proxying nothing.
+    """
+    if is_host_excluded(url_or_host):
+        logger.debug("Bypassing proxy for excluded host: %s", url_or_host)
+        return None
+    return get_proxy_sync()
 
 
 def rotate_proxy() -> Optional[str]:
@@ -181,7 +250,7 @@ def rotate_proxy() -> Optional[str]:
         return None
 
     proxy_url = _next_proxy(urls)
-    logger.debug("Rotated to proxy: %s", proxy_url)
+    logger.debug("Rotated to proxy: %s", mask_proxy(proxy_url))
     return proxy_url
 
 

@@ -19,7 +19,14 @@ from typing import Optional, List, Dict, Any, Tuple
 from datetime import datetime
 
 from app.core.config import get_settings
-from app.core.proxy import ENABLE_PROXY, get_proxy
+from app.core.proxy import ENABLE_PROXY, get_proxy, proxy_for
+
+# Every request this service makes is a browser navigation to google.com/maps.
+# A plain GET through the datacenter proxy succeeds, but a full Chromium page
+# load times out: Google throttles the subresource fetches, so domcontentloaded
+# never fires and the job fails after 60s. Direct, the same navigation returns
+# in 0.4s. Routing by host lets Maps go direct while Reddit keeps the proxy.
+GOOGLE_MAPS_HOST = "https://www.google.com" 
 from app.core.log_safety import scrub
 
 logger = logging.getLogger(__name__)
@@ -140,7 +147,7 @@ class GoogleMapsService:
             # Get proxy if enabled
             proxy = None
             if ENABLE_PROXY:
-                proxy = await get_proxy()
+                proxy = proxy_for(GOOGLE_MAPS_HOST)
                 if proxy:
                     logger.info(f"Using proxy for Google Maps scraping")
 
@@ -586,11 +593,11 @@ class GoogleMapsService:
 
             # Create a scraper and extract place details
             from app.services.google_maps_scraper import GoogleMapsScraper
-            from app.core.proxy import ENABLE_PROXY, get_proxy
+            from app.core.proxy import ENABLE_PROXY, proxy_for
 
             proxy = None
             if ENABLE_PROXY:
-                proxy = await get_proxy()
+                proxy = proxy_for(GOOGLE_MAPS_HOST)
 
             scraper = GoogleMapsScraper(proxy=proxy, headless=True)
             try:
@@ -1239,7 +1246,7 @@ class GoogleMapsService:
 
         proxy = None
         if ENABLE_PROXY:
-            proxy = await get_proxy()
+            proxy = proxy_for(GOOGLE_MAPS_HOST)
 
         scraper = GoogleMapsScraper(proxy=proxy, headless=True)
         try:
@@ -1913,7 +1920,7 @@ class GoogleMapsService:
 
         proxy = None
         if ENABLE_PROXY:
-            proxy = await get_proxy()
+            proxy = proxy_for(GOOGLE_MAPS_HOST)
 
         scraper = GoogleMapsScraper(proxy=proxy, headless=True)
         try:
@@ -2111,7 +2118,7 @@ class GoogleMapsService:
 
         proxy = None
         if ENABLE_PROXY:
-            proxy = await get_proxy()
+            proxy = proxy_for(GOOGLE_MAPS_HOST)
 
         scraper = GoogleMapsScraper(proxy=proxy, headless=True)
         try:
@@ -2428,7 +2435,7 @@ class GoogleMapsService:
 
         proxy = None
         if ENABLE_PROXY:
-            proxy = await get_proxy()
+            proxy = proxy_for(GOOGLE_MAPS_HOST)
 
         scraper = GoogleMapsScraper(proxy=proxy, headless=True)
         try:

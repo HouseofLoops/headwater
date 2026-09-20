@@ -80,7 +80,7 @@ def test_create_error_detail():
     assert error["status"] == 400
     assert error["title"] == "Bad Request"
     assert error["detail"] == "Invalid parameters"
-    assert error["type"] == "https://socialflood.com/problems/validation_error"
+    assert error["type"] == "https://headwater.com/problems/validation_error"
     
     # Test with instance
     error = router._create_error_detail(
@@ -138,7 +138,7 @@ def test_raise_http_exception():
             type="permission_error"
         )
     assert excinfo.value.detail["title"] == "Permission Error"
-    assert excinfo.value.detail["type"] == "https://socialflood.com/problems/permission_error"
+    assert excinfo.value.detail["type"] == "https://headwater.com/problems/permission_error"
     
     # Test with headers
     with pytest.raises(HTTPException) as excinfo:

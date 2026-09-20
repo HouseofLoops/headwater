@@ -1,10 +1,10 @@
 # Google Services Integration
 
-This document provides information on how to integrate with various Google services used by the Social Flood API.
+This document provides information on how to integrate with various Google services used by the Headwater API.
 
 ## Overview of Google Services
 
-The Social Flood API integrates with the following Google services:
+The Headwater API integrates with the following Google services:
 
 1. **Google News** - Access and search news articles
 2. **Google Trends** - Retrieve trending topics and search interest data
@@ -131,18 +131,18 @@ async def get_autocomplete_suggestions(query: str, country: str = "US", language
 
 ### Google News
 
-Google News does not have an official API, and the Social Flood API uses web scraping techniques to extract data. Be aware that excessive requests may lead to temporary IP blocks.
+Google News does not have an official API, and the Headwater API uses web scraping techniques to extract data. Be aware that excessive requests may lead to temporary IP blocks.
 
 ### Google Trends
 
-Google Trends does not have an official API, and the Social Flood API uses the unofficial `pytrends` library. Be mindful of the following limitations:
+Google Trends does not have an official API, and the Headwater API uses the unofficial `pytrends` library. Be mindful of the following limitations:
 
 - Maximum of 5 keywords per request
 - Maximum of 5 requests per minute per IP address
 
 ### Google Autocomplete
 
-Google Autocomplete does not have an official API, and the Social Flood API uses direct requests to the autocomplete endpoint. Be mindful of the following limitations:
+Google Autocomplete does not have an official API, and the Headwater API uses direct requests to the autocomplete endpoint. Be mindful of the following limitations:
 
 - Maximum of 10 requests per minute per IP address
 

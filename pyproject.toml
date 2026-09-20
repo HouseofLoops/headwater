@@ -1,4 +1,4 @@
-# Tooling configuration for Social Flood.
+# Tooling configuration for Headwater.
 #
 # This file is the SINGLE home for ruff, pytest, coverage and bandit settings.
 # There is deliberately no pytest.ini / setup.cfg / .flake8: when both exist,

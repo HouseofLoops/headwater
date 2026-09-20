@@ -24,7 +24,7 @@ from app.core.cache_manager import generate_cache_key, get_cached_or_fetch
 from app.core.config import get_settings
 from app.core.http_client import get_http_client_manager
 from app.core.input_sanitizer import get_input_sanitizer
-from app.core.proxy import get_proxy, get_proxy_sync
+from app.core.proxy import get_proxy, get_proxy_sync, mask_proxy
 from app.core.rate_limiter import rate_limit
 from app.services.google_autocomplete_service import google_autocomplete_service
 
@@ -268,7 +268,7 @@ async def get_autocomplete(
 
         # Set up HTTP client with proxy if available
         if proxy_url:
-            logger.debug("Using proxy from environment settings: %s", proxy_url)
+            logger.debug("Using proxy from environment settings: %s", mask_proxy(proxy_url))
         else:
             logger.debug("No proxy configured in environment. Proceeding without proxy.")
 

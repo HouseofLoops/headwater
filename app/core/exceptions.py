@@ -14,9 +14,9 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-class SocialFloodException(Exception):
+class HeadwaterException(Exception):
     """
-    Base exception class for all Social Flood application exceptions.
+    Base exception class for all Headwater application exceptions.
     
     This class provides a common interface for all application-specific
     exceptions, with support for RFC7807 Problem Details.
@@ -68,7 +68,7 @@ class SocialFloodException(Exception):
             Dict[str, Any]: Dictionary representation of the exception
         """
         error_dict = {
-            "type": f"https://socialflood.com/problems/{self.error_type}",
+            "type": f"https://headwater.com/problems/{self.error_type}",
             "title": self.title,
             "status": self.status_code,
             "detail": self.detail
@@ -82,7 +82,7 @@ class SocialFloodException(Exception):
 
 # 400 Bad Request Exceptions
 
-class ValidationError(SocialFloodException):
+class ValidationError(HeadwaterException):
     """Exception for validation errors."""
     status_code = 400
     detail = "Validation error"
@@ -104,7 +104,7 @@ class MissingParameterError(ValidationError):
 
 # 401 Unauthorized Exceptions
 
-class AuthenticationError(SocialFloodException):
+class AuthenticationError(HeadwaterException):
     """Exception for authentication errors."""
     status_code = 401
     detail = "Authentication required"
@@ -125,7 +125,7 @@ class InvalidCredentialsError(AuthenticationError):
 
 # 403 Forbidden Exceptions
 
-class PermissionDeniedError(SocialFloodException):
+class PermissionDeniedError(HeadwaterException):
     """Exception for permission denied errors."""
     status_code = 403
     detail = "Permission denied"
@@ -133,7 +133,7 @@ class PermissionDeniedError(SocialFloodException):
     title = "Forbidden"
 
 
-class RateLimitExceededError(SocialFloodException):
+class RateLimitExceededError(HeadwaterException):
     """Exception for rate limit exceeded errors."""
     status_code = 429
     detail = "Rate limit exceeded"
@@ -143,7 +143,7 @@ class RateLimitExceededError(SocialFloodException):
 
 # 404 Not Found Exceptions
 
-class NotFoundError(SocialFloodException):
+class NotFoundError(HeadwaterException):
     """Exception for not found errors."""
     status_code = 404
     detail = "Resource not found"
@@ -153,7 +153,7 @@ class NotFoundError(SocialFloodException):
 
 # 409 Conflict Exceptions
 
-class ConflictError(SocialFloodException):
+class ConflictError(HeadwaterException):
     """Exception for conflict errors."""
     status_code = 409
     detail = "Resource conflict"
@@ -169,7 +169,7 @@ class ResourceExistsError(ConflictError):
 
 # 500 Server Error Exceptions
 
-class ServerError(SocialFloodException):
+class ServerError(HeadwaterException):
     """Exception for server errors."""
     status_code = 500
     detail = "Internal server error"
@@ -189,7 +189,7 @@ class ExternalServiceError(ServerError):
     error_type = "external_service_error"
 
 
-class ServiceUnavailableError(SocialFloodException):
+class ServiceUnavailableError(HeadwaterException):
     """Exception for service unavailable errors."""
     status_code = 503
     detail = "Service unavailable"
@@ -199,12 +199,12 @@ class ServiceUnavailableError(SocialFloodException):
 
 # Exception handlers
 
-async def social_flood_exception_handler(
+async def headwater_exception_handler(
     request: Request,
-    exc: SocialFloodException
+    exc: HeadwaterException
 ) -> JSONResponse:
     """
-    Handle SocialFloodException instances.
+    Handle HeadwaterException instances.
     
     Args:
         request: The request that caused the exception
@@ -215,7 +215,7 @@ async def social_flood_exception_handler(
     """
     # Log the exception
     logger.error(
-        f"SocialFloodException: {exc.detail}",
+        f"HeadwaterException: {exc.detail}",
         extra={
             "status_code": exc.status_code,
             "error_type": exc.error_type,
@@ -264,7 +264,7 @@ async def http_exception_handler(
     
     # Create RFC7807 response
     content = {
-        "type": f"https://socialflood.com/problems/{error_type}",
+        "type": f"https://headwater.com/problems/{error_type}",
         "title": title,
         "status": exc.status_code,
         "detail": str(exc.detail)
@@ -313,7 +313,7 @@ async def unhandled_exception_handler(
     
     # Create RFC7807 response
     content = {
-        "type": "https://socialflood.com/problems/server_error",
+        "type": "https://headwater.com/problems/server_error",
         "title": "Internal Server Error",
         "status": 500,
         "detail": "An unexpected error occurred"
@@ -335,7 +335,7 @@ def configure_exception_handlers(app):
     Args:
         app: The FastAPI application
     """
-    app.add_exception_handler(SocialFloodException, social_flood_exception_handler)
+    app.add_exception_handler(HeadwaterException, headwater_exception_handler)
     app.add_exception_handler(HTTPException, http_exception_handler)
     app.add_exception_handler(Exception, unhandled_exception_handler)
 
@@ -410,7 +410,7 @@ def handle_external_service_error(
         operation: Description of the operation being performed
 
     Raises:
-        Appropriate SocialFloodException subclass
+        Appropriate HeadwaterException subclass
     """
     from requests.exceptions import (
         ProxyError as RequestsProxyError,

@@ -1,3 +1,4 @@
+from app.core.proxy import mask_proxy
 """
 HTTP Client Manager with Connection Pooling.
 
@@ -75,7 +76,7 @@ class HTTPClientManager:
                 if proxy_url:
                     # httpx 0.28+ uses 'proxy' instead of 'proxies'
                     client_config["proxy"] = proxy_url
-                    logger.debug("Created HTTP client with proxy: %s", proxy_url)
+                    logger.debug("Created HTTP client with proxy: %s", mask_proxy(proxy_url))
                 else:
                     logger.debug("Created HTTP client without proxy")
 

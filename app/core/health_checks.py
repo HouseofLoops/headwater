@@ -1,5 +1,5 @@
 """
-Health check utilities for the Social Flood application.
+Health check utilities for the Headwater application.
 
 This module provides functions to check the health of various
 dependencies like Redis, external APIs, and system resources.
@@ -46,9 +46,15 @@ async def check_redis_connection() -> Dict[str, Any]:
         # Import here to avoid circular imports
         from app.core.cache_manager import cache_manager
         
-        # Get Redis client
-        redis_client = cache_manager._get_redis_client()
-        
+        # CacheManager has no _get_redis_client; it reaches Redis through the
+        # module-level _get_redis_manager() singleton. Calling the non-existent
+        # method raised AttributeError on every run, so the Redis health check
+        # has always reported failure regardless of Redis actually being up.
+        from app.core.cache_manager import _get_redis_manager
+
+        manager = await _get_redis_manager()
+        redis_client = await manager.get_client() if manager and manager.is_available else None
+
         if not redis_client:
             return {
                 "status": "skipped",
@@ -57,7 +63,7 @@ async def check_redis_connection() -> Dict[str, Any]:
         
         # Ping Redis
         start_time = time.time()
-        result = redis_client.ping()
+        result = await redis_client.ping()
         response_time = time.time() - start_time
         
         # Check the result
