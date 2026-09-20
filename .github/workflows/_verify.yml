@@ -253,8 +253,10 @@ jobs:
           print(f"OK: all {len(locked)} locked packages installed at the locked version")
           PY
 
-      - name: Download NLTK data
-        run: python -c "import nltk; nltk.download('punkt'); nltk.download('punkt_tab')"
+      # No NLTK corpus download: nltk is not a dependency. It carries
+      # PYSEC-2026-3740 with no fixed release, and newspaper4k only needs it for
+      # article summary and keywords, which now degrade to null. Restore this
+      # step alongside the requirements.txt pin when a fixed nltk ships.
 
       # No .env is created here. tests/conftest.py pins the settings source so
       # the suite behaves identically whether or not a .env exists on disk.
@@ -341,8 +343,10 @@ jobs:
           pip install --require-hashes --requirement requirements.lock
           pip install --requirement requirements-dev.txt
 
-      - name: Download NLTK data
-        run: python -c "import nltk; nltk.download('punkt'); nltk.download('punkt_tab')"
+      # No NLTK corpus download: nltk is not a dependency. It carries
+      # PYSEC-2026-3740 with no fixed release, and newspaper4k only needs it for
+      # article summary and keywords, which now degrade to null. Restore this
+      # step alongside the requirements.txt pin when a fixed nltk ships.
 
       # VERBATIM. Do not edit, filter or template this file. If the shipped
       # example config cannot boot the app, that is a bug in the app or in the
