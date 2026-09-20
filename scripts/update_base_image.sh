@@ -84,10 +84,16 @@ echo "Pulling latest version of $FULL_IMAGE..."
 docker pull "$FULL_IMAGE"
 
 # Get the current digest from the Dockerfile
-CURRENT_DIGEST=$(grep -oP "FROM\s+$BASE_IMAGE_NAME:$BASE_IMAGE_TAG(@sha256:[a-f0-9]+)?" "$DOCKERFILE" | grep -oP '@sha256:[a-f0-9]+' || echo "")
+# head -1 is load-bearing. This Dockerfile has two FROM lines, builder and
+# production, and both are digest-pinned, so without it CURRENT_DIGEST holds
+# two matches separated by a newline. That newline then lands inside the
+# sed "s|...|...|" expression below and sed dies with
+# "unterminated `s' command" - which is exactly how this workflow has been
+# failing on its nightly schedule since digest-pinning landed.
+CURRENT_DIGEST=$(grep -oP "FROM\s+$BASE_IMAGE_NAME:$BASE_IMAGE_TAG(@sha256:[a-f0-9]+)?" "$DOCKERFILE" | grep -oP '@sha256:[a-f0-9]+' | head -1 || echo "")
 
 # Get the latest digest from Docker Hub
-LATEST_DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' "$FULL_IMAGE" | grep -oP '@sha256:[a-f0-9]+')
+LATEST_DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' "$FULL_IMAGE" | grep -oP '@sha256:[a-f0-9]+' | head -1)
 
 echo "Current digest in Dockerfile: ${CURRENT_DIGEST:-'Not pinned to a specific digest'}"
 echo "Latest digest from Docker Hub: $LATEST_DIGEST"
