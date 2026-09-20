@@ -94,12 +94,12 @@ jobs:
       tag: ${{ steps.release.outputs.tag }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: '3.12'
 
@@ -149,7 +149,7 @@ jobs:
       # triggered this run - otherwise the published image would not contain the
       # version it claims.
       - name: Checkout the tagged commit
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ needs.tag-release.outputs.tag }}
           fetch-depth: 0
@@ -227,7 +227,7 @@ jobs:
 
       - name: Upload SBOM artifact
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: sbom
           path: sbom.json
