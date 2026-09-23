@@ -5,7 +5,7 @@ This module consolidates all enums used across different API endpoints
 to prevent duplication and ensure consistency.
 """
 
-from enum import Enum, IntEnum
+from enum import IntEnum, StrEnum
 
 # =============================================================================
 # Google Trends Enums
@@ -21,7 +21,7 @@ class TimeframeEnum(IntEnum):
     FIVE = 5
 
 
-class HumanFriendlyBatchPeriod(str, Enum):
+class HumanFriendlyBatchPeriod(StrEnum):
     """Human-readable batch period options for Google Trends.
 
     The canonical member names deliberately mirror their wire values
@@ -50,7 +50,7 @@ class HumanFriendlyBatchPeriod(str, Enum):
     PAST_7D = "past_7d"
 
 
-class StandardTimeframe(str, Enum):
+class StandardTimeframe(StrEnum):
     """Standard timeframe options for Google Trends."""
 
     NOW_1H = "now 1-H"
@@ -60,7 +60,7 @@ class StandardTimeframe(str, Enum):
     TODAY_12M = "today 12-m"
 
 
-class CustomIntervalTimeframe(str, Enum):
+class CustomIntervalTimeframe(StrEnum):
     """Custom interval timeframe options for Google Trends."""
 
     NOW_123H = "now 123-H"
@@ -75,7 +75,7 @@ class CustomIntervalTimeframe(str, Enum):
 # =============================================================================
 
 
-class OutputFormat(str, Enum):
+class OutputFormat(StrEnum):
     """Output format options for Google Autocomplete API."""
 
     TOOLBAR = "toolbar"  # XML format used by Google Toolbar
@@ -86,7 +86,7 @@ class OutputFormat(str, Enum):
     OPERA = "opera"  # JSON format used by Opera browser
 
 
-class ClientType(str, Enum):
+class ClientType(StrEnum):
     """Client identifier options for Google Autocomplete API."""
 
     FIREFOX = "firefox"
@@ -95,7 +95,7 @@ class ClientType(str, Enum):
     OPERA = "opera"
 
 
-class DataSource(str, Enum):
+class DataSource(StrEnum):
     """Data source options for the 'ds' parameter in Google Autocomplete."""
 
     WEB = ""  # General web search (default)
@@ -115,14 +115,14 @@ class DataSource(str, Enum):
     HOTELS = "hotels"  # Google Hotels suggestions
 
 
-class SafeSearch(str, Enum):
+class SafeSearch(StrEnum):
     """SafeSearch content filtering options."""
 
     ACTIVE = "active"  # Filter explicit content
     OFF = "off"  # Show all content (no filtering)
 
 
-class SearchClient(str, Enum):
+class SearchClient(StrEnum):
     """Search client identifier options."""
 
     GWS_WIZ = "gws-wiz"  # Google Homepage

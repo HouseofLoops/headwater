@@ -4,7 +4,7 @@ Scrape job model and the owner-scoped job store.
 
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 from app.services.record_store import RecordStore, get_record_store
@@ -13,7 +13,7 @@ from app.services.record_store import RecordStore, get_record_store
 JOB_NAMESPACE = "maps:jobs"
 
 
-class JobStatus(str, Enum):
+class JobStatus(StrEnum):
     """Status of a scraping job."""
 
     PENDING = "pending"

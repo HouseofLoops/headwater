@@ -7,7 +7,7 @@ handler happens to read it.
 """
 
 import math
-from enum import Enum
+from enum import StrEnum
 from typing import Any, ClassVar
 
 from pydantic import BaseModel, Field, validator
@@ -415,7 +415,7 @@ class AutocompleteRequest(BaseModel):
     radius_meters: int | None = Field(None, ge=1, le=50000, description="Bias radius")
 
 
-class ExportFormat(str, Enum):
+class ExportFormat(StrEnum):
     """Supported export formats."""
 
     JSON = "json"
