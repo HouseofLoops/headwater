@@ -376,36 +376,3 @@ def raise_proxy_error(service: str = "Service") -> None:
 def raise_ip_blocked(service: str = "Service") -> None:
     """Raise an IPBlockedError."""
     raise IPBlockedError(detail=f"{service} is temporarily blocking requests. Please try again later.")
-
-
-def handle_external_service_error(exception: Exception, service_name: str, operation: str) -> None:
-    """
-    Handle common external service exceptions and convert to appropriate errors.
-
-    Args:
-        exception: The caught exception
-        service_name: Name of the external service (e.g., "YouTube", "Google")
-        operation: Description of the operation being performed
-
-    Raises:
-        Appropriate HeadwaterException subclass
-    """
-    from requests.exceptions import (
-        ConnectionError as RequestsConnectionError,
-    )
-    from requests.exceptions import (
-        ProxyError as RequestsProxyError,
-    )
-    from requests.exceptions import (
-        Timeout as RequestsTimeout,
-    )
-
-    if isinstance(exception, RequestsProxyError):
-        raise_proxy_error(service_name)
-    elif isinstance(exception, RequestsConnectionError):
-        raise ExternalServiceError(detail=f"{service_name} connection failed during {operation}.")
-    elif isinstance(exception, RequestsTimeout):
-        raise ServiceUnavailableError(detail=f"{service_name} request timed out during {operation}.")
-    else:
-        logger.error(f"Error during {operation} for {service_name}: {exception}")
-        raise ServerError(detail=f"Internal Server Error while {operation}.")

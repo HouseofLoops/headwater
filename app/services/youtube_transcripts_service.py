@@ -19,8 +19,10 @@ from collections.abc import Callable
 from typing import Any, TypeVar
 
 from fastapi import HTTPException
+from requests import Session
 from requests.exceptions import ConnectionError as RequestsConnectionError
 from requests.exceptions import ProxyError
+from requests.exceptions import Timeout as RequestsTimeout
 from youtube_transcript_api import (
     IpBlocked,
     NoTranscriptFound,
@@ -32,6 +34,7 @@ from youtube_transcript_api import (
 from youtube_transcript_api.formatters import SRTFormatter, WebVTTFormatter
 from youtube_transcript_api.proxies import GenericProxyConfig
 
+from app.core.config import get_settings
 from app.core.proxy import ENABLE_PROXY, is_host_excluded, mask_proxy, proxy_for, rotate_proxy
 
 # Everything this service fetches lives on youtube.com, so proxy decisions
@@ -44,6 +47,30 @@ T = TypeVar("T")
 
 # Maximum retry attempts when IP is blocked
 MAX_RETRY_ATTEMPTS = 3
+
+
+class _TimeoutSession(Session):
+    """A requests Session that applies a default timeout to every request.
+
+    youtube-transcript-api never passes ``timeout=``, and requests' default is
+    to wait forever. Every call here runs in ``asyncio.to_thread``, so one
+    stalled connection held a worker thread indefinitely; enough of them and
+    the default executor is exhausted and every YouTube endpoint hangs.
+    """
+
+    def __init__(self, timeout: tuple[float, float]):
+        super().__init__()
+        self._default_timeout = timeout
+
+    def request(self, *args, **kwargs):
+        if kwargs.get("timeout") is None:
+            kwargs["timeout"] = self._default_timeout
+        return super().request(*args, **kwargs)
+
+
+def _new_http_client() -> _TimeoutSession:
+    settings = get_settings()
+    return _TimeoutSession((settings.HTTP_CONNECTION_TIMEOUT, settings.HTTP_READ_TIMEOUT))
 
 
 class YouTubeTranscriptsService:
@@ -75,10 +102,12 @@ class YouTubeTranscriptsService:
                 # password regardless of length.
                 logger.debug("Creating YouTube API with proxy: %s", mask_proxy(proxy_url))
                 proxy_config = GenericProxyConfig(http_url=proxy_url, https_url=proxy_url)
-                self._api_cache[cache_key] = YouTubeTranscriptApi(proxy_config=proxy_config)
+                self._api_cache[cache_key] = YouTubeTranscriptApi(
+                    proxy_config=proxy_config, http_client=_new_http_client()
+                )
             else:
                 logger.debug("Creating YouTube API without proxy")
-                self._api_cache[cache_key] = YouTubeTranscriptApi()
+                self._api_cache[cache_key] = YouTubeTranscriptApi(http_client=_new_http_client())
 
         return self._api_cache[cache_key]
 
@@ -124,6 +153,10 @@ class YouTubeTranscriptsService:
             raise HTTPException(
                 status_code=503, detail="YouTube is temporarily blocking requests. Please try again later."
             )
+        elif isinstance(e, RequestsTimeout):
+            # Checked before ConnectionError: ConnectTimeout subclasses both.
+            logger.error("Timed out while %s for video_id %s", operation, video_id)
+            raise HTTPException(status_code=504, detail="YouTube did not respond in time. Please try again.")
         elif isinstance(e, (ProxyError, RequestsConnectionError)):
             # requests embeds the full proxy URL, credentials and all, in the text
             # of ProxyError and ConnectionError ("Cannot connect to proxy ...").
@@ -171,7 +204,9 @@ class YouTubeTranscriptsService:
             try:
                 api = self._get_current_api()
                 return func(api, *args, **kwargs)
-            except (IpBlocked, RequestBlocked, ProxyError, RequestsConnectionError) as e:
+            # A timeout is retried like a proxy failure: with rotation on, the
+            # slow hop is usually the proxy, and the next attempt gets another.
+            except (IpBlocked, RequestBlocked, ProxyError, RequestsConnectionError, RequestsTimeout) as e:
                 last_exception = e
                 logger.warning(
                     f"Attempt {attempt + 1}/{MAX_RETRY_ATTEMPTS} failed for {operation} "

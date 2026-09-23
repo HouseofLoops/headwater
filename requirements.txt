@@ -14,6 +14,10 @@ pydantic==2.13.5
 pydantic-settings==2.15.0
 
 # HTTP & Networking
+# httpx is the app's own client. requests stays a direct dependency on purpose:
+# youtube-transcript-api is built on it (the service hands it a requests
+# Session with a default timeout and catches requests' exception types), and
+# gnews, newspaper4k, trendspy and tldextract all pull it in regardless.
 requests==2.34.2
 httpx==0.28.1
 
