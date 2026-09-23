@@ -1,5 +1,3 @@
-from app.core.proxy import mask_proxy
-
 """
 HTTP Client Manager with Connection Pooling.
 
@@ -17,6 +15,7 @@ import httpx
 
 from app.core.config import get_settings
 from app.core.constants import DEFAULT_USER_AGENT
+from app.core.proxy import mask_proxy
 
 logger = logging.getLogger("uvicorn")
 
@@ -211,7 +210,7 @@ class HTTPClientManager:
         try:
             # Wrap gather with timeout to prevent indefinite hanging
             results = await asyncio.wait_for(asyncio.gather(*tasks, return_exceptions=True), timeout=batch_timeout)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.error("Batch request timed out after %.1f seconds with %d requests", batch_timeout, len(requests))
             # Return timeout errors for all requests
             return [

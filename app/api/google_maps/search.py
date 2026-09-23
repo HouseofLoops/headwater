@@ -30,6 +30,7 @@ from app.api.google_maps.schemas import (
     seconds_needed_for,
 )
 from app.core.auth import get_api_key
+from app.core.cache_manager import generate_cache_key, get_cached_or_fetch
 from app.core.log_safety import scrub
 from app.core.rate_limiter import rate_limit
 from app.services.google_maps_service import google_maps_service
@@ -39,8 +40,6 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(route_class=SafeUrlValidationRoute)
 
-
-from app.core.cache_manager import generate_cache_key, get_cached_or_fetch
 
 # A Maps search costs ~12s per result because each place is opened and read in
 # turn, so an identical repeat query cost 40s twice over. Every other module
@@ -197,7 +196,7 @@ async def search_places(
         raise
     except Exception as e:
         logger.error(f"Search error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL)
+        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL) from e
 
 
 @router.get(
@@ -331,7 +330,7 @@ async def nearby_search(
         raise
     except Exception as e:
         logger.error(f"Nearby search error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL)
+        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL) from e
 
 
 @router.get("/nearby", summary="Search nearby places (GET)", response_description="Places within radius")
@@ -419,7 +418,7 @@ async def grid_search(
         raise
     except Exception as e:
         logger.error(f"Grid search error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL)
+        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL) from e
 
 
 @router.post(
@@ -477,7 +476,7 @@ async def bounding_box_search(
         raise
     except Exception as e:
         logger.error(f"Bounding box search error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL)
+        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL) from e
 
 
 @router.post(
@@ -528,7 +527,7 @@ async def location_search(
         raise
     except Exception as e:
         logger.error(f"Location search error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL)
+        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL) from e
 
 
 @router.get(
@@ -639,7 +638,7 @@ async def autocomplete(
         raise
     except Exception as e:
         logger.error(f"Autocomplete error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL)
+        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL) from e
 
 
 @router.post("/bulk-search", summary="Bulk search places", response_description="Results for multiple queries")
@@ -690,4 +689,4 @@ async def bulk_search(
         raise
     except Exception as e:
         logger.error(f"Bulk search error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL)
+        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL) from e

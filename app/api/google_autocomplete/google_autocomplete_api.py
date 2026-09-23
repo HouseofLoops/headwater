@@ -11,6 +11,7 @@ import logging
 import time
 import xml.etree.ElementTree as ET
 from datetime import datetime
+from typing import Any, ClassVar
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field, field_validator
@@ -22,14 +23,6 @@ from app.core.http_client import get_http_client_manager
 from app.core.input_sanitizer import get_input_sanitizer
 from app.core.proxy import get_proxy, mask_proxy
 from app.core.rate_limiter import rate_limit
-from app.services.google_autocomplete_service import google_autocomplete_service
-
-# Configure logging
-logger = logging.getLogger("uvicorn")
-logging.basicConfig(level=logging.INFO)
-
-
-# Import enums from central schema
 from app.schemas.enums import (
     ClientType,
     DataSource,
@@ -37,6 +30,11 @@ from app.schemas.enums import (
     SafeSearch,
     SearchClient,
 )
+from app.services.google_autocomplete_service import google_autocomplete_service
+
+# Configure logging
+logger = logging.getLogger("uvicorn")
+logging.basicConfig(level=logging.INFO)
 
 
 # Pydantic model for request validation
@@ -89,7 +87,7 @@ class GoogleAutocompleteParams(BaseModel):
     class Config:
         """Configuration for the Pydantic model."""
 
-        json_schema_extra = {
+        json_schema_extra: ClassVar[dict[str, Any]] = {
             "example": {
                 "q": "chrome",
                 "output": "chrome",
@@ -529,7 +527,7 @@ async def get_autocomplete(
                             raise HTTPException(
                                 status_code=500,
                                 detail=f"Failed to parse response as XML or JSON. Parameter conflict may exist between output={output.value} and client={client.value if client else 'None'}",
-                            )
+                            ) from e
                     else:
                         # Both parsers failed: the upstream payload is not
                         # something we can interpret. Returning it as a 200
@@ -542,7 +540,7 @@ async def get_autocomplete(
                         raise HTTPException(
                             status_code=502,
                             detail="Upstream returned a response we could not parse.",
-                        )
+                        ) from e
             else:
                 # Try XML parsing first for toolbar/XML output formats
                 try:
@@ -565,11 +563,13 @@ async def get_autocomplete(
                     except ValueError as e2:
                         logger.error(f"Both XML and JSON parsing failed: {e2!s}")
                         logger.error(f"Response content: {response_text[:500]}...")
-                        raise HTTPException(status_code=500, detail="Failed to parse response as either XML or JSON")
+                        raise HTTPException(
+                            status_code=500, detail="Failed to parse response as either XML or JSON"
+                        ) from e2
 
         # Get cached result or fetch and cache
         return await get_cached_or_fetch(cache_key, fetch_autocomplete_suggestions)
 
     except Exception as e:
         logger.error(f"Error in get_autocomplete: {e!s}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Internal Server Error: {e!s}")
+        raise HTTPException(status_code=500, detail=f"Internal Server Error: {e!s}") from e

@@ -83,13 +83,11 @@ exclude_lines = [
 # =============================================================================
 # ruff
 # =============================================================================
-# The full rule set below currently reports ~1242 findings on this codebase, so
-# CI runs it with --exit-zero and publishes the count (see _verify.yml). The
-# blocking gate in CI is the much narrower `E9,F63,F7,F82` selection - syntax
-# errors and undefined names - which the repository is already clean on.
-#
-# RATCHET: shrink `ignore` below, or drop --exit-zero from the CI step, as the
-# count comes down. Never widen `ignore` to make a red build green.
+# The full rule set below is blocking in CI and pre-commit (see _verify.yml):
+# the codebase started at ~1242 findings and the ratchet reached zero on
+# 2026-09-23. Silence a deliberate exception on its line with
+# `# noqa: <RULE> - <reason>`. Never widen `ignore` to make a red build green;
+# every entry there carries the reason the rule is wrong for this codebase.
 [tool.ruff]
 # Matches the Dockerfile base image (python:3.14-slim-trixie) and the CI
 # python-version, which is the only interpreter this code ships on.
@@ -118,9 +116,15 @@ select = [
 ignore = [
     "E501",  # line length - the formatter owns this
     "B008",  # function call in argument default: this is how FastAPI Depends works
-    "B904",  # raise ... from err - worth fixing, too noisy to block on today
-    "UP007", # X | Y annotations - deferred until the 3.11 floor is confirmed
+    # (str, Enum) -> StrEnum changes str()/format() of members from "Cls.NAME"
+    # to the value, and members are interpolated into cache keys and f-strings
+    # (e.g. cache_manager's key builder), so the rewrite is not a no-op here.
+    "UP042",
 ]
+# The EN DASH is deliberate: Google renders opening hours and price ranges as
+# "9 AM–5 PM" / "$10–25", and the scraper regexes, examples and tests must
+# match that exact character.
+allowed-confusables = ["–"]
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]              # re-exports

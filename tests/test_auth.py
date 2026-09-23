@@ -253,7 +253,7 @@ class TestGlobalState:
         """
         state = _auth_snapshot()
         assert state.settings is get_settings()
-        assert state.keys == frozenset(k for k in (list(state.settings.API_KEYS) + [state.settings.API_KEY]) if k)
+        assert state.keys == frozenset(k for k in [*state.settings.API_KEYS, state.settings.API_KEY] if k)
 
     def test_initialize_api_keys_reads_settings(self, monkeypatch):
         """initialize_api_keys() merges API_KEYS and API_KEY from Settings."""

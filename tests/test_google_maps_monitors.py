@@ -23,6 +23,7 @@ import hashlib
 import hmac
 import json
 import socket
+from typing import ClassVar
 from unittest.mock import patch
 
 import pytest
@@ -52,7 +53,7 @@ def _fake_getaddrinfo(host, port, *args, **kwargs):
     try:
         address = _DNS_MAP[host]
     except KeyError:
-        raise socket.gaierror(f"unknown test host {host!r}")
+        raise socket.gaierror(f"unknown test host {host!r}") from None
     return [(socket.AF_INET, socket.SOCK_STREAM, 6, "", (address, port))]
 
 
@@ -69,8 +70,8 @@ class FakeAsyncClient:
     last one repeats once exhausted, so a test can say "always 500".
     """
 
-    calls: list = []
-    queue: list = []
+    calls: ClassVar[list] = []
+    queue: ClassVar[list] = []
 
     def __init__(self, *args, **kwargs):
         self.follow_redirects = kwargs.get("follow_redirects")
@@ -785,7 +786,7 @@ class TestScheduler:
         record = await store.get(ALICE, created["monitor_id"])
         data = dict(record.data)
         data["next_check"] = 0
-        data["last_snapshot"] = {f: None for f in data["track_fields"]}
+        data["last_snapshot"] = dict.fromkeys(data["track_fields"])
         await store.put(ALICE, created["monitor_id"], data)
 
         async def fetch(_monitor):

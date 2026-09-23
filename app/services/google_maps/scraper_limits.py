@@ -11,13 +11,12 @@ import logging
 import os
 import weakref
 from collections.abc import Sequence
-from typing import Any, TypeVar
+from typing import Any
 
 # Logs under the facade module's name so log routing and filters keyed on
 # ``app.services.google_maps_scraper`` are unaffected by the split.
 logger = logging.getLogger("app.services.google_maps_scraper")
 
-T = TypeVar("T")
 # -- Concurrency limits -------------------------------------------------------
 #
 # Chromium is roughly 100 MB resident per instance. These are deliberately
@@ -107,7 +106,7 @@ def _browser_semaphore() -> asyncio.Semaphore:
     return sem
 
 
-def cap_fanout(items: Sequence[T], *, kind: str = "fan-out") -> list[T]:
+def cap_fanout[T](items: Sequence[T], *, kind: str = "fan-out") -> list[T]:
     """Clamp a fan-out list (grid points, bulk queries) to the hard ceiling.
 
     Callers that build a work list -- ``grid_search``, ``bulk_search`` -- must

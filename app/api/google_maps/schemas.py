@@ -8,7 +8,7 @@ handler happens to read it.
 
 import math
 from enum import Enum
-from typing import Any
+from typing import Any, ClassVar
 
 from pydantic import BaseModel, Field, validator
 
@@ -69,7 +69,7 @@ class SearchRequest(BaseModel):
     )
 
     class Config:
-        json_schema_extra = {
+        json_schema_extra: ClassVar[dict[str, Any]] = {
             "example": {
                 "query": "coffee shops in Manhattan",
                 "language": "en",
@@ -220,7 +220,7 @@ class PlaceResult(BaseModel):
     )
 
     class Config:
-        json_schema_extra = {
+        json_schema_extra: ClassVar[dict[str, Any]] = {
             "example": {
                 "place_id": "0x54950a0d7f8a85e5:0x1234567890abcdef",
                 "name": "Starbucks",
@@ -555,7 +555,7 @@ class GridSearchRequest(BaseModel):
     language: str = Field(default="en", description="Language code")
 
     class Config:
-        json_schema_extra = {
+        json_schema_extra: ClassVar[dict[str, Any]] = {
             "example": {
                 "query": "restaurants",
                 "center_lat": 45.3807,
@@ -581,7 +581,7 @@ class BoundingBoxRequest(BaseModel):
     language: str = Field(default="en", description="Language code")
 
     class Config:
-        json_schema_extra = {
+        json_schema_extra: ClassVar[dict[str, Any]] = {
             "example": {
                 "query": "coffee shops",
                 "north_lat": 45.42,
@@ -609,6 +609,6 @@ class LocationSearchRequest(BaseModel):
     language: str = Field(default="en", description="Language code")
 
     class Config:
-        json_schema_extra = {
+        json_schema_extra: ClassVar[dict[str, Any]] = {
             "example": {"query": "restaurants", "location": "Gladstone, OR", "radius_km": 2.0, "grid_size": 5}
         }

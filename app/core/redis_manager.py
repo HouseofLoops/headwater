@@ -7,7 +7,7 @@ that can be used by caching, rate limiting, and other Redis-dependent features.
 
 import asyncio
 import logging
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 
 import redis.asyncio as aioredis
 from redis.asyncio import Redis
@@ -395,10 +395,8 @@ class RedisManager:
             bool: True if reconnection successful
         """
         if self._client:
-            try:
+            with suppress(Exception):
                 await self._client.close()
-            except Exception:
-                pass
 
         self._client = None
         self._initialized = False

@@ -178,7 +178,7 @@ class MemoryCacheBackend(CacheBackend):
             if pattern:
                 # Pattern matching (simple prefix matching)
                 prefix = pattern.rstrip("*")
-                keys_to_delete = [k for k in self._store.keys() if k.startswith(prefix)]
+                keys_to_delete = [k for k in self._store if k.startswith(prefix)]
                 for key in keys_to_delete:
                     del self._store[key]
                 count = len(keys_to_delete)
@@ -246,7 +246,7 @@ class RedisCacheBackend(CacheBackend):
     Falls back gracefully if Redis is unavailable.
     """
 
-    def __init__(self, redis_url: str = None):
+    def __init__(self, redis_url: str | None = None):
         """
         Initialize the Redis cache backend.
 

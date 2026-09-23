@@ -238,7 +238,7 @@ class GoogleAutocompleteService:
         Returns:
             Dictionary with categorized suggestions and metadata
         """
-        categorized_suggestions = {key: {} for key in self.categories.keys()}
+        categorized_suggestions = {key: {} for key in self.categories}
         metadata_collection = {}
 
         # Build list of all tasks

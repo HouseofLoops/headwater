@@ -19,7 +19,7 @@ What these tests pin down:
 """
 
 import socket
-from typing import Any
+from typing import Any, ClassVar
 from unittest import mock
 from unittest.mock import AsyncMock
 
@@ -769,7 +769,7 @@ class TestOwnerIsPropagatedToService:
     tests assert the argument actually crosses it.
     """
 
-    MONITOR_CALLS = [
+    MONITOR_CALLS: ClassVar[list] = [
         (
             "post",
             "/api/v1/google-maps/monitors",

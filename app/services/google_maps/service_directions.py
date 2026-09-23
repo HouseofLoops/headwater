@@ -5,7 +5,7 @@ Directions scraping for GoogleMapsService.
 import asyncio
 import logging
 from datetime import datetime
-from typing import Any
+from typing import Any, ClassVar
 
 from app.core.proxy import ENABLE_PROXY, proxy_for
 from app.services.google_maps.constants import GOOGLE_MAPS_HOST
@@ -42,7 +42,7 @@ class DirectionsMixin:
     )
 
     # Metres per unit, for normalising whatever unit Google renders.
-    _DISTANCE_UNITS = {
+    _DISTANCE_UNITS: ClassVar[dict[str, float]] = {
         "km": 1000.0,
         "m": 1.0,
         "mi": 1609.344,

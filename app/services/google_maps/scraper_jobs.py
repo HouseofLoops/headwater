@@ -111,7 +111,7 @@ class ScrapeJob:
         data["created_at"] = datetime.fromisoformat(created_at) if created_at else datetime.now()
         completed_at = data.get("completed_at")
         data["completed_at"] = datetime.fromisoformat(completed_at) if completed_at else None
-        known = {f for f in cls.__dataclass_fields__}
+        known = set(cls.__dataclass_fields__)
         return cls(**{k: v for k, v in data.items() if k in known})
 
 
@@ -182,6 +182,10 @@ class JobStore:
         """List ``owner``'s jobs, newest first, optionally filtered by status."""
         predicate = None
         if status:
-            predicate = lambda record: record.data.get("status") == status
+
+            def _status_matches(record) -> bool:
+                return record.data.get("status") == status
+
+            predicate = _status_matches
         records = await self._store.list_for_owner(owner, limit=limit, offset=offset, predicate=predicate)
         return [ScrapeJob.from_record(r.data) for r in records]

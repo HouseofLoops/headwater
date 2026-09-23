@@ -7,7 +7,7 @@ from environment variables using Pydantic's BaseSettings.
 
 import json
 from functools import lru_cache
-from typing import Annotated, Union
+from typing import Annotated
 
 from pydantic import (
     RedisDsn,
@@ -43,7 +43,7 @@ _NON_PRODUCTION_ENVIRONMENTS = frozenset({"development", "dev", "local", "test",
 CsvList = Annotated[list[str], NoDecode]
 
 
-def _parse_delimited_list(value: Union[str, list[str], None]) -> list[str]:
+def _parse_delimited_list(value: str | list[str] | None) -> list[str]:
     """
     Parse a list-valued setting from either a JSON array or a comma-separated
     string.
@@ -188,7 +188,7 @@ class Settings(BaseSettings):
         mode="before",
     )
     @classmethod
-    def assemble_list_setting(cls, v: Union[str, list[str], None]) -> list[str]:
+    def assemble_list_setting(cls, v: str | list[str] | None) -> list[str]:
         """
         Parse a list-valued setting from a comma-separated or JSON string.
 
@@ -301,7 +301,7 @@ def _build_settings() -> Settings:
         ) from None
 
 
-@lru_cache()
+@lru_cache
 def get_settings() -> Settings:
     """
     Get the application settings.

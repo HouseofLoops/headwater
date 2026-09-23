@@ -9,7 +9,9 @@ database access, and more.
 from fastapi import Depends, Header, Request
 
 from app.core.auth import authenticate_api_key
+from app.core.cache_manager import CacheManager, cache_manager
 from app.core.config import Settings, get_settings
+from app.core.http_client import HTTPClientManager, get_http_client_manager
 
 
 # Settings dependency
@@ -62,8 +64,6 @@ async def get_optional_api_key(request: Request, x_api_key: str | None = Header(
 # -----------------------------------------------------------------------------
 # Service dependencies for testability
 # -----------------------------------------------------------------------------
-from app.core.cache_manager import CacheManager, cache_manager
-from app.core.http_client import HTTPClientManager, get_http_client_manager
 
 
 def get_http_client_dependency() -> HTTPClientManager:

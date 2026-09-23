@@ -19,6 +19,7 @@ test declares.
 """
 
 import socket
+from typing import ClassVar
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -81,7 +82,7 @@ class FakeScraper:
     """Stands in for GoogleMapsScraper. ``page`` is set by each test."""
 
     page = None
-    instances = []
+    instances: ClassVar[list] = []
 
     def __init__(self, *args, **kwargs):
         self.closed = False
@@ -325,7 +326,7 @@ class TestDirectionParsers:
         ],
     )
     def test_distance(self, text, metres):
-        label, value = GoogleMapsService._parse_distance(text)
+        _label, value = GoogleMapsService._parse_distance(text)
         assert round(value) == metres
 
     def test_distance_absent(self):

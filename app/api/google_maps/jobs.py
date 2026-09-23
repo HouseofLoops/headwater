@@ -308,4 +308,4 @@ async def export_job_results(
         raise
     except Exception as e:
         logger.error(f"Export error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL)
+        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL) from e

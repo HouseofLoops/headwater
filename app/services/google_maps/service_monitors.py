@@ -35,7 +35,7 @@ class MonitorsMixin:
         url: str | None = None,
         webhook_url: str | None = None,
         check_interval_hours: int = 24,
-        track_fields: list[str] = None,
+        track_fields: list[str] | None = None,
         api_key: str | None = None,
     ) -> dict[str, Any]:
         """

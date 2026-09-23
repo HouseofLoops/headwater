@@ -195,7 +195,7 @@ class YouTubeTranscriptsService:
         # All retries failed
         self._handle_youtube_exception(last_exception, video_id, operation)
 
-    def fetch_transcript(self, video_id: str, languages: list[str] = None) -> list[dict[str, Any]]:
+    def fetch_transcript(self, video_id: str, languages: list[str] | None = None) -> list[dict[str, Any]]:
         """
         Fetch transcript for a YouTube video with retry support.
 
@@ -218,7 +218,7 @@ class YouTubeTranscriptsService:
 
         return self._execute_with_retry(_fetch, video_id, "fetching transcript")
 
-    async def fetch_transcript_async(self, video_id: str, languages: list[str] = None) -> list[dict[str, Any]]:
+    async def fetch_transcript_async(self, video_id: str, languages: list[str] | None = None) -> list[dict[str, Any]]:
         """
         Asynchronously fetch transcript for a YouTube video.
 
@@ -279,7 +279,7 @@ class YouTubeTranscriptsService:
         """
         return await asyncio.to_thread(self.list_available_transcripts, video_id)
 
-    def get_transcript_metadata(self, video_id: str, languages: list[str] = None):
+    def get_transcript_metadata(self, video_id: str, languages: list[str] | None = None):
         """
         Get transcript metadata for a video.
 
@@ -303,7 +303,7 @@ class YouTubeTranscriptsService:
         return self._execute_with_retry(_get_metadata, video_id, "getting metadata")
 
     def translate_transcript(
-        self, video_id: str, target_language: str, source_languages: list[str] = None
+        self, video_id: str, target_language: str, source_languages: list[str] | None = None
     ) -> dict[str, Any]:
         """
         Translate a transcript to the target language with retry support.
@@ -347,7 +347,7 @@ class YouTubeTranscriptsService:
         return self._execute_with_retry(_translate, video_id, "translating transcript")
 
     async def translate_transcript_async(
-        self, video_id: str, target_language: str, source_languages: list[str] = None
+        self, video_id: str, target_language: str, source_languages: list[str] | None = None
     ) -> dict[str, Any]:
         """
         Asynchronously translate a transcript.
@@ -362,7 +362,7 @@ class YouTubeTranscriptsService:
         """
         return await asyncio.to_thread(self.translate_transcript, video_id, target_language, source_languages)
 
-    def format_transcript(self, video_id: str, format_type: str, languages: list[str] = None) -> str:
+    def format_transcript(self, video_id: str, format_type: str, languages: list[str] | None = None) -> str:
         """
         Fetch and format transcript directly from a video with retry support.
 
@@ -407,7 +407,7 @@ class YouTubeTranscriptsService:
 
         return self._execute_with_retry(_format, video_id, "formatting transcript")
 
-    async def format_transcript_async(self, video_id: str, format_type: str, languages: list[str] = None) -> str:
+    async def format_transcript_async(self, video_id: str, format_type: str, languages: list[str] | None = None) -> str:
         """
         Asynchronously format a transcript.
 

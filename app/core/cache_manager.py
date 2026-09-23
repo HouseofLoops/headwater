@@ -8,6 +8,7 @@ Uses the shared async Redis manager for Redis operations.
 """
 
 import asyncio
+import contextlib
 import functools
 import hashlib
 import json
@@ -379,10 +380,7 @@ class CacheManager:
         redis_manager = await _get_redis_manager()
         if redis_manager and redis_manager.is_available:
             try:
-                if namespace:
-                    pattern = f"cache:{namespace}:*"
-                else:
-                    pattern = "cache:*"
+                pattern = f"cache:{namespace}:*" if namespace else "cache:*"
 
                 keys = await redis_manager.keys(pattern)
                 if keys:
@@ -395,7 +393,7 @@ class CacheManager:
         async with _cache_lock:
             if namespace:
                 prefix = f"cache:{namespace}:"
-                keys_to_delete = [k for k in _cache_store.keys() if k.startswith(prefix)]
+                keys_to_delete = [k for k in _cache_store if k.startswith(prefix)]
                 for k in keys_to_delete:
                     del _cache_store[k]
                 logger.debug(f"Cache clear (memory) for namespace: {namespace}, {len(keys_to_delete)} keys")
@@ -444,10 +442,8 @@ class CacheManager:
 
                     # Join and hash if too long
                     key_str = ":".join(key_parts)
-                    if len(key_str) > 250:  # Redis keys are limited to 512 bytes
-                        key = hashlib.md5(key_str.encode()).hexdigest()
-                    else:
-                        key = key_str
+                    # Redis keys are limited to 512 bytes
+                    key = hashlib.md5(key_str.encode()).hexdigest() if len(key_str) > 250 else key_str
 
                 # Try to get from cache
                 cached_value = await self.get(key, namespace)
@@ -526,10 +522,8 @@ async def stop_cleanup_task():
     global _cleanup_task
     if _cleanup_task is not None and not _cleanup_task.done():
         _cleanup_task.cancel()
-        try:
+        with contextlib.suppress(asyncio.CancelledError):
             await _cleanup_task
-        except asyncio.CancelledError:
-            pass
         logger.info("Cache cleanup task stopped")
     _cleanup_task = None
 
@@ -632,10 +626,7 @@ def generate_cache_key(base_key: str, **kwargs) -> str:
     for key, value in sorted_kwargs:
         if value is not None:
             # Convert value to string and handle special cases
-            if isinstance(value, list):
-                value_str = ",".join(str(v) for v in value)
-            else:
-                value_str = str(value)
+            value_str = ",".join(str(v) for v in value) if isinstance(value, list) else str(value)
             key_parts.append(f"{key}={value_str}")
 
     # Join parts with colons

@@ -62,7 +62,7 @@ async def get_place_by_id(
         raise
     except Exception as e:
         logger.error(f"Place lookup error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL)
+        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL) from e
 
 
 @router.post("/place/lookup", summary="Lookup place by URL or ID", response_description="Place details")
@@ -93,7 +93,7 @@ async def lookup_place(
         raise
     except Exception as e:
         logger.error(f"Place lookup error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL)
+        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL) from e
 
 
 @router.get(
@@ -155,7 +155,7 @@ async def get_place_reviews(
         raise
     except Exception as e:
         logger.error(f"Get reviews error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL)
+        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL) from e
 
 
 @router.get("/place/{place_id}/photos", summary="Get place photos", response_description="Photo URLs with metadata")
@@ -207,7 +207,7 @@ async def get_place_photos(
         raise
     except Exception as e:
         logger.error(f"Get photos error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL)
+        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL) from e
 
 
 @router.get("/place/{place_id}/qa", summary="Get place Q&A", response_description="Questions and answers")
@@ -246,7 +246,7 @@ async def get_place_qa(
         raise
     except Exception as e:
         logger.error(f"Get Q&A error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL)
+        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL) from e
 
 
 @router.get("/place/{place_id}/menu", summary="Extract menu", response_description="Structured menu data")
@@ -296,7 +296,7 @@ async def extract_menu(
         raise
     except Exception as e:
         logger.error(f"Menu extraction error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL)
+        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL) from e
 
 
 @router.get(
@@ -338,7 +338,7 @@ async def get_place_attributes(
         raise
     except Exception as e:
         logger.error(f"Get attributes error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL)
+        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL) from e
 
 
 @router.get("/place/{place_id}/history", summary="Get place history", response_description="Historical data for place")
@@ -385,7 +385,7 @@ async def get_place_history(
         raise
     except Exception as e:
         logger.error(f"Get history error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL)
+        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL) from e
 
 
 @router.get(
@@ -431,4 +431,4 @@ async def check_availability(
         raise
     except Exception as e:
         logger.error(f"Check availability error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL)
+        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL) from e

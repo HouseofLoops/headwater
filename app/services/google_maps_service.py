@@ -365,10 +365,9 @@ class GoogleMapsService(
         while elapsed < timeout:
             status_response = await self.get_job_status(job_id, owner=owner)
 
-            if status_response.get("error"):
-                # If it's a real error (not just job not found during creation)
-                if status_response.get("status_code") != 404:
-                    return status_response
+            # A real error (not just the job not being found yet during creation)
+            if status_response.get("error") and status_response.get("status_code") != 404:
+                return status_response
 
             status = status_response.get("status", "").lower()
 

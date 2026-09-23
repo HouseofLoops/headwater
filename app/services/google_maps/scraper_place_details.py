@@ -5,6 +5,7 @@ Place-panel extraction for GoogleMapsScraper.
 """
 
 import asyncio
+import contextlib
 import logging
 import re
 from typing import Any
@@ -53,7 +54,7 @@ class PlaceDetailsMixin:
                 main_panel = page.locator("div[role='main']").first
                 if await main_panel.count() > 0:
                     # Scroll down in steps to trigger lazy loading
-                    for scroll_step in range(6):
+                    for _ in range(6):
                         await main_panel.evaluate("el => el.scrollBy(0, 800)")
                         await asyncio.sleep(0.7)
                     await asyncio.sleep(1)
@@ -142,10 +143,8 @@ class PlaceDetailsMixin:
             rating_el = page.locator("div.F7nice span[aria-hidden='true']").first
             if await rating_el.count() > 0:
                 rating_text = await rating_el.text_content()
-                try:
+                with contextlib.suppress(ValueError, AttributeError):
                     place["review_rating"] = float(rating_text.replace(",", "."))
-                except ValueError, AttributeError:
-                    pass
 
             # Review count - look for text like "(123)"
             review_count_el = page.locator("div.F7nice span[aria-label*='review']").first

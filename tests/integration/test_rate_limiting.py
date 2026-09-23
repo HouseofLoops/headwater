@@ -295,7 +295,7 @@ class TestRateLimitByKey:
 
         # User A makes requests
         for _ in range(3):
-            response = client.get("/api-config", headers={"X-API-Key": "key-user-a"})
+            client.get("/api-config", headers={"X-API-Key": "key-user-a"})
 
         # Precondition, so a regression here reports its cause rather than just
         # "B got 429": A's traffic must have landed in a per-API-key bucket. If
