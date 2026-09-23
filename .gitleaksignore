@@ -1,0 +1,8 @@
+# Findings reviewed and confirmed NOT to be secrets. One fingerprint per line
+# (commit:file:rule:line), so each entry covers exactly one historical hit and
+# nothing else. Say why next to every entry.
+
+# docs/GOOGLE_ADS_SETUP.md (since deleted) showed the env format with a dummy
+# refresh token: the "1//0" prefix followed by the alphabet. gitleaks 8.24.x's
+# generic-api-key rule flags it on full-history scans (schedule/dispatch).
+42792bb20522835a32a698ccad1c943cdde3bd97:docs/GOOGLE_ADS_SETUP.md:generic-api-key:272

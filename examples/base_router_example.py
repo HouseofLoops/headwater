@@ -3,7 +3,7 @@ Example usage of the BaseRouter class.
 
 This module demonstrates how to use the BaseRouter class with its new features.
 """
-from fastapi import FastAPI, Depends, HTTPException, Request
+from fastapi import FastAPI
 from typing import Dict, List, Optional
 from pydantic import BaseModel
 from app.core.base_router import BaseRouter
