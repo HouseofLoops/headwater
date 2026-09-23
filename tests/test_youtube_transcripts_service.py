@@ -57,7 +57,7 @@ def test_timeout_maps_to_504(exc):
 
 def test_timeout_is_retried(monkeypatch):
     service = yts.YouTubeTranscriptsService()
-    monkeypatch.setattr(service, "_get_current_api", lambda: object())
+    monkeypatch.setattr(service, "_get_current_api", object)
     func = MagicMock(side_effect=[ReadTimeout("slow"), ["ok"]])
 
     assert service._execute_with_retry(func, "vid", "fetching transcript") == ["ok"]
@@ -66,7 +66,7 @@ def test_timeout_is_retried(monkeypatch):
 
 def test_timeout_on_every_attempt_is_a_504(monkeypatch):
     service = yts.YouTubeTranscriptsService()
-    monkeypatch.setattr(service, "_get_current_api", lambda: object())
+    monkeypatch.setattr(service, "_get_current_api", object)
     func = MagicMock(side_effect=ReadTimeout("slow"))
 
     with pytest.raises(HTTPException) as info:

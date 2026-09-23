@@ -1,10 +1,10 @@
 """app.schemas must actually provide every name its __all__ advertises."""
 
-import app.schemas
+from app import schemas
 
 
 def test_every_exported_name_is_importable():
-    missing = [name for name in app.schemas.__all__ if not hasattr(app.schemas, name)]
+    missing = [name for name in schemas.__all__ if not hasattr(schemas, name)]
     assert missing == []
 
 

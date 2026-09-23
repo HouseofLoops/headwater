@@ -443,23 +443,24 @@ class TestDecorators:
 
     def test_memoize_basic(self):
         """Test basic memoization."""
-        call_count = 0
+        # Record every real invocation. A list (rather than a nonlocal int)
+        # makes the "not called again" check a comparison on observed state.
+        calls = []
 
         @memoize
         def test_func(x):
-            nonlocal call_count
-            call_count += 1
+            calls.append(x)
             return x * 2
 
         # First call
         result1 = test_func(5)
         assert result1 == 10
-        assert call_count == 1
+        assert calls == [5]
 
         # Second call with same argument should use cache
         result2 = test_func(5)
         assert result2 == 10
-        assert call_count == 1  # Should not increment
+        assert calls == [5]  # Should not be invoked again
 
     def test_timeit_basic(self):
         """Test basic timing decorator."""
@@ -609,8 +610,7 @@ class TestTextExtractionUtils:
         """Test basic URL extraction."""
         text = "Visit https://example.com and http://test.com"
         result = extract_urls(text)
-        assert "https://example.com" in result
-        assert "http://test.com" in result
+        assert result == ["https://example.com", "http://test.com"]
 
     def test_extract_emails_basic(self):
         """Test basic email extraction."""

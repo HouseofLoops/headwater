@@ -373,10 +373,9 @@ def patched_redis(fake_redis: FakeRedis, monkeypatch: pytest.MonkeyPatch) -> Fak
     Use this in tests that exercise caching or rate limiting without wanting a
     real Redis (and without the network guard rejecting the connection).
     """
-    try:
-        import redis.asyncio as redis_asyncio
-    except Exception:  # pragma: no cover - redis not installed
-        pytest.skip("redis is not installed")
+    # importorskip binds the module or skips; there is no path on which
+    # ``redis_asyncio`` is used unbound.
+    redis_asyncio = pytest.importorskip("redis.asyncio", reason="redis is not installed")
 
     monkeypatch.setattr(redis_asyncio, "from_url", lambda *a, **k: fake_redis, raising=False)
     monkeypatch.setattr(redis_asyncio, "Redis", lambda *a, **k: fake_redis, raising=False)
