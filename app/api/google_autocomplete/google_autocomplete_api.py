@@ -17,14 +17,13 @@ import time
 import xml.etree.ElementTree as ET
 from datetime import datetime
 
-import requests
 
 from app.core.auth import get_api_key
 from app.core.cache_manager import generate_cache_key, get_cached_or_fetch
 from app.core.config import get_settings
 from app.core.http_client import get_http_client_manager
 from app.core.input_sanitizer import get_input_sanitizer
-from app.core.proxy import get_proxy, get_proxy_sync, mask_proxy
+from app.core.proxy import get_proxy, mask_proxy
 from app.core.rate_limiter import rate_limit
 from app.services.google_autocomplete_service import google_autocomplete_service
 
@@ -608,130 +607,3 @@ async def get_autocomplete(
     except Exception as e:
         logger.error(f"Error in get_autocomplete: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
-
-
-# Legacy sync function kept for backward compatibility
-def get_suggestions_for_query(q: str, output: OutputFormat = OutputFormat.TOOLBAR, gl: str = "US", hl: str = "en", ds: str = "", spell: int = 1) -> list:
-    """
-    Synchronously fetch suggestions for a given query.
-
-    ## Core Parameters
-    - **q**: Search query string (required, URL encoded)
-    - **output**: Response format (toolbar, firefox, chrome, etc.)
-    - **gl**: Geographic location/country (ISO country codes like US, UK)
-    - **hl**: Host language (ISO language codes like en, es, fr)
-    - **ds**: Data source (yt=YouTube, i=Images, n=News, etc.)
-    - **spell**: Enable spell correction (0=disabled, 1=enabled)
-    """
-    suggestions = []
-    try:
-        proxy_url = get_proxy_sync()
-        proxies = {"http": proxy_url, "https": proxy_url} if proxy_url else None
-        
-        # Build parameters dictionary
-        params = {
-            "q": q,
-            "output": output.value if isinstance(output, OutputFormat) else output,
-            "gl": gl,
-            "hl": hl,
-            "spell": spell
-        }
-        
-        # Add ds parameter if provided and not empty
-        if ds:
-            params["ds"] = ds
-            
-        # Make request with parameters
-        response = requests.get("https://www.google.com/complete/search", params=params, proxies=proxies)
-
-        if response.status_code != 200:
-            logger.error(f"Failed to retrieve suggestions for query '{q}'. Status Code: {response.status_code}")
-            return suggestions
-
-        # Determine the actual response format based on parameters and content
-        # When client parameter is specified, Google usually returns JSON regardless of output parameter
-        should_try_json_first = (
-            isinstance(output, str) and output.lower() in ["chrome", "firefox", "safari", "opera"] or
-            isinstance(output, OutputFormat) and output in [OutputFormat.CHROME, OutputFormat.FIREFOX, OutputFormat.SAFARI, OutputFormat.OPERA]
-        )
-        
-        # Check if response looks like JSON (starts with [ or {) or JSONP (contains callback function)
-        response_text = response.text if hasattr(response, 'text') else response.content.decode('utf-8', errors='ignore')
-        looks_like_json = response_text.strip().startswith(('[', '{')) if response_text else False
-        looks_like_jsonp = "(" in response_text and response_text.endswith(")") if response_text else False
-        
-        # Smart response parsing - try the most likely format first, then fall back
-        if should_try_json_first or looks_like_json or looks_like_jsonp:
-            # Try JSON parsing first
-            try:
-                # Handle JSONP response (callback wrapped JSON)
-                if looks_like_jsonp:
-                    logger.debug(f"Detected JSONP response for query '{q}', extracting JSON data")
-                    # Extract JSON data from JSONP wrapper
-                    # Format is typically: callback_name({"data": "value"});
-                    start_idx = response_text.find('(')
-                    end_idx = response_text.rfind(')')
-                    
-                    if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
-                        json_str = response_text[start_idx + 1:end_idx]
-                        data = json.loads(json_str)
-                        # Process the extracted JSON data
-                        if isinstance(data, list) and len(data) > 1 and isinstance(data[1], list):
-                            if all(isinstance(item, list) and len(item) > 0 for item in data[1]):
-                                suggestions = [item[0].lower() for item in data[1] if isinstance(item, list) and len(item) > 0]
-                            else:
-                                suggestions = [item.lower() for item in data[1]]
-                    else:
-                        logger.warning(f"Failed to extract JSON from JSONP response for query '{q}'")
-                else:
-                    # Regular JSON response
-                    data = response.json()
-                    if isinstance(data, list) and len(data) > 1 and isinstance(data[1], list):
-                        if all(isinstance(item, list) and len(item) > 0 for item in data[1]):
-                            suggestions = [item[0].lower() for item in data[1] if isinstance(item, list) and len(item) > 0]
-                        else:
-                            suggestions = [item.lower() for item in data[1]]
-            except (ValueError, AttributeError) as e:
-                logger.warning(f"JSON parsing failed for query '{q}', falling back to XML: {str(e)}")
-                
-                # Only fall back to XML if output is XML/toolbar
-                if (isinstance(output, str) and output.lower() in ["toolbar", "xml"]) or (
-                    isinstance(output, OutputFormat) and output in [OutputFormat.XML, OutputFormat.TOOLBAR]
-                ):
-                    try:
-                        root = ET.fromstring(response.content)
-                        for complete_suggestion in root.findall("CompleteSuggestion"):
-                            suggestion_element = complete_suggestion.find("suggestion")
-                            if suggestion_element is not None:
-                                data = suggestion_element.get("data", "").lower()
-                                suggestions.append(data)
-                    except ET.ParseError as e:
-                        logger.error(f"XML Parse Error for query '{q}': {str(e)}")
-                        logger.error(f"Response Content: {response.text[:200] if hasattr(response, 'text') else 'No text available'}...")
-        else:
-            # Try XML parsing first for toolbar/XML output formats
-            try:
-                root = ET.fromstring(response.content)
-                for complete_suggestion in root.findall("CompleteSuggestion"):
-                    suggestion_element = complete_suggestion.find("suggestion")
-                    if suggestion_element is not None:
-                        data = suggestion_element.get("data", "").lower()
-                        suggestions.append(data)
-            except ET.ParseError as e:
-                logger.warning(f"XML parsing failed for query '{q}', trying JSON: {str(e)}")
-                
-                # Fall back to JSON parsing
-                try:
-                    data = response.json()
-                    if isinstance(data, list) and len(data) > 1 and isinstance(data[1], list):
-                        if all(isinstance(item, list) and len(item) > 0 for item in data[1]):
-                            suggestions = [item[0].lower() for item in data[1] if isinstance(item, list) and len(item) > 0]
-                        else:
-                            suggestions = [item.lower() for item in data[1]]
-                except (ValueError, AttributeError) as e2:
-                    logger.error(f"Both XML and JSON parsing failed for query '{q}': {str(e2)}")
-                    logger.error(f"Response Content: {response.text[:200] if hasattr(response, 'text') else 'No text available'}...")
-    except Exception as e:
-        logger.error(f"Exception in get_suggestions_for_query for query '{q}': {str(e)}", exc_info=True)
-
-    return suggestions

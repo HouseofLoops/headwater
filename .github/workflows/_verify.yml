@@ -82,7 +82,7 @@ jobs:
             requirements-dev.txt
 
       # ruff is intentionally installed standalone rather than via
-      # requirements-dev.txt: that file is owned elsewhere and does not list it.
+      # requirements-dev.txt, so the lint job stays fast; keep the pin in step with it.
       - name: Install ruff
         run: python -m pip install --upgrade pip && pip install 'ruff==0.16.4'
 

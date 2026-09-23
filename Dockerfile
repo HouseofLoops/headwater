@@ -61,7 +61,8 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # (PYSEC-2026-3740) and is only needed for article summary and keywords. This
 # also removes a network call from the image build.
 # Restore this RUN, the NLTK_DATA env and the two /opt/nltk_data lines below
-# when a fixed nltk is re-pinned.
+# when a fixed nltk is re-pinned. nltk.txt (repo root) is the corpus list to
+# download at that point; it is kept deliberately, not a leftover.
 
 
 # =============================================================================

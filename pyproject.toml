@@ -91,9 +91,9 @@ exclude_lines = [
 # RATCHET: shrink `ignore` below, or drop --exit-zero from the CI step, as the
 # count comes down. Never widen `ignore` to make a red build green.
 [tool.ruff]
-# Matches the Dockerfile base image (python:3.11-slim-bookworm), which is the
-# oldest interpreter this code has to run on.
-target-version = "py311"
+# Matches the Dockerfile base image (python:3.14-slim-trixie) and the CI
+# python-version, which is the only interpreter this code ships on.
+target-version = "py314"
 line-length = 120
 indent-width = 4
 extend-exclude = [
