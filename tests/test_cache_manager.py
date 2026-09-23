@@ -1,27 +1,27 @@
-import pytest
 import asyncio
 import logging
-import time
 from dataclasses import dataclass
-from datetime import date, datetime, time as dt_time, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
+from datetime import time as dt_time
 from decimal import Decimal
 from enum import Enum
+from unittest.mock import MagicMock, patch
 from uuid import UUID
-from unittest.mock import patch, MagicMock
 
+import pytest
 from pydantic import BaseModel
 
 from app.core.cache_manager import (
     CacheManager,
     CacheSerializationError,
+    cached,
+    clear_cache,
+    delete_from_cache,
     generate_cache_key,
     get_cached_or_fetch,
     get_from_cache,
     set_in_cache,
-    delete_from_cache,
-    clear_cache,
-    cached,
-    start_cleanup_task
+    start_cleanup_task,
 )
 
 
@@ -50,7 +50,7 @@ class TestCacheManager:
 
     def test_init_defaults(self):
         """Test CacheManager initialization with defaults."""
-        with patch('app.core.cache_manager.get_settings') as mock_get_settings:
+        with patch("app.core.cache_manager.get_settings") as mock_get_settings:
             mock_settings = MagicMock()
             mock_settings.ENABLE_CACHE = True
             mock_settings.CACHE_TTL = 3600
@@ -94,6 +94,7 @@ class TestCacheManager:
     async def test_get_set_memory_only(self):
         """Test get/set operations with in-memory cache only."""
         from unittest.mock import MagicMock
+
         mock_settings = MagicMock()
         mock_settings.ENABLE_CACHE = True
         mock_settings.CACHE_TTL = 600
@@ -116,6 +117,7 @@ class TestCacheManager:
     async def test_delete(self):
         """Test delete operation."""
         from unittest.mock import MagicMock
+
         mock_settings = MagicMock()
         mock_settings.ENABLE_CACHE = True
         mock_settings.CACHE_TTL = 600
@@ -137,6 +139,7 @@ class TestCacheManager:
     async def test_clear(self):
         """Test clear operation."""
         from unittest.mock import MagicMock
+
         mock_settings = MagicMock()
         mock_settings.ENABLE_CACHE = True
         mock_settings.CACHE_TTL = 600
@@ -159,6 +162,7 @@ class TestCacheManager:
     async def test_clear_namespace(self):
         """Test clear operation with namespace."""
         from unittest.mock import MagicMock
+
         mock_settings = MagicMock()
         mock_settings.ENABLE_CACHE = True
         mock_settings.CACHE_TTL = 600
@@ -181,8 +185,9 @@ class TestCacheManager:
 
     def test_cached_decorator(self):
         """Test cached decorator."""
-        from app.core.cache_manager import CacheManager
         from unittest.mock import MagicMock
+
+        from app.core.cache_manager import CacheManager
 
         # Create a cache manager with caching enabled
         mock_settings = MagicMock()
@@ -249,6 +254,7 @@ class TestGenerateCacheKey:
 
         # Should be hashed due to length
         import hashlib
+
         expected_hash = hashlib.md5(f"test:long_param={long_value}".encode()).hexdigest()
         assert key == expected_hash
 
@@ -265,6 +271,7 @@ class TestGetCachedOrFetch:
     async def test_cache_hit(self):
         """Test that cached value is returned when available."""
         from unittest.mock import MagicMock
+
         mock_settings = MagicMock()
         mock_settings.ENABLE_CACHE = True
         mock_settings.CACHE_TTL = 600
@@ -273,6 +280,7 @@ class TestGetCachedOrFetch:
 
         # Patch the global cache_manager
         import app.core.cache_manager
+
         original_manager = app.core.cache_manager.cache_manager
         app.core.cache_manager.cache_manager = test_manager
 
@@ -282,6 +290,7 @@ class TestGetCachedOrFetch:
 
             # Mock fetch function (should not be called)
             fetch_called = False
+
             async def mock_fetch():
                 nonlocal fetch_called
                 fetch_called = True
@@ -299,6 +308,7 @@ class TestGetCachedOrFetch:
     async def test_cache_miss_fetch_success(self):
         """Test fetching and caching when cache miss."""
         from unittest.mock import MagicMock
+
         mock_settings = MagicMock()
         mock_settings.ENABLE_CACHE = True
         mock_settings.CACHE_TTL = 600
@@ -307,6 +317,7 @@ class TestGetCachedOrFetch:
 
         # Patch the global cache_manager
         import app.core.cache_manager
+
         original_manager = app.core.cache_manager.cache_manager
         app.core.cache_manager.cache_manager = test_manager
 
@@ -315,6 +326,7 @@ class TestGetCachedOrFetch:
             await delete_from_cache("test_key")
 
             fetch_called = False
+
             async def mock_fetch():
                 nonlocal fetch_called
                 fetch_called = True
@@ -347,6 +359,7 @@ class TestGetCachedOrFetch:
     async def test_custom_ttl(self):
         """Test custom TTL parameter."""
         from unittest.mock import MagicMock
+
         mock_settings = MagicMock()
         mock_settings.ENABLE_CACHE = True
         mock_settings.CACHE_TTL = 600
@@ -355,6 +368,7 @@ class TestGetCachedOrFetch:
 
         # Patch the global cache_manager
         import app.core.cache_manager
+
         original_manager = app.core.cache_manager.cache_manager
         app.core.cache_manager.cache_manager = test_manager
 
@@ -384,6 +398,7 @@ class TestConvenienceFunctions:
     async def test_get_from_cache(self):
         """Test get_from_cache convenience function."""
         from unittest.mock import MagicMock
+
         mock_settings = MagicMock()
         mock_settings.ENABLE_CACHE = True
         mock_settings.CACHE_TTL = 600
@@ -392,6 +407,7 @@ class TestConvenienceFunctions:
 
         # Patch the global cache_manager
         import app.core.cache_manager
+
         original_manager = app.core.cache_manager.cache_manager
         app.core.cache_manager.cache_manager = test_manager
 
@@ -411,6 +427,7 @@ class TestConvenienceFunctions:
     async def test_set_in_cache(self):
         """Test set_in_cache convenience function."""
         from unittest.mock import MagicMock
+
         mock_settings = MagicMock()
         mock_settings.ENABLE_CACHE = True
         mock_settings.CACHE_TTL = 600
@@ -419,6 +436,7 @@ class TestConvenienceFunctions:
 
         # Patch the global cache_manager
         import app.core.cache_manager
+
         original_manager = app.core.cache_manager.cache_manager
         app.core.cache_manager.cache_manager = test_manager
 
@@ -436,6 +454,7 @@ class TestConvenienceFunctions:
     async def test_delete_from_cache(self):
         """Test delete_from_cache convenience function."""
         from unittest.mock import MagicMock
+
         mock_settings = MagicMock()
         mock_settings.ENABLE_CACHE = True
         mock_settings.CACHE_TTL = 600
@@ -444,6 +463,7 @@ class TestConvenienceFunctions:
 
         # Patch the global cache_manager
         import app.core.cache_manager
+
         original_manager = app.core.cache_manager.cache_manager
         app.core.cache_manager.cache_manager = test_manager
 
@@ -463,6 +483,7 @@ class TestConvenienceFunctions:
     async def test_clear_cache_convenience(self):
         """Test clear_cache convenience function."""
         from unittest.mock import MagicMock
+
         mock_settings = MagicMock()
         mock_settings.ENABLE_CACHE = True
         mock_settings.CACHE_TTL = 600
@@ -471,6 +492,7 @@ class TestConvenienceFunctions:
 
         # Patch the global cache_manager
         import app.core.cache_manager
+
         original_manager = app.core.cache_manager.cache_manager
         app.core.cache_manager.cache_manager = test_manager
 
@@ -489,8 +511,9 @@ class TestConvenienceFunctions:
 
     def test_cached_decorator_convenience(self):
         """Test cached decorator convenience function."""
-        from app.core.cache_manager import CacheManager
         from unittest.mock import MagicMock
+
+        from app.core.cache_manager import CacheManager
 
         # Create a cache manager with caching enabled and patch the global one
         mock_settings = MagicMock()
@@ -501,6 +524,7 @@ class TestConvenienceFunctions:
 
         # Patch the global cache_manager
         import app.core.cache_manager
+
         original_manager = app.core.cache_manager.cache_manager
         app.core.cache_manager.cache_manager = test_manager
 
@@ -551,6 +575,7 @@ class TestCleanupTask:
         except Exception as e:
             pytest.fail(f"start_cleanup_task() raised an exception: {e}")
 
+
 class TestSerializationRoundTrip:
     """
     Round-trip tests for the cache serializer.
@@ -593,12 +618,10 @@ class TestSerializationRoundTrip:
         result = manager._deserialize(manager._serialize(value))
 
         assert result == value
-        assert isinstance(result, datetime), (
-            f"datetime came back as {type(result).__name__}: {result!r}"
-        )
+        assert isinstance(result, datetime), f"datetime came back as {type(result).__name__}: {result!r}"
 
     def test_datetime_with_timezone_round_trips(self, manager):
-        value = datetime(2024, 3, 17, 12, 30, tzinfo=timezone.utc)
+        value = datetime(2024, 3, 17, 12, 30, tzinfo=UTC)
 
         result = manager._deserialize(manager._serialize(value))
 
@@ -662,6 +685,7 @@ class TestSerializationRoundTrip:
         importing a dotted path named inside cache content, which is a
         code-execution vector if the cache backend is ever tampered with.
         """
+
         class Sample(BaseModel):
             id: int
             name: str
@@ -704,6 +728,7 @@ class TestSerializationRoundTrip:
 
     def test_unserializable_value_is_refused_not_stringified(self, manager):
         """The old code returned str(value) here and cached garbage."""
+
         class Opaque:
             def __repr__(self):
                 return "<Opaque object at 0xdeadbeef>"
@@ -762,6 +787,4 @@ class TestSetRefusesUncacheableValues:
 
         cached_value = await manager.get("model_key")
         assert cached_value == {"id": 7, "name": "x"}
-        assert not isinstance(cached_value, str), (
-            "model was cached as a string - this is the corruption bug"
-        )
+        assert not isinstance(cached_value, str), "model was cached as a string - this is the corruption bug"

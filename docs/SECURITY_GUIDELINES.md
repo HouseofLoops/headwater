@@ -69,24 +69,25 @@ X-RateLimit-Reset: 1631548800
 from pydantic import BaseModel, validator
 from typing import Optional
 
+
 class NewsSearchRequest(BaseModel):
     q: str
     country: Optional[str] = "US"
     language: Optional[str] = "en"
     max_results: Optional[int] = 10
 
-    @validator('q')
+    @validator("q")
     def validate_query(cls, v):
         if not v or len(v.strip()) == 0:
-            raise ValueError('Query cannot be empty')
+            raise ValueError("Query cannot be empty")
         if len(v) > 500:
-            raise ValueError('Query too long')
+            raise ValueError("Query too long")
         return v.strip()
 
-    @validator('max_results')
+    @validator("max_results")
     def validate_max_results(cls, v):
         if v < 1 or v > 100:
-            raise ValueError('max_results must be between 1 and 100')
+            raise ValueError("max_results must be between 1 and 100")
         return v
 ```
 
@@ -151,7 +152,7 @@ server {
 
 ```dockerfile
 # Use minimal base image
-FROM python:3.9-alpine
+FROM python:3.14-alpine
 
 # Create non-root user
 RUN addgroup -g 1001 -S appuser && \
@@ -237,31 +238,15 @@ spec:
 from prometheus_client import Counter, Histogram
 
 # Authentication metrics
-AUTH_ATTEMPTS = Counter(
-    'auth_attempts_total',
-    'Total authentication attempts',
-    ['result', 'method']
-)
+AUTH_ATTEMPTS = Counter("auth_attempts_total", "Total authentication attempts", ["result", "method"])
 
-AUTH_FAILURES = Counter(
-    'auth_failures_total',
-    'Total authentication failures',
-    ['reason']
-)
+AUTH_FAILURES = Counter("auth_failures_total", "Total authentication failures", ["reason"])
 
 # Request metrics
-REQUESTS_TOTAL = Counter(
-    'http_requests_total',
-    'Total HTTP requests',
-    ['method', 'endpoint', 'status', 'user_agent']
-)
+REQUESTS_TOTAL = Counter("http_requests_total", "Total HTTP requests", ["method", "endpoint", "status", "user_agent"])
 
 # Suspicious activity detection
-SUSPICIOUS_REQUESTS = Counter(
-    'suspicious_requests_total',
-    'Total suspicious requests',
-    ['type', 'ip_address']
-)
+SUSPICIOUS_REQUESTS = Counter("suspicious_requests_total", "Total suspicious requests", ["type", "ip_address"])
 ```
 
 ## Incident Response
@@ -399,6 +384,7 @@ docker scan headwater/api:latest
 # Google Cloud KMS for API key encryption
 from google.cloud import kms_v1
 
+
 def encrypt_api_key(api_key: str) -> bytes:
     """Encrypt API key using Google Cloud KMS"""
     client = kms_v1.KeyManagementServiceClient()
@@ -406,6 +392,7 @@ def encrypt_api_key(api_key: str) -> bytes:
 
     response = client.encrypt(request={"name": name, "plaintext": api_key.encode()})
     return response.ciphertext
+
 
 def decrypt_api_key(encrypted_key: bytes) -> str:
     """Decrypt API key using Google Cloud KMS"""

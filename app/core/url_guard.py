@@ -45,16 +45,16 @@ from __future__ import annotations
 
 import ipaddress
 import socket
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
-from typing import Iterable, Sequence
 from urllib.parse import urlsplit, urlunsplit
 
 __all__ = [
+    "MAPS_ALLOWED_HOSTS",
+    "NEWS_ALLOWED_HOSTS",
     "UrlNotAllowed",
     "ValidatedUrl",
     "validate_outbound_url",
-    "NEWS_ALLOWED_HOSTS",
-    "MAPS_ALLOWED_HOSTS",
 ]
 
 
@@ -307,11 +307,7 @@ def validate_outbound_url(
         if bad:
             # An allow-listed name pointing at a private address means either a
             # hijacked record or split-horizon DNS. Either way, do not connect.
-            raise UrlNotAllowed(
-                f"host {host!r} resolves to non-routable address(es): {', '.join(bad)}"
-            )
+            raise UrlNotAllowed(f"host {host!r} resolves to non-routable address(es): {', '.join(bad)}")
 
     normalised = urlunsplit((scheme, parts.netloc.lower(), parts.path, parts.query, ""))
-    return ValidatedUrl(
-        url=normalised, host=host, port=port, ip_addresses=ip_addresses
-    )
+    return ValidatedUrl(url=normalised, host=host, port=port, ip_addresses=ip_addresses)

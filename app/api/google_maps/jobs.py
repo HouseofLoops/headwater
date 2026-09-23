@@ -7,12 +7,12 @@ A cross-owner read is 404, never 403: a 403 would confirm the id exists.
 Mounted onto ``google_maps_router`` by this package's ``__init__``; the paths
 declared here are relative to the ``/google-maps`` prefix applied there.
 """
+
 import csv
 import io
 import json
 import logging
 from datetime import datetime
-from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from fastapi.responses import StreamingResponse
@@ -27,30 +27,23 @@ from app.api.google_maps.schemas import (
     ExportFormat,
 )
 from app.core.auth import get_api_key
+from app.core.log_safety import scrub
 from app.core.rate_limiter import rate_limit
 from app.services.google_maps_service import google_maps_service
 from app.services.record_store import owner_id_for_api_key
-from app.core.log_safety import scrub
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(route_class=SafeUrlValidationRoute)
 
 
-@router.get(
-    "/jobs",
-    summary="List all scraping jobs",
-    response_description="List of jobs with their status"
-)
+@router.get("/jobs", summary="List all scraping jobs", response_description="List of jobs with their status")
 async def list_jobs(
-    status: Optional[str] = Query(
-        None,
-        description="Filter by status (pending, running, completed, failed)"
-    ),
+    status: str | None = Query(None, description="Filter by status (pending, running, completed, failed)"),
     limit: int = Query(50, ge=1, le=100, description="Maximum jobs to return"),
     offset: int = Query(0, ge=0, description="Pagination offset"),
     api_key: str = Depends(get_api_key),
-    rate_limit_check: None = Depends(rate_limit)
+    rate_limit_check: None = Depends(rate_limit),
 ):
     """
     List the calling API key's scraping jobs, with optional status filtering.
@@ -58,10 +51,7 @@ async def list_jobs(
     Only jobs created by this API key are ever returned.
     """
     result = await google_maps_service.list_jobs(
-        owner=owner_id_for_api_key(api_key),
-        status=status,
-        limit=limit,
-        offset=offset
+        owner=owner_id_for_api_key(api_key), status=status, limit=limit, offset=offset
     )
 
     # gosom returns a list on success, dict on error
@@ -77,28 +67,22 @@ async def list_jobs(
         "total": len(jobs),
         "limit": limit,
         "offset": offset,
-        "timestamp": datetime.now().isoformat()
+        "timestamp": datetime.now().isoformat(),
     }
 
 
-@router.get(
-    "/jobs/{job_id}",
-    summary="Get job status",
-    response_description="Job status and progress information"
-)
+@router.get("/jobs/{job_id}", summary="Get job status", response_description="Job status and progress information")
 async def get_job_status(
     job_id: str = Path(..., description="Job ID to check"),
     api_key: str = Depends(get_api_key),
-    rate_limit_check: None = Depends(rate_limit)
+    rate_limit_check: None = Depends(rate_limit),
 ):
     """
     Get the status of one of this API key's scraping jobs.
 
     A job belonging to another caller is reported as not found.
     """
-    result = await google_maps_service.get_job_status(
-        job_id, owner=owner_id_for_api_key(api_key)
-    )
+    result = await google_maps_service.get_job_status(job_id, owner=owner_id_for_api_key(api_key))
 
     if result.get("error"):
         if result.get("status_code") == 404:
@@ -111,20 +95,18 @@ async def get_job_status(
         "status": result.get("status"),
         "progress": result.get("progress"),
         "details": result,
-        "timestamp": datetime.now().isoformat()
+        "timestamp": datetime.now().isoformat(),
     }
 
 
 @router.get(
-    "/jobs/{job_id}/results",
-    summary="Get job results",
-    response_description="Search results from completed job"
+    "/jobs/{job_id}/results", summary="Get job results", response_description="Search results from completed job"
 )
 async def get_job_results(
     job_id: str = Path(..., description="Job ID to get results for"),
     format: str = Query("json", description="Output format (json, csv)"),
     api_key: str = Depends(get_api_key),
-    rate_limit_check: None = Depends(rate_limit)
+    rate_limit_check: None = Depends(rate_limit),
 ):
     """
     Get the results of one of this API key's completed scraping jobs.
@@ -159,7 +141,7 @@ async def get_job_results(
             "status": job_status,
             "message": "Job is still running. Please check back later.",
             "progress": status_result.get("progress"),
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now().isoformat(),
         }
 
     if job_status == "failed":
@@ -169,15 +151,14 @@ async def get_job_results(
         # when the key is absent. Made explicit, and the reason -- which names
         # browser paths and proxy hosts -- is logged rather than returned.
         logger.warning(
-                "Job %s reported status 'failed': %s",
-                scrub(job_id), scrub(status_result),
-            )
+            "Job %s reported status 'failed': %s",
+            scrub(job_id),
+            scrub(status_result),
+        )
         raise HTTPException(status_code=500, detail="Job failed.")
 
     # Get results
-    result = await google_maps_service.get_job_results(
-        job_id, owner=owner, format=format
-    )
+    result = await google_maps_service.get_job_results(job_id, owner=owner, format=format)
 
     if result.get("error"):
         raise upstream_error(result, "Failed to get job results")
@@ -188,7 +169,7 @@ async def get_job_results(
             "job_id": job_id,
             "format": "csv",
             "data": result.get("data"),
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now().isoformat(),
         }
 
     # Process JSON results
@@ -200,19 +181,15 @@ async def get_job_results(
         "status": "completed",
         "total_results": len(places),
         "places": places,
-        "timestamp": datetime.now().isoformat()
+        "timestamp": datetime.now().isoformat(),
     }
 
 
-@router.delete(
-    "/jobs/{job_id}",
-    summary="Delete a job",
-    response_description="Deletion confirmation"
-)
+@router.delete("/jobs/{job_id}", summary="Delete a job", response_description="Deletion confirmation")
 async def delete_job(
     job_id: str = Path(..., description="Job ID to delete"),
     api_key: str = Depends(get_api_key),
-    rate_limit_check: None = Depends(rate_limit)
+    rate_limit_check: None = Depends(rate_limit),
 ):
     """
     Delete one of this API key's jobs and its results.
@@ -220,9 +197,7 @@ async def delete_job(
     A job belonging to another caller is reported as not found and is not
     deleted.
     """
-    result = await google_maps_service.delete_job(
-        job_id, owner=owner_id_for_api_key(api_key)
-    )
+    result = await google_maps_service.delete_job(job_id, owner=owner_id_for_api_key(api_key))
 
     if result.get("error"):
         if result.get("status_code") == 404:
@@ -233,20 +208,16 @@ async def delete_job(
         "success": True,
         "job_id": job_id,
         "message": "Job deleted successfully",
-        "timestamp": datetime.now().isoformat()
+        "timestamp": datetime.now().isoformat(),
     }
 
 
-@router.get(
-    "/jobs/{job_id}/export",
-    summary="Export job results",
-    response_description="Results in specified format"
-)
+@router.get("/jobs/{job_id}/export", summary="Export job results", response_description="Results in specified format")
 async def export_job_results(
     job_id: str = Path(..., description="Job ID"),
     format: ExportFormat = Query(ExportFormat.JSON, description="Export format"),
     api_key: str = Depends(get_api_key),
-    rate_limit_check: None = Depends(rate_limit)
+    rate_limit_check: None = Depends(rate_limit),
 ):
     """
     Export one of this API key's job results in various formats.
@@ -266,9 +237,7 @@ async def export_job_results(
 
     try:
         # Get job results
-        result = await google_maps_service.get_job_results(
-            job_id, owner=owner_id_for_api_key(api_key)
-        )
+        result = await google_maps_service.get_job_results(job_id, owner=owner_id_for_api_key(api_key))
 
         if result.get("error"):
             if result.get("status_code") == 404:
@@ -299,7 +268,7 @@ async def export_job_results(
             return StreamingResponse(
                 iter([output.getvalue()]),
                 media_type="text/csv",
-                headers={"Content-Disposition": f"attachment; filename=results_{job_id}.csv"}
+                headers={"Content-Disposition": f"attachment; filename=results_{job_id}.csv"},
             )
 
         elif format == ExportFormat.JSON_LINES:
@@ -309,7 +278,7 @@ async def export_job_results(
             return StreamingResponse(
                 iter([content]),
                 media_type="application/x-ndjson",
-                headers={"Content-Disposition": f"attachment; filename=results_{job_id}.jsonl"}
+                headers={"Content-Disposition": f"attachment; filename=results_{job_id}.jsonl"},
             )
 
         elif format == ExportFormat.EXCEL:
@@ -321,7 +290,7 @@ async def export_job_results(
                 "message": "Excel export - use CSV format and import to Excel, or integrate openpyxl for native xlsx",
                 "data_preview": places[:5],
                 "total_records": len(places),
-                "timestamp": datetime.now().isoformat()
+                "timestamp": datetime.now().isoformat(),
             }
 
         else:
@@ -332,11 +301,11 @@ async def export_job_results(
                 "format": "json",
                 "total_results": len(places),
                 "places": places,
-                "timestamp": datetime.now().isoformat()
+                "timestamp": datetime.now().isoformat(),
             }
 
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Export error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL)
+        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL) from e

@@ -3,6 +3,7 @@
 Mounted onto ``google_maps_router`` by this package's ``__init__``; the paths
 declared here are relative to the ``/google-maps`` prefix applied there.
 """
+
 import logging
 from datetime import datetime
 
@@ -20,7 +21,7 @@ router = APIRouter(route_class=SafeUrlValidationRoute)
 @router.get(
     "/health",
     summary="Check Google Maps scraper health",
-    response_description="Health status of the Google Maps scraper service"
+    response_description="Health status of the Google Maps scraper service",
 )
 async def check_health(rate_limit_check: None = Depends(rate_limit)):
     """
@@ -38,5 +39,5 @@ async def check_health(rate_limit_check: None = Depends(rate_limit)):
         "service": "google-maps-scraper",
         "healthy": health.get("healthy", False),
         "timestamp": datetime.now().isoformat(),
-        "details": health
+        "details": health,
     }

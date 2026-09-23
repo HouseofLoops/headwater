@@ -7,6 +7,7 @@ implements that combination by reflecting the request ``Origin`` back with
 ``Access-Control-Allow-Credentials: true``, which means any website on the
 internet can make credentialed cross-origin calls to the API.
 """
+
 from unittest.mock import MagicMock
 
 import pytest
@@ -37,21 +38,15 @@ class TestResolveCorsPolicy:
         policy = resolve_cors_policy(make_settings("development", ["*"]))
 
         assert policy["allow_origins"] == ["*"]
-        assert policy["allow_credentials"] is False, (
-            "wildcard origins must never be combined with credentials"
-        )
+        assert policy["allow_credentials"] is False, "wildcard origins must never be combined with credentials"
 
     def test_wildcard_among_other_origins_still_disables_credentials(self):
-        policy = resolve_cors_policy(
-            make_settings("development", ["https://app.example.com", "*"])
-        )
+        policy = resolve_cors_policy(make_settings("development", ["https://app.example.com", "*"]))
 
         assert policy["allow_credentials"] is False
 
     def test_explicit_origins_allow_credentials(self):
-        policy = resolve_cors_policy(
-            make_settings("development", ["https://app.example.com"])
-        )
+        policy = resolve_cors_policy(make_settings("development", ["https://app.example.com"]))
 
         assert policy["allow_origins"] == ["https://app.example.com"]
         assert policy["allow_credentials"] is True
@@ -63,9 +58,7 @@ class TestResolveCorsPolicy:
         assert "CORS_ORIGINS" in str(excinfo.value)
 
     def test_explicit_origins_accepted_in_production(self):
-        policy = resolve_cors_policy(
-            make_settings("production", ["https://app.headwater.com"])
-        )
+        policy = resolve_cors_policy(make_settings("production", ["https://app.headwater.com"]))
 
         assert policy["allow_credentials"] is True
 
@@ -104,9 +97,7 @@ class TestCorsResponses:
         assert response.headers.get("access-control-allow-origin") != "https://evil.example"
 
     def test_explicit_allow_list_rejects_unknown_origin(self):
-        client = TestClient(
-            self.build_app(make_settings("development", ["https://app.example.com"]))
-        )
+        client = TestClient(self.build_app(make_settings("development", ["https://app.example.com"])))
 
         allowed = client.get("/probe", headers={"Origin": "https://app.example.com"})
         assert allowed.headers.get("access-control-allow-origin") == "https://app.example.com"

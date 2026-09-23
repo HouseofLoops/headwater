@@ -29,34 +29,33 @@ import asyncio
 import itertools
 import logging
 import re
-from typing import List, Optional, Tuple
 
 logger = logging.getLogger("uvicorn")
 
 __all__ = [
+    "get_available_proxies",
     "get_proxy",
     "get_proxy_sync",
-    "proxy_for",
-    "mask_proxy",
     "is_host_excluded",
-    "rotate_proxy",
     "is_proxy_enabled",
-    "get_available_proxies",
+    "mask_proxy",
+    "proxy_for",
+    "rotate_proxy",
 ]
 
 _proxy_lock = asyncio.Lock()
 
 # Round-robin cursor, rebuilt whenever the resolved proxy list changes so that
 # a settings reload does not keep cycling a stale list.
-_proxy_iter: Optional[itertools.cycle] = None
-_proxy_iter_source: Tuple[str, ...] = ()
+_proxy_iter: itertools.cycle | None = None
+_proxy_iter_source: tuple[str, ...] = ()
 
 
 def is_valid_url(url: str) -> bool:
-    return re.match(r'^(http|https):\/\/[^\s\/$.?#].[^\s]*$', url) is not None
+    return re.match(r"^(http|https):\/\/[^\s\/$.?#].[^\s]*$", url) is not None
 
 
-def _load_proxy_config() -> Tuple[bool, List[str]]:
+def _load_proxy_config() -> tuple[bool, list[str]]:
     """Read proxy configuration from Settings.
 
     Returns:
@@ -75,7 +74,7 @@ def _load_proxy_config() -> Tuple[bool, List[str]]:
 
     enabled = bool(getattr(settings, "ENABLE_PROXY", False))
 
-    raw_values: List[str] = []
+    raw_values: list[str] = []
     for attr in ("PROXY_URLS", "PROXY_URL"):
         value = getattr(settings, attr, None)
         if not value:
@@ -85,7 +84,7 @@ def _load_proxy_config() -> Tuple[bool, List[str]]:
         else:
             raw_values.extend(str(value).split(","))
 
-    urls: List[str] = []
+    urls: list[str] = []
     for candidate in raw_values:
         candidate = candidate.strip()
         if not candidate:
@@ -99,7 +98,7 @@ def _load_proxy_config() -> Tuple[bool, List[str]]:
     return enabled, urls
 
 
-def _next_proxy(urls: List[str]) -> Optional[str]:
+def _next_proxy(urls: list[str]) -> str | None:
     """Advance the round-robin cursor, rebuilding it if the list changed."""
     global _proxy_iter, _proxy_iter_source
 
@@ -126,7 +125,7 @@ def is_proxy_enabled() -> bool:
     return enabled and bool(urls)
 
 
-def get_available_proxies() -> List[str]:
+def get_available_proxies() -> list[str]:
     """Return the currently configured, valid proxy URLs."""
     return _load_proxy_config()[1]
 
@@ -138,7 +137,7 @@ def _warn_enabled_but_empty() -> None:
     )
 
 
-async def get_proxy() -> Optional[str]:
+async def get_proxy() -> str | None:
     """Return the next proxy URL, or None if proxying is off or unconfigured.
 
     Example return: ``'http://localhost:8030'``
@@ -156,7 +155,7 @@ async def get_proxy() -> Optional[str]:
     return proxy_url
 
 
-def get_proxy_sync() -> Optional[str]:
+def get_proxy_sync() -> str | None:
     """Synchronous variant of :func:`get_proxy`.
 
     Returns the first configured proxy rather than advancing the shared
@@ -174,7 +173,7 @@ def get_proxy_sync() -> Optional[str]:
     return urls[0]
 
 
-def mask_proxy(url: Optional[str]) -> str:
+def mask_proxy(url: str | None) -> str:
     """Render a proxy URL safe to log, with the password replaced.
 
     Proxy URLs carry credentials inline (``http://user:pass@host:port``). Eight
@@ -188,7 +187,7 @@ def mask_proxy(url: Optional[str]) -> str:
     return re.sub(r"://([^:/@]+):[^@]*@", r"://\1:***@", str(url))
 
 
-def _excluded_hosts() -> Tuple[str, ...]:
+def _excluded_hosts() -> tuple[str, ...]:
     """Hosts that must bypass the proxy, from ``NO_PROXY_HOSTS``.
 
     Read through ``Settings`` rather than ``os.getenv`` for the reason given in
@@ -208,7 +207,7 @@ def _excluded_hosts() -> Tuple[str, ...]:
     return tuple(h.strip().lower().lstrip(".") for h in values if h and h.strip())
 
 
-def is_host_excluded(url_or_host: Optional[str]) -> bool:
+def is_host_excluded(url_or_host: str | None) -> bool:
     """True when this target must bypass the proxy.
 
     Matches on domain suffix, so ``youtube.com`` also covers ``www.youtube.com``
@@ -221,13 +220,10 @@ def is_host_excluded(url_or_host: Optional[str]) -> bool:
     if "//" in host:
         host = host.split("//", 1)[1]
     host = host.split("/", 1)[0].split("@")[-1].split(":")[0]
-    for excluded in _excluded_hosts():
-        if host == excluded or host.endswith("." + excluded):
-            return True
-    return False
+    return any(host == excluded or host.endswith("." + excluded) for excluded in _excluded_hosts())
 
 
-def proxy_for(url_or_host: Optional[str] = None) -> Optional[str]:
+def proxy_for(url_or_host: str | None = None) -> str | None:
     """The proxy to use for this target, or ``None`` to go direct.
 
     Callers that route to a mix of targets should prefer this over
@@ -240,7 +236,7 @@ def proxy_for(url_or_host: Optional[str] = None) -> Optional[str]:
     return get_proxy_sync()
 
 
-def rotate_proxy() -> Optional[str]:
+def rotate_proxy() -> str | None:
     """Advance to the next proxy, for use when the current one fails."""
     enabled, urls = _load_proxy_config()
     if not enabled:

@@ -14,6 +14,7 @@ from app.services.record_store import (
     owner_id_for_api_key,
 )
 
+
 @pytest.fixture
 def store():
     """A store forced onto the in-memory backend (no Redis in tests)."""
@@ -88,7 +89,7 @@ class TestCrud:
         await store.put("alice", "j", {"v": 1})
         # Force expiry rather than sleeping.
         key = store._key("alice", "j")
-        expires_at, record = store._memory[key]
+        _expires_at, record = store._memory[key]
         store._memory[key] = (0.0, record)
         assert await store.get("alice", "j") is None
 
@@ -106,9 +107,7 @@ class TestListing:
     async def test_predicate_filters(self, store):
         await store.put("alice", "a", {"status": "done"})
         await store.put("alice", "b", {"status": "running"})
-        done = await store.list_for_owner(
-            "alice", predicate=lambda r: r.data.get("status") == "done"
-        )
+        done = await store.list_for_owner("alice", predicate=lambda r: r.data.get("status") == "done")
         assert [r.id for r in done] == ["a"]
 
     async def test_limit_and_offset(self, store):

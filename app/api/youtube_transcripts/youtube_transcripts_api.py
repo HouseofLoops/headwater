@@ -3,11 +3,13 @@ YouTube Transcripts API Router.
 
 Thin API layer that delegates to the YouTubeTranscriptsService.
 """
-from fastapi import APIRouter, Body, Query, HTTPException, Depends
-from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Any
+
 import asyncio
 import logging
+from typing import Any
+
+from fastapi import APIRouter, Body, Depends, HTTPException, Query
+from pydantic import BaseModel, Field
 
 from app.core.auth import get_api_key
 from app.core.cache_manager import generate_cache_key, get_cached_or_fetch
@@ -16,6 +18,7 @@ from app.services.youtube_transcripts_service import youtube_transcripts_service
 
 logger = logging.getLogger(__name__)
 youtube_transcripts_router = APIRouter()
+
 
 # Pydantic models
 class TranslationLanguage(BaseModel):
@@ -35,12 +38,12 @@ class TranscriptResponse(BaseModel):
     language_code: str
     is_generated: bool
     is_translatable: bool
-    translation_languages: List[TranslationLanguage]
-    transcript: List[TranscriptItem]
+    translation_languages: list[TranslationLanguage]
+    transcript: list[TranscriptItem]
 
 
 class TranscriptListResponse(BaseModel):
-    transcripts: List[Dict[str, Any]]
+    transcripts: list[dict[str, Any]]
 
 
 # One batch fans out to one upstream fetch per video id, so an unbounded list
@@ -49,44 +52,34 @@ MAX_BATCH_VIDEO_IDS = 50
 
 
 class BatchTranscriptRequest(BaseModel):
-    video_ids: List[str] = Field(..., description="List of YouTube video IDs")
-    languages: Optional[List[str]] = Field(None, description="Language codes by priority")
-    preserve_formatting: Optional[bool] = Field(None, description="Preserve HTML formatting")
+    video_ids: list[str] = Field(..., description="List of YouTube video IDs")
+    languages: list[str] | None = Field(None, description="Language codes by priority")
+    preserve_formatting: bool | None = Field(None, description="Preserve HTML formatting")
 
-@youtube_transcripts_router.get(
-    "/get-transcript",
-    response_model=TranscriptResponse,
-    summary="Get Transcript"
-)
+
+@youtube_transcripts_router.get("/get-transcript", response_model=TranscriptResponse, summary="Get Transcript")
 async def get_transcript(
-    video_id: str = Query(..., description="YouTube video ID", example="dQw4w9WgXcQ"),
-    languages: Optional[List[str]] = Query(["en"], description="Language codes by priority", example=["en", "es"]),
+    video_id: str = Query(..., description="YouTube video ID", examples=["dQw4w9WgXcQ"]),
+    languages: list[str] | None = Query(["en"], description="Language codes by priority", examples=[["en", "es"]]),
     preserve_formatting: bool = Query(False, description="Preserve HTML formatting"),
     api_key: str = Depends(get_api_key),
-    _rate_limit: None = Depends(rate_limit)
+    _rate_limit: None = Depends(rate_limit),
 ):
     """Get transcript for a YouTube video with automatic proxy rotation."""
     cache_key = generate_cache_key(
-        "youtube_transcript",
-        video_id=video_id,
-        languages=languages or ["en"],
-        preserve_formatting=preserve_formatting
+        "youtube_transcript", video_id=video_id, languages=languages or ["en"], preserve_formatting=preserve_formatting
     )
 
     async def fetch_data():
         lang_list = languages or ["en"]
 
         # Use service with retry and proxy rotation
-        transcript_data = await youtube_transcripts_service.fetch_transcript_async(
-            video_id, lang_list
-        )
+        transcript_data = await youtube_transcripts_service.fetch_transcript_async(video_id, lang_list)
         transcript_items = [TranscriptItem(**item) for item in transcript_data]
 
         # Get metadata via service
         transcript_meta = await asyncio.to_thread(
-            youtube_transcripts_service.get_transcript_metadata,
-            video_id,
-            lang_list
+            youtube_transcripts_service.get_transcript_metadata, video_id, lang_list
         )
 
         return TranscriptResponse(
@@ -99,51 +92,45 @@ async def get_transcript(
                 TranslationLanguage(language=lang.language, language_code=lang.language_code)
                 for lang in transcript_meta.translation_languages
             ],
-            transcript=transcript_items
+            transcript=transcript_items,
         )
 
     return await get_cached_or_fetch(cache_key, fetch_data)
 
-@youtube_transcripts_router.get(
-    "/list-transcripts",
-    response_model=TranscriptListResponse,
-    summary="List Transcripts"
-)
+
+@youtube_transcripts_router.get("/list-transcripts", response_model=TranscriptListResponse, summary="List Transcripts")
 async def list_transcripts(
-    video_id: str = Query(..., description="YouTube video ID", example="dQw4w9WgXcQ"),
+    video_id: str = Query(..., description="YouTube video ID", examples=["dQw4w9WgXcQ"]),
     api_key: str = Depends(get_api_key),
-    _rate_limit: None = Depends(rate_limit)
+    _rate_limit: None = Depends(rate_limit),
 ):
     """List all available transcripts for a video with automatic proxy rotation."""
     cache_key = generate_cache_key("youtube_transcript_list", video_id=video_id)
 
     async def fetch_data():
         # Service handles retry and proxy rotation
-        transcripts_info = await youtube_transcripts_service.list_available_transcripts_async(
-            video_id
-        )
+        transcripts_info = await youtube_transcripts_service.list_available_transcripts_async(video_id)
         return TranscriptListResponse(transcripts=transcripts_info)
 
     return await get_cached_or_fetch(cache_key, fetch_data)
 
+
 @youtube_transcripts_router.get(
-    "/translate-transcript",
-    response_model=TranscriptResponse,
-    summary="Translate Transcript"
+    "/translate-transcript", response_model=TranscriptResponse, summary="Translate Transcript"
 )
 async def translate_transcript(
-    video_id: str = Query(..., description="YouTube video ID", example="dQw4w9WgXcQ"),
-    target_language: str = Query(..., description="Target language code", example="es"),
-    source_languages: Optional[List[str]] = Query(["en"], description="Source language codes", example=["en"]),
+    video_id: str = Query(..., description="YouTube video ID", examples=["dQw4w9WgXcQ"]),
+    target_language: str = Query(..., description="Target language code", examples=["es"]),
+    source_languages: list[str] | None = Query(["en"], description="Source language codes", examples=[["en"]]),
     api_key: str = Depends(get_api_key),
-    _rate_limit: None = Depends(rate_limit)
+    _rate_limit: None = Depends(rate_limit),
 ):
     """Translate transcript to target language with automatic proxy rotation."""
     cache_key = generate_cache_key(
         "youtube_transcript_translate",
         video_id=video_id,
         target_language=target_language,
-        source_languages=source_languages or ["en"]
+        source_languages=source_languages or ["en"],
     )
 
     async def fetch_data():
@@ -160,28 +147,25 @@ async def translate_transcript(
             language_code=result["language_code"],
             is_generated=result["is_generated"],
             is_translatable=result["is_translatable"],
-            translation_languages=[
-                TranslationLanguage(**lang) for lang in result["translation_languages"]
-            ],
-            transcript=transcript_items
+            translation_languages=[TranslationLanguage(**lang) for lang in result["translation_languages"]],
+            transcript=transcript_items,
         )
 
     return await get_cached_or_fetch(cache_key, fetch_data)
 
+
 @youtube_transcripts_router.post(
-    "/batch-get-transcripts",
-    response_model=List[TranscriptResponse],
-    summary="Batch Get Transcripts"
+    "/batch-get-transcripts", response_model=list[TranscriptResponse], summary="Batch Get Transcripts"
 )
 async def batch_get_transcripts(
-    payload: Optional[BatchTranscriptRequest] = Body(None),
+    payload: BatchTranscriptRequest | None = Body(None),
     # The query form predates the body and existing callers still send repeated
     # ?video_ids= parameters, so it stays supported alongside the JSON body.
-    video_ids: Optional[List[str]] = Query(None, description="List of video IDs (query form)"),
-    languages: Optional[List[str]] = Query(None, description="Language codes by priority"),
-    preserve_formatting: Optional[bool] = Query(None, description="Preserve HTML formatting"),
+    video_ids: list[str] | None = Query(None, description="List of video IDs (query form)"),
+    languages: list[str] | None = Query(None, description="Language codes by priority"),
+    preserve_formatting: bool | None = Query(None, description="Preserve HTML formatting"),
     api_key: str = Depends(get_api_key),
-    _rate_limit: None = Depends(rate_limit)
+    _rate_limit: None = Depends(rate_limit),
 ):
     """Get transcripts for multiple videos with automatic proxy rotation.
 
@@ -192,27 +176,22 @@ async def batch_get_transcripts(
     The body wins when both are supplied. See MAX_BATCH_VIDEO_IDS for the
     per-request cap; larger batches are rejected with HTTP 400.
     """
-    if payload is not None and payload.video_ids:
-        resolved_video_ids = payload.video_ids
-    else:
-        resolved_video_ids = video_ids or []
+    resolved_video_ids = payload.video_ids if payload is not None and payload.video_ids else video_ids or []
 
     if not resolved_video_ids:
         raise HTTPException(
             status_code=400,
             detail=(
-                "video_ids is required: send a JSON body {\"video_ids\": [...]} "
-                "or repeated ?video_ids= query parameters."
-            )
+                'video_ids is required: send a JSON body {"video_ids": [...]} or repeated ?video_ids= query parameters.'
+            ),
         )
 
     if len(resolved_video_ids) > MAX_BATCH_VIDEO_IDS:
         raise HTTPException(
             status_code=400,
             detail=(
-                f"Too many video IDs: {len(resolved_video_ids)} requested, "
-                f"maximum is {MAX_BATCH_VIDEO_IDS} per batch."
-            )
+                f"Too many video IDs: {len(resolved_video_ids)} requested, maximum is {MAX_BATCH_VIDEO_IDS} per batch."
+            ),
         )
 
     if payload is not None and payload.languages is not None:
@@ -227,23 +206,19 @@ async def batch_get_transcripts(
             "youtube_transcript",
             video_id=video_id,
             languages=languages or ["en"],
-            preserve_formatting=preserve_formatting
+            preserve_formatting=preserve_formatting,
         )
 
         async def fetch_data():
             lang_list = languages or ["en"]
 
             # Use service with retry and proxy rotation
-            transcript_data = await youtube_transcripts_service.fetch_transcript_async(
-                video_id, lang_list
-            )
+            transcript_data = await youtube_transcripts_service.fetch_transcript_async(video_id, lang_list)
             transcript_items = [TranscriptItem(**item) for item in transcript_data]
 
             # Get metadata via service
             transcript_meta = await asyncio.to_thread(
-                youtube_transcripts_service.get_transcript_metadata,
-                video_id,
-                lang_list
+                youtube_transcripts_service.get_transcript_metadata, video_id, lang_list
             )
 
             return TranscriptResponse(
@@ -256,7 +231,7 @@ async def batch_get_transcripts(
                     TranslationLanguage(language=lang.language, language_code=lang.language_code)
                     for lang in transcript_meta.translation_languages
                 ],
-                transcript=transcript_items
+                transcript=transcript_items,
             )
 
         return await get_cached_or_fetch(cache_key, fetch_data)
@@ -275,20 +250,18 @@ async def batch_get_transcripts(
 
     return result
 
+
 @youtube_transcripts_router.get("/format-transcript", summary="Format Transcript")
 async def format_transcript(
-    video_id: str = Query(..., description="YouTube video ID", example="dQw4w9WgXcQ"),
+    video_id: str = Query(..., description="YouTube video ID", examples=["dQw4w9WgXcQ"]),
     format_type: str = Query("json", description="Output format: json, txt, vtt, srt, csv"),
-    languages: Optional[List[str]] = Query(["en"], description="Language codes by priority"),
+    languages: list[str] | None = Query(["en"], description="Language codes by priority"),
     api_key: str = Depends(get_api_key),
-    _rate_limit: None = Depends(rate_limit)
+    _rate_limit: None = Depends(rate_limit),
 ):
     """Get transcript in specified format (JSON, TXT, VTT, SRT, CSV) with automatic proxy rotation."""
     cache_key = generate_cache_key(
-        "youtube_transcript_format",
-        video_id=video_id,
-        format_type=format_type,
-        languages=languages or ["en"]
+        "youtube_transcript_format", video_id=video_id, format_type=format_type, languages=languages or ["en"]
     )
 
     async def fetch_data():
@@ -296,15 +269,11 @@ async def format_transcript(
 
         if format_type == "json":
             # Get transcript data and metadata via service
-            transcript_data = await youtube_transcripts_service.fetch_transcript_async(
-                video_id, lang_list
-            )
+            transcript_data = await youtube_transcripts_service.fetch_transcript_async(video_id, lang_list)
             transcript_items = [TranscriptItem(**item) for item in transcript_data]
 
             transcript_meta = await asyncio.to_thread(
-                youtube_transcripts_service.get_transcript_metadata,
-                video_id,
-                lang_list
+                youtube_transcripts_service.get_transcript_metadata, video_id, lang_list
             )
 
             response = TranscriptResponse(
@@ -317,14 +286,12 @@ async def format_transcript(
                     TranslationLanguage(language=lang.language, language_code=lang.language_code)
                     for lang in transcript_meta.translation_languages
                 ],
-                transcript=transcript_items
+                transcript=transcript_items,
             )
             return TranscriptListResponse.model_validate({"transcripts": [response.model_dump()]})
         else:
             # Use service's format method for txt, vtt, srt, csv
-            formatted = await youtube_transcripts_service.format_transcript_async(
-                video_id, format_type, lang_list
-            )
+            formatted = await youtube_transcripts_service.format_transcript_async(video_id, format_type, lang_list)
             return {"formatted_transcript": formatted}
 
     return await get_cached_or_fetch(cache_key, fetch_data)

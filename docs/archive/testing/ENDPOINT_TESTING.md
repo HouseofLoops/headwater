@@ -150,18 +150,17 @@ transcript_list = _youtube_api.list(video_id)
 from youtube_transcript_api.proxies import GenericProxyConfig
 from app.core.proxy import get_proxy_sync, ENABLE_PROXY
 
+
 def _create_youtube_api():
     """Create YouTubeTranscriptApi instance with proxy if enabled."""
     if ENABLE_PROXY:
         proxy_url = get_proxy_sync()
         if proxy_url:
             logger.info(f"YouTube Transcripts API using proxy: {proxy_url[:50]}...")
-            proxy_config = GenericProxyConfig(
-                http_url=proxy_url,
-                https_url=proxy_url
-            )
+            proxy_config = GenericProxyConfig(http_url=proxy_url, https_url=proxy_url)
             return YouTubeTranscriptApi(proxy_config=proxy_config)
     return YouTubeTranscriptApi()
+
 
 _youtube_api = _create_youtube_api()
 ```

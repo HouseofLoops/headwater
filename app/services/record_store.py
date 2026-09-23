@@ -34,20 +34,22 @@ import asyncio
 import json
 import logging
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Callable, Optional
+from typing import Any
+
 from app.core.log_safety import scrub
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["RecordStore", "StoredRecord", "owner_id_for_api_key", "get_record_store"]
+__all__ = ["RecordStore", "StoredRecord", "get_record_store", "owner_id_for_api_key"]
 
 # Records with no explicit expiry are dropped after this long, so an abandoned
 # job cannot pin memory or a Redis key forever.
 DEFAULT_TTL_SECONDS = 7 * 24 * 3600
 
 
-def owner_id_for_api_key(api_key: Optional[str]) -> str:
+def owner_id_for_api_key(api_key: str | None) -> str:
     """Derive a stable, non-reversible owner id from a caller's API key.
 
     Args:
@@ -100,7 +102,7 @@ class StoredRecord:
         )
 
     @classmethod
-    def from_json(cls, raw: str) -> "StoredRecord":
+    def from_json(cls, raw: str) -> StoredRecord:
         payload = json.loads(raw)
         return cls(
             id=payload["id"],
@@ -196,7 +198,7 @@ class RecordStore:
             self._memory[self._key(owner, record_id)] = (now + self.ttl_seconds, record)
         return record
 
-    async def get(self, owner: str, record_id: str) -> Optional[StoredRecord]:
+    async def get(self, owner: str, record_id: str) -> StoredRecord | None:
         """Return the record if it exists AND belongs to ``owner``.
 
         A record owned by someone else is indistinguishable from one that does
@@ -245,8 +247,8 @@ class RecordStore:
         *,
         limit: int = 50,
         offset: int = 0,
-        predicate: Optional[Callable[[StoredRecord], bool]] = None,
-        sort_key: Optional[Callable[[StoredRecord], Any]] = None,
+        predicate: Callable[[StoredRecord], bool] | None = None,
+        sort_key: Callable[[StoredRecord], Any] | None = None,
         reverse: bool = True,
     ) -> list[StoredRecord]:
         """List ``owner``'s records, newest first by default.
@@ -274,7 +276,7 @@ class RecordStore:
                         raw = raw.decode()
                     try:
                         records.append(StoredRecord.from_json(raw))
-                    except (ValueError, KeyError):
+                    except ValueError, KeyError:
                         continue
             except Exception as exc:
                 logger.error("Listing %s for owner failed: %s", self.namespace, exc)

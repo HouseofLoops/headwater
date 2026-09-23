@@ -5,17 +5,15 @@ This module contains comprehensive tests for application configuration,
 settings loading, validation, and caching functionality.
 """
 
-import os
 import math
+import os
 from unittest.mock import patch
 
 from app.core.config import (
     # Classes
     Settings,
-
     # Functions
     get_settings,
-
     # Global variables
     settings,
 )
@@ -58,7 +56,6 @@ class TestSettingsDefaults:
         assert test_settings.ENABLE_CACHE is True
         assert test_settings.CACHE_TTL == 3600
         assert test_settings.REDIS_URL is None
-
 
         # Proxy settings
         assert test_settings.ENABLE_PROXY is False
@@ -128,17 +125,20 @@ class TestSettingsDefaults:
 class TestSettingsEnvironmentLoading:
     """Test Settings loading from environment variables."""
 
-    @patch.dict(os.environ, {
-        "API_KEYS": '["key1","key2","key3"]',
-        "ENABLE_API_KEY_AUTH": "false",
-        "RATE_LIMIT_REQUESTS": "50",
-        "DEBUG": "true",
-        "ENVIRONMENT": "production",
-        # A production environment must supply a real secret: Settings now
-        # refuses to boot outside development while a credential still holds
-        # the placeholder value published in .env.example / config.py.
-        "SECRET_KEY": "a-real-generated-production-secret-key-value"
-    })
+    @patch.dict(
+        os.environ,
+        {
+            "API_KEYS": '["key1","key2","key3"]',
+            "ENABLE_API_KEY_AUTH": "false",
+            "RATE_LIMIT_REQUESTS": "50",
+            "DEBUG": "true",
+            "ENVIRONMENT": "production",
+            # A production environment must supply a real secret: Settings now
+            # refuses to boot outside development while a credential still holds
+            # the placeholder value published in .env.example / config.py.
+            "SECRET_KEY": "a-real-generated-production-secret-key-value",
+        },
+    )
     def test_settings_from_env_basic(self):
         """Test loading basic settings from environment."""
         test_settings = Settings()
@@ -149,10 +149,7 @@ class TestSettingsEnvironmentLoading:
         assert test_settings.DEBUG is True
         assert test_settings.ENVIRONMENT == "production"
 
-    @patch.dict(os.environ, {
-        "REDIS_URL": "redis://localhost:6379",
-        "PROXY_URL": "http://proxy.example.com:8080"
-    })
+    @patch.dict(os.environ, {"REDIS_URL": "redis://localhost:6379", "PROXY_URL": "http://proxy.example.com:8080"})
     def test_settings_from_env_urls(self):
         """Test loading URL settings from environment."""
         test_settings = Settings()
@@ -160,11 +157,14 @@ class TestSettingsEnvironmentLoading:
         assert str(test_settings.REDIS_URL) == "redis://localhost:6379/0"
         assert test_settings.PROXY_URL == "http://proxy.example.com:8080"
 
-    @patch.dict(os.environ, {
-        "CORS_ORIGINS": '["https://example.com","https://app.example.com"]',
-        "CORS_METHODS": '["GET","POST","PUT"]',
-        "CORS_HEADERS": '["Content-Type","Authorization"]'
-    })
+    @patch.dict(
+        os.environ,
+        {
+            "CORS_ORIGINS": '["https://example.com","https://app.example.com"]',
+            "CORS_METHODS": '["GET","POST","PUT"]',
+            "CORS_HEADERS": '["Content-Type","Authorization"]',
+        },
+    )
     def test_settings_from_env_cors(self):
         """Test loading CORS settings from environment."""
         test_settings = Settings()
@@ -173,10 +173,7 @@ class TestSettingsEnvironmentLoading:
         assert test_settings.CORS_METHODS == ["GET", "POST", "PUT"]
         assert test_settings.CORS_HEADERS == ["Content-Type", "Authorization"]
 
-    @patch.dict(os.environ, {
-        "SECRET_KEY": "production-secret-key",
-        "X_BEARER_TOKEN": "bearer-token-123"
-    })
+    @patch.dict(os.environ, {"SECRET_KEY": "production-secret-key", "X_BEARER_TOKEN": "bearer-token-123"})
     def test_settings_from_env_security(self):
         """Test loading security settings from environment."""
         test_settings = Settings()
@@ -245,22 +242,28 @@ class TestSettingsValidation:
 
     def test_settings_case_insensitive_env(self):
         """Test that environment variables are case insensitive."""
-        with patch.dict(os.environ, {
-            "debug": "true",
-            "environment": "production",
-            "secret_key": "a-real-generated-production-secret-key-value",
-        }):
+        with patch.dict(
+            os.environ,
+            {
+                "debug": "true",
+                "environment": "production",
+                "secret_key": "a-real-generated-production-secret-key-value",
+            },
+        ):
             test_settings = Settings()
             assert test_settings.DEBUG is True
             assert test_settings.ENVIRONMENT == "production"
 
     def test_settings_backward_compatibility(self):
         """Test backward compatibility settings."""
-        with patch.dict(os.environ, {
-            "API_KEY": "legacy_key",
-            "PROXY_URLS": "http://proxy1.com,http://proxy2.com",
-            "TWITTER_API_KEY": "twitter_key"
-        }):
+        with patch.dict(
+            os.environ,
+            {
+                "API_KEY": "legacy_key",
+                "PROXY_URLS": "http://proxy1.com,http://proxy2.com",
+                "TWITTER_API_KEY": "twitter_key",
+            },
+        ):
             test_settings = Settings()
             assert test_settings.API_KEY == "legacy_key"
             assert test_settings.PROXY_URLS == "http://proxy1.com,http://proxy2.com"
@@ -299,10 +302,10 @@ class TestGlobalSettings:
 
     def test_global_settings_has_expected_attributes(self):
         """Test that global settings has expected attributes."""
-        assert hasattr(settings, 'API_KEYS')
-        assert hasattr(settings, 'DEBUG')
-        assert hasattr(settings, 'ENVIRONMENT')
-        assert hasattr(settings, 'PROJECT_NAME')
+        assert hasattr(settings, "API_KEYS")
+        assert hasattr(settings, "DEBUG")
+        assert hasattr(settings, "ENVIRONMENT")
+        assert hasattr(settings, "PROJECT_NAME")
 
     def test_global_settings_default_values(self):
         """Test that global settings has correct default values."""
@@ -314,15 +317,18 @@ class TestGlobalSettings:
 class TestSettingsIntegration:
     """Test Settings integration scenarios."""
 
-    @patch.dict(os.environ, {
-        "API_KEYS": '["prod_key1","prod_key2"]',
-        "ENABLE_API_KEY_AUTH": "true",
-        "RATE_LIMIT_REQUESTS": "200",
-        "DEBUG": "false",
-        "ENVIRONMENT": "production",
-        "SECRET_KEY": "a-real-generated-production-secret-key-value",
-        "REDIS_URL": "redis://prod-redis:6379",
-    })
+    @patch.dict(
+        os.environ,
+        {
+            "API_KEYS": '["prod_key1","prod_key2"]',
+            "ENABLE_API_KEY_AUTH": "true",
+            "RATE_LIMIT_REQUESTS": "200",
+            "DEBUG": "false",
+            "ENVIRONMENT": "production",
+            "SECRET_KEY": "a-real-generated-production-secret-key-value",
+            "REDIS_URL": "redis://prod-redis:6379",
+        },
+    )
     def test_production_settings_configuration(self):
         """Test complete production settings configuration."""
         test_settings = Settings()

@@ -58,28 +58,24 @@ The `BaseRouter` class in `app/core/base_router.py` provides a foundation for al
 ```python
 class BaseRouter(APIRouter):
     def __init__(
-        self,
-        prefix: str,
-        service_name: Optional[str] = None,
-        responses: Optional[Dict[int, dict]] = None,
-        **kwargs
+        self, prefix: str, service_name: Optional[str] = None, responses: Optional[Dict[int, dict]] = None, **kwargs
     ):
         # Extract service_name from prefix if not provided
         if service_name is None:
             parts = prefix.strip("/").split("/")
             service_name = parts[1] if len(parts) > 1 else parts[0]
-        
+
         # Validate consistency between extracted service_name and any explicitly passed name
         if service_name and prefix and service_name not in prefix:
             raise ValueError(f"Service name '{service_name}' must be part of prefix '{prefix}'")
-        
+
         # Initialize with standard parameters
         super().__init__(
             prefix=prefix,
             tags=[service_name],
             responses=responses,
             dependencies=[Depends(authenticate_api_key)],
-            **kwargs
+            **kwargs,
         )
 ```
 
@@ -89,6 +85,7 @@ class BaseRouter(APIRouter):
 from app.core.base_router import BaseRouter
 
 router = BaseRouter(prefix="/api/v1/google-news")
+
 
 @router.get("/search")
 async def search_news(query: str):

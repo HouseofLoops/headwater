@@ -4,22 +4,24 @@ Central enum definitions for the Headwater API.
 This module consolidates all enums used across different API endpoints
 to prevent duplication and ensure consistency.
 """
-from enum import Enum, IntEnum
 
+from enum import IntEnum, StrEnum
 
 # =============================================================================
 # Google Trends Enums
 # =============================================================================
 
+
 class TimeframeEnum(IntEnum):
     """Timeframe integer values for Google Trends."""
+
     TWO = 2
     THREE = 3
     FOUR = 4
     FIVE = 5
 
 
-class HumanFriendlyBatchPeriod(str, Enum):
+class HumanFriendlyBatchPeriod(StrEnum):
     """Human-readable batch period options for Google Trends.
 
     The canonical member names deliberately mirror their wire values
@@ -34,6 +36,7 @@ class HumanFriendlyBatchPeriod(str, Enum):
     Upper-case aliases are retained so existing ``PAST_4H``-style references
     keep working; they resolve to the same members.
     """
+
     past_4h = "past_4h"
     past_24h = "past_24h"
     past_48h = "past_48h"
@@ -47,8 +50,9 @@ class HumanFriendlyBatchPeriod(str, Enum):
     PAST_7D = "past_7d"
 
 
-class StandardTimeframe(str, Enum):
+class StandardTimeframe(StrEnum):
     """Standard timeframe options for Google Trends."""
+
     NOW_1H = "now 1-H"
     NOW_4H = "now 4-H"
     TODAY_1M = "today 1-m"
@@ -56,8 +60,9 @@ class StandardTimeframe(str, Enum):
     TODAY_12M = "today 12-m"
 
 
-class CustomIntervalTimeframe(str, Enum):
+class CustomIntervalTimeframe(StrEnum):
     """Custom interval timeframe options for Google Trends."""
+
     NOW_123H = "now 123-H"
     NOW_72H = "now 72-H"
     TODAY_45D = "today 45-d"
@@ -69,51 +74,57 @@ class CustomIntervalTimeframe(str, Enum):
 # Google Autocomplete Enums
 # =============================================================================
 
-class OutputFormat(str, Enum):
+
+class OutputFormat(StrEnum):
     """Output format options for Google Autocomplete API."""
+
     TOOLBAR = "toolbar"  # XML format used by Google Toolbar
-    CHROME = "chrome"    # JSON format used by Chrome browser
+    CHROME = "chrome"  # JSON format used by Chrome browser
     FIREFOX = "firefox"  # JSON format used by Firefox browser
-    XML = "xml"          # Standard XML format (same as toolbar)
-    SAFARI = "safari"    # JSON format used by Safari browser
-    OPERA = "opera"      # JSON format used by Opera browser
+    XML = "xml"  # Standard XML format (same as toolbar)
+    SAFARI = "safari"  # JSON format used by Safari browser
+    OPERA = "opera"  # JSON format used by Opera browser
 
 
-class ClientType(str, Enum):
+class ClientType(StrEnum):
     """Client identifier options for Google Autocomplete API."""
+
     FIREFOX = "firefox"
     CHROME = "chrome"
     SAFARI = "safari"
     OPERA = "opera"
 
 
-class DataSource(str, Enum):
+class DataSource(StrEnum):
     """Data source options for the 'ds' parameter in Google Autocomplete."""
-    WEB = ""             # General web search (default)
-    YOUTUBE = "yt"       # YouTube video suggestions
-    IMAGES = "i"         # Image search suggestions
-    NEWS = "n"           # News search suggestions
-    SHOPPING = "s"       # Shopping/product suggestions
-    VIDEOS = "v"         # Video search suggestions
-    BOOKS = "b"          # Book search suggestions
-    PATENTS = "p"        # Patent search suggestions
-    FINANCE = "fin"      # Financial/stock suggestions
-    RECIPES = "recipe"   # Recipe suggestions
+
+    WEB = ""  # General web search (default)
+    YOUTUBE = "yt"  # YouTube video suggestions
+    IMAGES = "i"  # Image search suggestions
+    NEWS = "n"  # News search suggestions
+    SHOPPING = "s"  # Shopping/product suggestions
+    VIDEOS = "v"  # Video search suggestions
+    BOOKS = "b"  # Book search suggestions
+    PATENTS = "p"  # Patent search suggestions
+    FINANCE = "fin"  # Financial/stock suggestions
+    RECIPES = "recipe"  # Recipe suggestions
     SCHOLAR = "scholar"  # Google Scholar academic suggestions
-    PLAY = "play"        # Google Play Store suggestions
-    MAPS = "maps"        # Google Maps location suggestions
+    PLAY = "play"  # Google Play Store suggestions
+    MAPS = "maps"  # Google Maps location suggestions
     FLIGHTS = "flights"  # Google Flights suggestions
-    HOTELS = "hotels"    # Google Hotels suggestions
+    HOTELS = "hotels"  # Google Hotels suggestions
 
 
-class SafeSearch(str, Enum):
+class SafeSearch(StrEnum):
     """SafeSearch content filtering options."""
-    ACTIVE = "active"    # Filter explicit content
-    OFF = "off"          # Show all content (no filtering)
+
+    ACTIVE = "active"  # Filter explicit content
+    OFF = "off"  # Show all content (no filtering)
 
 
-class SearchClient(str, Enum):
+class SearchClient(StrEnum):
     """Search client identifier options."""
-    GWS_WIZ = "gws-wiz"              # Google Homepage
+
+    GWS_WIZ = "gws-wiz"  # Google Homepage
     GWS_WIZ_LOCAL = "gws-wiz-local"  # Google Local searches
-    PSY_AB = "psy-ab"                # Chrome on Google.com
+    PSY_AB = "psy-ab"  # Chrome on Google.com

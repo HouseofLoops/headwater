@@ -1,19 +1,23 @@
 # Headwater API - Production Dependencies
 # For development dependencies, see requirements-dev.txt
 # For the fully-resolved transitive closure, see requirements.lock
-# Last updated: 2026-09-01
+# Last updated: 2026-09-23
 
 # Core Framework
 # fastapi 0.128.x caps starlette <0.51, which strands the app on starlette
 # 0.50.0 (5 unfixed advisories incl. Host-header poisoning of request.url.path).
 # The fixes ship in starlette 1.x, accepted only by fastapi >=0.133.
 fastapi==0.141.1
-starlette==1.6.0
-uvicorn[standard]==0.52.4
+starlette==1.7.0
+uvicorn[standard]==0.53.0
 pydantic==2.13.5
 pydantic-settings==2.15.0
 
 # HTTP & Networking
+# httpx is the app's own client. requests stays a direct dependency on purpose:
+# youtube-transcript-api is built on it (the service hands it a requests
+# Session with a default timeout and catches requests' exception types), and
+# gnews, newspaper4k, trendspy and tldextract all pull it in regardless.
 requests==2.34.2
 httpx==0.28.1
 

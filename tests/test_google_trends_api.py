@@ -5,25 +5,24 @@ This module provides extensive test coverage for all Google Trends API endpoints
 including success cases, error handling, caching, and edge cases.
 """
 
-import pytest
-import pandas as pd
+from unittest.mock import MagicMock, patch
+
 import numpy as np
-import json
-from unittest.mock import AsyncMock, MagicMock, patch
+import pandas as pd
+import pytest
 from fastapi.testclient import TestClient
-from fastapi import HTTPException
 
 # Import the router and utility functions
 from app.api.google_trends.google_trends_api import (
-    google_trends_router,
-    get_random_headers,
-    df_to_json,
-    to_jsonable,
-    get_trends_instance,
     BATCH_PERIOD_BY_TIMEFRAME,
     REFERER_LIST,
     USER_AGENT_LIST,
-    HumanFriendlyBatchPeriod
+    HumanFriendlyBatchPeriod,
+    df_to_json,
+    get_random_headers,
+    get_trends_instance,
+    google_trends_router,
+    to_jsonable,
 )
 from app.core import cache_manager as cache_manager_module
 
@@ -61,6 +60,7 @@ class TestGoogleTrendsAPI:
     def client(self):
         """Create a test client for the Google Trends router."""
         from fastapi import FastAPI
+
         app = FastAPI()
         app.include_router(google_trends_router, prefix="/api/v1/google-trends")
         return TestClient(app)
@@ -69,51 +69,39 @@ class TestGoogleTrendsAPI:
     def mock_trends_instance(self):
         """Mock Trends instance for testing."""
         mock_instance = MagicMock()
-        mock_instance.interest_over_time.return_value = pd.DataFrame({
-            'date': pd.date_range('2023-01-01', periods=5),
-            'python': [50, 55, 60, 58, 62]
-        })
-        mock_instance.interest_by_region.return_value = pd.DataFrame({
-            'geoName': ['United States', 'United Kingdom', 'Canada'],
-            'python': [100, 80, 70]
-        })
+        mock_instance.interest_over_time.return_value = pd.DataFrame(
+            {"date": pd.date_range("2023-01-01", periods=5), "python": [50, 55, 60, 58, 62]}
+        )
+        mock_instance.interest_by_region.return_value = pd.DataFrame(
+            {"geoName": ["United States", "United Kingdom", "Canada"], "python": [100, 80, 70]}
+        )
         mock_instance.related_queries.return_value = {
-            'python': {
-                'top': [{'query': 'python programming', 'value': 100}],
-                'rising': [{'query': 'python tutorial', 'value': 150}]
+            "python": {
+                "top": [{"query": "python programming", "value": 100}],
+                "rising": [{"query": "python tutorial", "value": 150}],
             }
         }
         mock_instance.related_topics.return_value = {
-            'python': {
-                'top': [{'topic': 'Programming Language', 'value': 100}],
-                'rising': [{'topic': 'Data Science', 'value': 120}]
+            "python": {
+                "top": [{"topic": "Programming Language", "value": 100}],
+                "rising": [{"topic": "Data Science", "value": 120}],
             }
         }
-        mock_instance.trending_now.return_value = [
-            {'title': 'Python', 'formattedTraffic': '1M+', 'articles': []}
-        ]
-        mock_instance.trending_now_by_rss.return_value = [
-            {'title': 'Python', 'newsItems': []}
-        ]
-        mock_instance.trending_now_news_by_ids.return_value = [
-            ['token1', 'title1', '{"articles": []}']
-        ]
-        mock_instance.trending_now_showcase_timeline.return_value = {
-            'python': [{'time': '2023-01-01', 'value': 50}]
-        }
-        mock_instance.categories.return_value = [
-            {'id': '13', 'name': 'Computers & Electronics'}
-        ]
-        mock_instance.geo.return_value = [
-            {'id': 'US', 'name': 'United States'}
-        ]
+        mock_instance.trending_now.return_value = [{"title": "Python", "formattedTraffic": "1M+", "articles": []}]
+        mock_instance.trending_now_by_rss.return_value = [{"title": "Python", "newsItems": []}]
+        mock_instance.trending_now_news_by_ids.return_value = [["token1", "title1", '{"articles": []}']]
+        mock_instance.trending_now_showcase_timeline.return_value = {"python": [{"time": "2023-01-01", "value": 50}]}
+        mock_instance.categories.return_value = [{"id": "13", "name": "Computers & Electronics"}]
+        mock_instance.geo.return_value = [{"id": "US", "name": "United States"}]
         return mock_instance
 
     @pytest.fixture
     def mock_cache(self):
         """Mock cache functions."""
-        with patch('app.api.google_trends.google_trends_api.get_cached_or_fetch') as mock_cache, \
-             patch('app.api.google_trends.google_trends_api.generate_cache_key') as mock_key:
+        with (
+            patch("app.api.google_trends.google_trends_api.get_cached_or_fetch") as mock_cache,
+            patch("app.api.google_trends.google_trends_api.generate_cache_key") as mock_key,
+        ):
             mock_key.return_value = "test_cache_key"
             mock_cache.return_value = {"data": "cached_result"}
             yield mock_cache
@@ -121,7 +109,7 @@ class TestGoogleTrendsAPI:
     @pytest.fixture
     def mock_get_instance(self):
         """Mock get_trends_instance function."""
-        with patch('app.api.google_trends.google_trends_api.get_trends_instance') as mock_instance:
+        with patch("app.api.google_trends.google_trends_api.get_trends_instance") as mock_instance:
             yield mock_instance
 
     # Test utility functions first
@@ -150,22 +138,16 @@ class TestGoogleTrendsAPI:
 
     def test_df_to_json_with_data(self):
         """Test df_to_json with data."""
-        df = pd.DataFrame({
-            'name': ['Alice', 'Bob'],
-            'age': [25, 30]
-        })
+        df = pd.DataFrame({"name": ["Alice", "Bob"], "age": [25, 30]})
         result = df_to_json(df)
-        expected = [
-            {'name': 'Alice', 'age': 25},
-            {'name': 'Bob', 'age': 30}
-        ]
+        expected = [{"name": "Alice", "age": 25}, {"name": "Bob", "age": 30}]
         assert result == expected
 
     def test_to_jsonable_dataframe(self):
         """Test to_jsonable with DataFrame."""
-        df = pd.DataFrame({'a': [1, 2], 'b': [3, 4]})
+        df = pd.DataFrame({"a": [1, 2], "b": [3, 4]})
         result = to_jsonable(df)
-        expected = [{'a': 1, 'b': 3}, {'a': 2, 'b': 4}]
+        expected = [{"a": 1, "b": 3}, {"a": 2, "b": 4}]
         assert result == expected
 
     def test_to_jsonable_numpy_int(self):
@@ -188,9 +170,9 @@ class TestGoogleTrendsAPI:
 
     def test_to_jsonable_dict(self):
         """Test to_jsonable with dict containing numpy values."""
-        data = {'a': np.int64(1), 'b': np.float64(2.5)}
+        data = {"a": np.int64(1), "b": np.float64(2.5)}
         result = to_jsonable(data)
-        expected = {'a': 1, 'b': 2.5}
+        expected = {"a": 1, "b": 2.5}
         assert result == expected
 
     def test_to_jsonable_list(self):
@@ -208,9 +190,10 @@ class TestGoogleTrendsAPI:
     @pytest.mark.asyncio
     async def test_get_trends_instance_no_proxy(self, mock_trends_instance):
         """Test get_trends_instance without proxy."""
-        with patch('app.api.google_trends.google_trends_api.get_proxy', return_value=None), \
-             patch('app.api.google_trends.google_trends_api.Trends', return_value=mock_trends_instance):
-
+        with (
+            patch("app.api.google_trends.google_trends_api.get_proxy", return_value=None),
+            patch("app.api.google_trends.google_trends_api.Trends", return_value=mock_trends_instance),
+        ):
             result = await get_trends_instance()
 
             assert result is not None
@@ -218,22 +201,22 @@ class TestGoogleTrendsAPI:
     @pytest.mark.asyncio
     async def test_get_trends_instance_with_proxy(self, mock_trends_instance):
         """Test get_trends_instance with proxy."""
-        with patch('app.api.google_trends.google_trends_api.get_proxy', return_value="http://proxy.example.com:8080"), \
-             patch('app.api.google_trends.google_trends_api.Trends', return_value=mock_trends_instance):
-
+        with (
+            patch("app.api.google_trends.google_trends_api.get_proxy", return_value="http://proxy.example.com:8080"),
+            patch("app.api.google_trends.google_trends_api.Trends", return_value=mock_trends_instance),
+        ):
             result = await get_trends_instance()
 
             assert result is not None
 
     # Test API endpoints
-    @patch('app.api.google_trends.google_trends_api.get_trends_instance')
+    @patch("app.api.google_trends.google_trends_api.get_trends_instance")
     def test_interest_over_time_success(self, mock_get_instance, client):
         """Test interest over time endpoint success."""
         mock_instance = MagicMock()
-        mock_instance.interest_over_time.return_value = pd.DataFrame({
-            'date': pd.date_range('2023-01-01', periods=3),
-            'python': [50, 55, 60]
-        })
+        mock_instance.interest_over_time.return_value = pd.DataFrame(
+            {"date": pd.date_range("2023-01-01", periods=3), "python": [50, 55, 60]}
+        )
         mock_get_instance.return_value = mock_instance
 
         response = client.get("/api/v1/google-trends/interest-over-time?keywords=python")
@@ -250,7 +233,7 @@ class TestGoogleTrendsAPI:
         data = response.json()
         assert "No valid keywords provided" in data["detail"]
 
-    @patch('app.api.google_trends.google_trends_api.get_trends_instance')
+    @patch("app.api.google_trends.google_trends_api.get_trends_instance")
     def test_interest_over_time_empty_dataframe(self, mock_get_instance, client):
         """Test interest over time with empty DataFrame response."""
         mock_instance = MagicMock()
@@ -263,14 +246,11 @@ class TestGoogleTrendsAPI:
         data = response.json()
         assert data["message"] == "No data returned from Google Trends."
 
-    @patch('app.api.google_trends.google_trends_api.get_trends_instance')
+    @patch("app.api.google_trends.google_trends_api.get_trends_instance")
     def test_interest_by_region_success(self, mock_get_instance, client):
         """Test interest by region endpoint success."""
         mock_instance = MagicMock()
-        mock_instance.interest_by_region.return_value = pd.DataFrame({
-            'geoName': ['US', 'UK'],
-            'python': [100, 80]
-        })
+        mock_instance.interest_by_region.return_value = pd.DataFrame({"geoName": ["US", "UK"], "python": [100, 80]})
         mock_get_instance.return_value = mock_instance
 
         response = client.get("/api/v1/google-trends/interest-by-region?keyword=python")
@@ -279,14 +259,12 @@ class TestGoogleTrendsAPI:
         data = response.json()
         assert "data" in data
 
-    @patch('app.api.google_trends.google_trends_api.get_trends_instance')
+    @patch("app.api.google_trends.google_trends_api.get_trends_instance")
     def test_related_queries_success(self, mock_get_instance, client):
         """Test related queries endpoint success."""
         mock_instance = MagicMock()
         mock_instance.related_queries.return_value = {
-            'python': {
-                'top': [{'query': 'python programming', 'value': 100}]
-            }
+            "python": {"top": [{"query": "python programming", "value": 100}]}
         }
         mock_get_instance.return_value = mock_instance
 
@@ -296,15 +274,11 @@ class TestGoogleTrendsAPI:
         data = response.json()
         assert "data" in data
 
-    @patch('app.api.google_trends.google_trends_api.get_trends_instance')
+    @patch("app.api.google_trends.google_trends_api.get_trends_instance")
     def test_related_topics_success(self, mock_get_instance, client):
         """Test related topics endpoint success."""
         mock_instance = MagicMock()
-        mock_instance.related_topics.return_value = {
-            'python': {
-                'top': [{'topic': 'Programming', 'value': 100}]
-            }
-        }
+        mock_instance.related_topics.return_value = {"python": {"top": [{"topic": "Programming", "value": 100}]}}
         mock_get_instance.return_value = mock_instance
 
         response = client.get("/api/v1/google-trends/related-topics?keyword=python")
@@ -313,13 +287,11 @@ class TestGoogleTrendsAPI:
         data = response.json()
         assert "data" in data
 
-    @patch('app.api.google_trends.google_trends_api.get_trends_instance')
+    @patch("app.api.google_trends.google_trends_api.get_trends_instance")
     def test_trending_now_success(self, mock_get_instance, client):
         """Test trending now endpoint success."""
         mock_instance = MagicMock()
-        mock_instance.trending_now.return_value = [
-            {'title': 'Python', 'formattedTraffic': '1M+'}
-        ]
+        mock_instance.trending_now.return_value = [{"title": "Python", "formattedTraffic": "1M+"}]
         mock_get_instance.return_value = mock_instance
 
         response = client.get("/api/v1/google-trends/trending-now")
@@ -328,13 +300,11 @@ class TestGoogleTrendsAPI:
         data = response.json()
         assert "data" in data
 
-    @patch('app.api.google_trends.google_trends_api.get_trends_instance')
+    @patch("app.api.google_trends.google_trends_api.get_trends_instance")
     def test_trending_now_by_rss_success(self, mock_get_instance, client):
         """Test trending now by RSS endpoint success."""
         mock_instance = MagicMock()
-        mock_instance.trending_now_by_rss.return_value = [
-            {'title': 'Python', 'newsItems': []}
-        ]
+        mock_instance.trending_now_by_rss.return_value = [{"title": "Python", "newsItems": []}]
         mock_get_instance.return_value = mock_instance
 
         response = client.get("/api/v1/google-trends/trending-now-by-rss")
@@ -343,12 +313,12 @@ class TestGoogleTrendsAPI:
         data = response.json()
         assert "data" in data
 
-    @patch('app.api.google_trends.google_trends_api.get_trends_instance')
+    @patch("app.api.google_trends.google_trends_api.get_trends_instance")
     def test_trending_now_news_by_ids_success(self, mock_get_instance, client):
         """Test trending now news by IDs endpoint success."""
         mock_instance = MagicMock()
         mock_instance.trending_now_news_by_ids.return_value = [
-            ['token1', 'title1', '{"articles": [{"title": "Test Article"}]}']
+            ["token1", "title1", '{"articles": [{"title": "Test Article"}]}']
         ]
         mock_get_instance.return_value = mock_instance
 
@@ -366,13 +336,11 @@ class TestGoogleTrendsAPI:
         data = response.json()
         assert "detail" in data
 
-    @patch('app.api.google_trends.google_trends_api.get_trends_instance')
+    @patch("app.api.google_trends.google_trends_api.get_trends_instance")
     def test_trending_now_showcase_timeline_success(self, mock_get_instance, client):
         """Test trending now showcase timeline endpoint success."""
         mock_instance = MagicMock()
-        mock_instance.trending_now_showcase_timeline.return_value = {
-            'python': [{'time': '2023-01-01', 'value': 50}]
-        }
+        mock_instance.trending_now_showcase_timeline.return_value = {"python": [{"time": "2023-01-01", "value": 50}]}
         mock_get_instance.return_value = mock_instance
 
         response = client.get("/api/v1/google-trends/trending-now-showcase-timeline?keywords=python&timeframe=past_24h")
@@ -397,13 +365,11 @@ class TestGoogleTrendsAPI:
         data = response.json()
         assert "detail" in data
 
-    @patch('app.api.google_trends.google_trends_api.get_trends_instance')
+    @patch("app.api.google_trends.google_trends_api.get_trends_instance")
     def test_categories_success(self, mock_get_instance, client):
         """Test categories endpoint success."""
         mock_instance = MagicMock()
-        mock_instance.categories.return_value = [
-            {'id': '13', 'name': 'Computers & Electronics'}
-        ]
+        mock_instance.categories.return_value = [{"id": "13", "name": "Computers & Electronics"}]
         mock_get_instance.return_value = mock_instance
 
         response = client.get("/api/v1/google-trends/categories")
@@ -412,13 +378,11 @@ class TestGoogleTrendsAPI:
         data = response.json()
         assert "data" in data
 
-    @patch('app.api.google_trends.google_trends_api.get_trends_instance')
+    @patch("app.api.google_trends.google_trends_api.get_trends_instance")
     def test_geo_success(self, mock_get_instance, client):
         """Test geo endpoint success."""
         mock_instance = MagicMock()
-        mock_instance.geo.return_value = [
-            {'id': 'US', 'name': 'United States'}
-        ]
+        mock_instance.geo.return_value = [{"id": "US", "name": "United States"}]
         mock_get_instance.return_value = mock_instance
 
         response = client.get("/api/v1/google-trends/geo")
@@ -427,7 +391,7 @@ class TestGoogleTrendsAPI:
         data = response.json()
         assert "data" in data
 
-    @patch('app.api.google_trends.google_trends_api.get_trends_instance')
+    @patch("app.api.google_trends.google_trends_api.get_trends_instance")
     def test_upstream_failure_returns_502(self, mock_get_instance, client):
         """An upstream failure must be reported, not disguised as empty data.
 
@@ -444,13 +408,11 @@ class TestGoogleTrendsAPI:
         response = client.get("/api/v1/google-trends/interest-over-time?keywords=python")
 
         assert response.status_code == 502
-        assert response.json()["detail"] == (
-            "Upstream Google Trends request failed. Please retry."
-        )
+        assert response.json()["detail"] == ("Upstream Google Trends request failed. Please retry.")
         # The upstream error text must not reach the caller.
         assert "API Error" not in response.text
 
-    @patch('app.api.google_trends.google_trends_api.get_trends_instance')
+    @patch("app.api.google_trends.google_trends_api.get_trends_instance")
     def test_upstream_failure_is_not_cached(self, mock_get_instance, client):
         """A failed call must leave the cache untouched.
 
@@ -470,16 +432,15 @@ class TestGoogleTrendsAPI:
 
         # Upstream recovers; the next request must reflect that immediately.
         mock_instance.interest_over_time.side_effect = None
-        mock_instance.interest_over_time.return_value = pd.DataFrame({
-            'date': pd.date_range('2023-01-01', periods=2),
-            'python': [50, 55]
-        })
+        mock_instance.interest_over_time.return_value = pd.DataFrame(
+            {"date": pd.date_range("2023-01-01", periods=2), "python": [50, 55]}
+        )
 
         second = client.get("/api/v1/google-trends/interest-over-time?keywords=python")
         assert second.status_code == 200
         assert len(second.json()["data"]) == 2
 
-    @patch('app.api.google_trends.google_trends_api.get_trends_instance')
+    @patch("app.api.google_trends.google_trends_api.get_trends_instance")
     def test_empty_upstream_result_is_cached_as_success(self, mock_get_instance, client):
         """An empty answer is a real answer, so it may be cached.
 
@@ -500,19 +461,19 @@ class TestGoogleTrendsAPI:
         }
         assert cache_manager_module._cache_store != {}
 
-    @patch('app.api.google_trends.google_trends_api.get_trends_instance')
+    @patch("app.api.google_trends.google_trends_api.get_trends_instance")
     def test_caching_behavior(self, mock_get_instance, client):
         """Test that caching is properly implemented."""
         mock_instance = MagicMock()
-        mock_instance.interest_over_time.return_value = pd.DataFrame({
-            'date': pd.date_range('2023-01-01', periods=3),
-            'python': [50, 55, 60]
-        })
+        mock_instance.interest_over_time.return_value = pd.DataFrame(
+            {"date": pd.date_range("2023-01-01", periods=3), "python": [50, 55, 60]}
+        )
         mock_get_instance.return_value = mock_instance
 
-        with patch('app.api.google_trends.google_trends_api.generate_cache_key') as mock_key, \
-             patch('app.api.google_trends.google_trends_api.get_cached_or_fetch') as mock_cache:
-
+        with (
+            patch("app.api.google_trends.google_trends_api.generate_cache_key") as mock_key,
+            patch("app.api.google_trends.google_trends_api.get_cached_or_fetch") as mock_cache,
+        ):
             mock_key.return_value = "test_key"
             mock_cache.return_value = {"data": "cached_data"}
 
@@ -566,28 +527,23 @@ class TestGoogleTrendsAPI:
         """
         assert set(BATCH_PERIOD_BY_TIMEFRAME) == set(HumanFriendlyBatchPeriod)
 
-    @pytest.mark.parametrize(
-        "timeframe", [member.value for member in HumanFriendlyBatchPeriod]
-    )
-    @patch('app.api.google_trends.google_trends_api.get_trends_instance')
+    @pytest.mark.parametrize("timeframe", [member.value for member in HumanFriendlyBatchPeriod])
+    @patch("app.api.google_trends.google_trends_api.get_trends_instance")
     def test_timeline_accepts_every_timeframe(self, mock_get_instance, client, timeframe):
         """Each advertised timeframe must actually reach trendspy."""
         mock_instance = MagicMock()
-        mock_instance.trending_now_showcase_timeline.return_value = {
-            'python': [{'time': '2023-01-01', 'value': 50}]
-        }
+        mock_instance.trending_now_showcase_timeline.return_value = {"python": [{"time": "2023-01-01", "value": 50}]}
         mock_get_instance.return_value = mock_instance
 
         response = client.get(
-            "/api/v1/google-trends/trending-now-showcase-timeline"
-            f"?keywords=python&timeframe={timeframe}"
+            f"/api/v1/google-trends/trending-now-showcase-timeline?keywords=python&timeframe={timeframe}"
         )
 
         assert response.status_code == 200, response.text
         assert "data" in response.json()
 
     # Test edge cases
-    @patch('app.api.google_trends.google_trends_api.get_trends_instance')
+    @patch("app.api.google_trends.google_trends_api.get_trends_instance")
     def test_empty_api_response_handling(self, mock_get_instance, client):
         """Test handling of empty API responses."""
         mock_instance = MagicMock()
@@ -600,7 +556,7 @@ class TestGoogleTrendsAPI:
         data = response.json()
         assert data["message"] == "No data returned from Google Trends."
 
-    @patch('app.api.google_trends.google_trends_api.get_trends_instance')
+    @patch("app.api.google_trends.google_trends_api.get_trends_instance")
     def test_unserializable_upstream_response_returns_502(self, mock_get_instance, client):
         """A response we cannot encode is an upstream problem, not empty data.
 
@@ -618,7 +574,5 @@ class TestGoogleTrendsAPI:
         response = client.get("/api/v1/google-trends/interest-over-time?keywords=python")
 
         assert response.status_code == 502
-        assert response.json()["detail"] == (
-            "Upstream Google Trends returned an unusable response."
-        )
+        assert response.json()["detail"] == ("Upstream Google Trends returned an unusable response.")
         assert cache_manager_module._cache_store == {}

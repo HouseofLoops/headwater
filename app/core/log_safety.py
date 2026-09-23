@@ -30,7 +30,7 @@ from __future__ import annotations
 
 import logging
 
-__all__ = ["scrub", "LogInjectionFilter", "install_log_injection_filter"]
+__all__ = ["LogInjectionFilter", "install_log_injection_filter", "scrub"]
 
 #: Longest a single scrubbed value may be. A caller can otherwise push
 #: megabytes into the log with one request.
@@ -39,7 +39,7 @@ MAX_VALUE_LENGTH = 256
 # Newlines end a log record; other C0 controls corrupt terminals and confuse
 # parsers. Tab is kept -- it is legitimate whitespace and not a record
 # separator.
-_TRANSLATION = {c: "\\x%02x" % c for c in range(0x20) if c != 0x09}
+_TRANSLATION = {c: f"\\x{c:02x}" for c in range(0x20) if c != 0x09}
 _TRANSLATION[0x7F] = "\\x7f"  # DEL
 
 

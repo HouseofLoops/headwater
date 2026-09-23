@@ -41,6 +41,7 @@ instead of an invented ``"active"``.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import hashlib
 import hmac
 import json
@@ -49,8 +50,9 @@ import os
 import secrets
 import time
 import uuid
-from datetime import datetime, timedelta, timezone
-from typing import Any, Awaitable, Callable, Iterable, Optional
+from collections.abc import Awaitable, Callable, Iterable
+from datetime import UTC, datetime, timedelta
+from typing import Any
 from urllib.parse import urlsplit
 
 from app.core.url_guard import UrlNotAllowed, validate_outbound_url
@@ -59,27 +61,27 @@ from app.services.record_store import get_record_store, owner_id_for_api_key
 logger = logging.getLogger(__name__)
 
 __all__ = [
-    "MONITOR_NAMESPACE",
-    "WEBHOOK_NAMESPACE",
     "DEFAULT_TRACK_FIELDS",
+    "MONITOR_NAMESPACE",
     "SIGNATURE_HEADER",
+    "WEBHOOK_NAMESPACE",
+    "InvalidWebhookTarget",
     "MonitorNotFound",
     "WebhookNotFound",
-    "InvalidWebhookTarget",
-    "create_monitor",
-    "list_monitors",
-    "get_monitor",
-    "delete_monitor",
-    "register_webhook",
-    "list_webhooks",
-    "delete_webhook",
-    "get_place_history",
     "check_monitor",
-    "run_due_checks",
+    "create_monitor",
+    "delete_monitor",
+    "delete_webhook",
     "deliver_webhook",
+    "get_monitor",
+    "get_place_history",
+    "list_monitors",
+    "list_webhooks",
+    "owner_id_for_api_key",
+    "register_webhook",
+    "run_due_checks",
     "start_monitor_scheduler",
     "stop_monitor_scheduler",
-    "owner_id_for_api_key",
 ]
 
 
@@ -180,7 +182,7 @@ def _now() -> float:
 
 
 def _iso(ts: float) -> str:
-    return datetime.fromtimestamp(ts, tz=timezone.utc).isoformat()
+    return datetime.fromtimestamp(ts, tz=UTC).isoformat()
 
 
 # ---------------------------------------------------------------------------
@@ -188,7 +190,7 @@ def _iso(ts: float) -> str:
 # ---------------------------------------------------------------------------
 
 
-def _webhook_allowed_hosts() -> Optional[tuple[str, ...]]:
+def _webhook_allowed_hosts() -> tuple[str, ...] | None:
     """Return the configured webhook host allow-list, or None if unset.
 
     Read from ``Settings.MAPS_WEBHOOK_ALLOWED_HOSTS`` when that field exists,
@@ -309,11 +311,11 @@ def _monitor_view(record, *, include_history: bool) -> dict[str, Any]:
 async def create_monitor(
     *,
     owner: str,
-    place_id: Optional[str] = None,
-    url: Optional[str] = None,
-    webhook_url: Optional[str] = None,
+    place_id: str | None = None,
+    url: str | None = None,
+    webhook_url: str | None = None,
     check_interval_hours: int = 24,
-    track_fields: Optional[Iterable[str]] = None,
+    track_fields: Iterable[str] | None = None,
 ) -> dict[str, Any]:
     """Create and persist a monitor.
 
@@ -387,7 +389,7 @@ async def create_monitor(
 async def list_monitors(
     *,
     owner: str,
-    status: Optional[str] = None,
+    status: str | None = None,
     limit: int = 50,
     offset: int = 0,
 ) -> dict[str, Any]:
@@ -395,17 +397,17 @@ async def list_monitors(
     predicate = None
     if status:
         wanted = status.lower()
-        predicate = lambda r: str(r.data.get("status", "")).lower() == wanted  # noqa: E731
 
-    records = await _monitor_store().list_for_owner(
-        owner, limit=limit, offset=offset, predicate=predicate
-    )
+        def _status_matches(r) -> bool:
+            return str(r.data.get("status", "")).lower() == wanted
+
+        predicate = _status_matches
+
+    records = await _monitor_store().list_for_owner(owner, limit=limit, offset=offset, predicate=predicate)
     # The total must count what the filter selected, not everything. A total
     # that ignores the filter reports monitors the caller was told they do not
     # have.
-    total = len(
-        await _monitor_store().list_for_owner(owner, limit=10_000, predicate=predicate)
-    )
+    total = len(await _monitor_store().list_for_owner(owner, limit=10_000, predicate=predicate))
     monitors = []
     for record in records:
         view = _monitor_view(record, include_history=False)
@@ -467,7 +469,7 @@ async def register_webhook(
     owner: str,
     url: str,
     events: Iterable[str],
-    secret: Optional[str] = None,
+    secret: str | None = None,
 ) -> dict[str, Any]:
     """Register a webhook and return it, including the signing secret.
 
@@ -590,8 +592,8 @@ async def deliver_webhook(
     }
 
     attempts = 0
-    status_code: Optional[int] = None
-    error: Optional[str] = None
+    status_code: int | None = None
+    error: str | None = None
     delivered = False
 
     while attempts < max(1, max_attempts):
@@ -708,8 +710,8 @@ async def _record_delivery_outcome(
     owner: str,
     webhook_id: str,
     delivered: bool,
-    status_code: Optional[int],
-    error: Optional[str],
+    status_code: int | None,
+    error: str | None,
 ) -> None:
     """Write a delivery result back onto the webhook record."""
     record = await _webhook_store().get(owner, webhook_id)
@@ -811,8 +813,8 @@ async def _deliver_inline(
     }
 
     attempts = 0
-    status_code: Optional[int] = None
-    error: Optional[str] = None
+    status_code: int | None = None
+    error: str | None = None
     delivered = False
     while attempts < MAX_DELIVERY_ATTEMPTS:
         attempts += 1
@@ -878,7 +880,7 @@ def _snapshot(place: dict[str, Any], track_fields: Iterable[str]) -> dict[str, A
     return {field: place[field] for field in track_fields if place.get(field) is not None}
 
 
-def _diff(previous: Optional[dict[str, Any]], current: dict[str, Any]) -> dict[str, Any]:
+def _diff(previous: dict[str, Any] | None, current: dict[str, Any]) -> dict[str, Any]:
     """Return ``{field: {"old": ..., "new": ...}}`` for fields that changed.
 
     Only fields observed in *both* snapshots are compared. A first observation
@@ -903,7 +905,7 @@ async def check_monitor(
     *,
     owner: str,
     monitor_id: str,
-    fetch_place: Optional[Callable[[dict[str, Any]], Awaitable[dict[str, Any]]]] = None,
+    fetch_place: Callable[[dict[str, Any]], Awaitable[dict[str, Any]]] | None = None,
 ) -> dict[str, Any]:
     """Run one check: re-scrape, diff, persist, and fire webhooks on change.
 
@@ -1015,8 +1017,8 @@ async def check_monitor(
 
 async def run_due_checks(
     *,
-    now: Optional[float] = None,
-    fetch_place: Optional[Callable[[dict[str, Any]], Awaitable[dict[str, Any]]]] = None,
+    now: float | None = None,
+    fetch_place: Callable[[dict[str, Any]], Awaitable[dict[str, Any]]] | None = None,
 ) -> list[dict[str, Any]]:
     """Check every active monitor whose ``next_check`` has passed.
 
@@ -1058,7 +1060,7 @@ async def run_due_checks(
 # ---------------------------------------------------------------------------
 
 
-def _parse_boundary(value: Optional[str], *, end: bool) -> Optional[float]:
+def _parse_boundary(value: str | None, *, end: bool) -> float | None:
     """Parse a caller-supplied ISO date/datetime into a UTC timestamp."""
     if not value:
         return None
@@ -1068,7 +1070,7 @@ def _parse_boundary(value: Optional[str], *, end: bool) -> Optional[float]:
     except ValueError as exc:
         raise ValueError(f"invalid date {value!r}: expected ISO-8601") from exc
     if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=timezone.utc)
+        parsed = parsed.replace(tzinfo=UTC)
     if end and len(text) == 10:
         # A bare "2026-01-31" as an end bound means the whole of that day.
         parsed = parsed + timedelta(days=1) - timedelta(microseconds=1)
@@ -1079,9 +1081,9 @@ async def get_place_history(
     *,
     owner: str,
     place_id: str,
-    field: Optional[str] = None,
-    start_date: Optional[str] = None,
-    end_date: Optional[str] = None,
+    field: str | None = None,
+    start_date: str | None = None,
+    end_date: str | None = None,
 ) -> dict[str, Any]:
     """Return the recorded history for a place, from this owner's monitors.
 
@@ -1132,7 +1134,7 @@ async def get_place_history(
         for entry in record.data.get("history") or []:
             try:
                 ts = datetime.fromisoformat(entry["timestamp"]).timestamp()
-            except (KeyError, ValueError):
+            except KeyError, ValueError:
                 continue
             if start_ts is not None and ts < start_ts:
                 continue
@@ -1157,12 +1159,12 @@ async def get_place_history(
 # Scheduler
 # ---------------------------------------------------------------------------
 
-_scheduler_task: Optional[asyncio.Task] = None
+_scheduler_task: asyncio.Task | None = None
 
 
 async def _scheduler_loop(
     interval_seconds: float,
-    fetch_place: Optional[Callable[[dict[str, Any]], Awaitable[dict[str, Any]]]],
+    fetch_place: Callable[[dict[str, Any]], Awaitable[dict[str, Any]]] | None,
 ) -> None:
     """Wake every ``interval_seconds`` and run any due checks."""
     logger.info("Maps monitor scheduler started (tick=%ss)", interval_seconds)
@@ -1188,7 +1190,7 @@ async def _scheduler_loop(
 def start_monitor_scheduler(
     *,
     interval_seconds: float = DEFAULT_TICK_SECONDS,
-    fetch_place: Optional[Callable[[dict[str, Any]], Awaitable[dict[str, Any]]]] = None,
+    fetch_place: Callable[[dict[str, Any]], Awaitable[dict[str, Any]]] | None = None,
 ) -> asyncio.Task:
     """Start the background monitor scheduler.
 
@@ -1206,9 +1208,7 @@ def start_monitor_scheduler(
     global _scheduler_task
     if _scheduler_task is not None and not _scheduler_task.done():
         return _scheduler_task
-    _scheduler_task = asyncio.create_task(
-        _scheduler_loop(interval_seconds, fetch_place), name="maps-monitor-scheduler"
-    )
+    _scheduler_task = asyncio.create_task(_scheduler_loop(interval_seconds, fetch_place), name="maps-monitor-scheduler")
     return _scheduler_task
 
 
@@ -1224,7 +1224,5 @@ async def stop_monitor_scheduler() -> None:
     if task is None or task.done():
         return
     task.cancel()
-    try:
+    with contextlib.suppress(asyncio.CancelledError):
         await task
-    except asyncio.CancelledError:
-        pass

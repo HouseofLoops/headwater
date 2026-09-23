@@ -21,6 +21,7 @@ The split is a refactor and nothing more: paths, handler names and therefore
 operation ids are unchanged, which ``tests/test_google_maps_api.py`` asserts
 against a recorded inventory.
 """
+
 from fastapi import APIRouter
 
 from app.api.google_maps import (
@@ -34,9 +35,7 @@ from app.api.google_maps import (
 )
 from app.api.google_maps.common import SafeUrlValidationRoute
 
-google_maps_router = APIRouter(
-    tags=["Google Maps API"], route_class=SafeUrlValidationRoute
-)
+google_maps_router = APIRouter(tags=["Google Maps API"], route_class=SafeUrlValidationRoute)
 
 # Mounted in the order the endpoints were originally declared. None of the
 # paths collide, so order does not affect matching -- it is kept only so a

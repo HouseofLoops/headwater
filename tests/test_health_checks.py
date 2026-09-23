@@ -8,7 +8,7 @@ which was ever declared in any requirements file -- and it ``await``-ed
 ``app/core/database.py`` and the check were deleted; these tests fail loudly
 if either is reintroduced.
 """
-import asyncio
+
 import importlib
 import pathlib
 
@@ -32,9 +32,7 @@ def test_no_database_health_check_symbol():
 @pytest.mark.asyncio
 async def test_check_health_reports_no_database_key():
     """check_health must report redis / external_apis / system only."""
-    result = await health_checks.check_health(
-        include_details=True, settings=get_settings()
-    )
+    result = await health_checks.check_health(include_details=True, settings=get_settings())
     assert set(result["checks"]) == {"redis", "external_apis", "system"}
     assert "database" not in result["checks"]
 
@@ -63,17 +61,11 @@ def test_slowapi_is_not_a_dependency():
     exists to fix, and a second limiter would mean two sources of truth for
     keying, storage and the 429 body.
     """
-    requirements = (
-        pathlib.Path(__file__).resolve().parents[1] / "requirements.txt"
-    ).read_text()
-    declared = [
-        line.strip()
-        for line in requirements.splitlines()
-        if line.strip() and not line.strip().startswith("#")
-    ]
-    assert not any(
-        line.lower().startswith("slowapi") for line in declared
-    ), "slowapi is declared again; see app/core/rate_limiter.py"
+    requirements = (pathlib.Path(__file__).resolve().parents[1] / "requirements.txt").read_text()
+    declared = [line.strip() for line in requirements.splitlines() if line.strip() and not line.strip().startswith("#")]
+    assert not any(line.lower().startswith("slowapi") for line in declared), (
+        "slowapi is declared again; see app/core/rate_limiter.py"
+    )
 
 
 def test_tldextract_is_importable():

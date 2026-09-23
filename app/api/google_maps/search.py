@@ -4,9 +4,9 @@ bulk and autocomplete.
 Mounted onto ``google_maps_router`` by this package's ``__init__``; the paths
 declared here are relative to the ``/google-maps`` prefix applied there.
 """
+
 import logging
 from datetime import datetime
-from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
@@ -20,27 +20,26 @@ from app.api.google_maps.schemas import (
     MAX_RESULTS_CEILING,
     MAX_SEARCH_TIMEOUT_SECONDS,
     SECONDS_PER_RESULT,
-    affordable_results_within,
-    seconds_needed_for,
-    SearchRequest,
-    NearbySearchRequest,
+    BoundingBoxRequest,
     BulkSearchRequest,
     GridSearchRequest,
-    BoundingBoxRequest,
     LocationSearchRequest,
+    NearbySearchRequest,
+    SearchRequest,
+    affordable_results_within,
+    seconds_needed_for,
 )
 from app.core.auth import get_api_key
+from app.core.cache_manager import generate_cache_key, get_cached_or_fetch
+from app.core.log_safety import scrub
 from app.core.rate_limiter import rate_limit
 from app.services.google_maps_service import google_maps_service
 from app.services.record_store import owner_id_for_api_key
-from app.core.log_safety import scrub
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(route_class=SafeUrlValidationRoute)
 
-
-from app.core.cache_manager import generate_cache_key, get_cached_or_fetch
 
 # A Maps search costs ~12s per result because each place is opened and read in
 # turn, so an identical repeat query cost 40s twice over. Every other module
@@ -81,23 +80,20 @@ def enforce_result_budget(max_results: int, timeout: int) -> None:
         200: {"description": "Search results"},
         400: {"description": "Invalid parameters"},
         401: {"description": "Invalid API key"},
-        503: {"description": "Google Maps scraper unavailable"}
-    }
+        503: {"description": "Google Maps scraper unavailable"},
+    },
 )
 async def search_places(
     request: SearchRequest,
-    wait_for_results: bool = Query(
-        True,
-        description="Wait for results (True) or return job ID immediately (False)"
-    ),
+    wait_for_results: bool = Query(True, description="Wait for results (True) or return job ID immediately (False)"),
     timeout: int = Query(
         300,
         ge=30,
         le=MAX_SEARCH_TIMEOUT_SECONDS,
-        description="Maximum seconds to wait for results (if wait_for_results=True)"
+        description="Maximum seconds to wait for results (if wait_for_results=True)",
     ),
     api_key: str = Depends(get_api_key),
-    rate_limit_check: None = Depends(rate_limit)
+    rate_limit_check: None = Depends(rate_limit),
 ):
     """
     Search for places on Google Maps.
@@ -135,10 +131,7 @@ async def search_places(
     # Check service health first
     health = await google_maps_service.health_check()
     if not health.get("healthy"):
-        raise HTTPException(
-            status_code=503,
-            detail="Google Maps scraper service is unavailable"
-        )
+        raise HTTPException(status_code=503, detail="Google Maps scraper service is unavailable")
 
     # Stamped on the job so that only this caller can later read or delete it.
     owner = owner_id_for_api_key(api_key)
@@ -155,7 +148,7 @@ async def search_places(
                 email_extraction=request.email_extraction,
                 zoom=request.zoom,
                 geo_coordinates=request.geo_coordinates,
-                timeout=timeout
+                timeout=timeout,
             )
 
             if result.get("error"):
@@ -170,7 +163,7 @@ async def search_places(
                 "total_results": len(places),
                 "places": places,
                 "job_id": result.get("job_id"),
-                "timestamp": datetime.now().isoformat()
+                "timestamp": datetime.now().isoformat(),
             }
         else:
             # Async search - return job ID immediately
@@ -182,7 +175,7 @@ async def search_places(
                 depth=request.depth,
                 email_extraction=request.email_extraction,
                 zoom=request.zoom,
-                geo_coordinates=request.geo_coordinates
+                geo_coordinates=request.geo_coordinates,
             )
 
             if job_result.get("error"):
@@ -196,49 +189,35 @@ async def search_places(
                 # Was max_results * 2, which under-quoted the wait six-fold
                 # against the measured ~12s per result.
                 "estimated_time": f"~{request.max_results * SECONDS_PER_RESULT} seconds",
-                "timestamp": datetime.now().isoformat()
+                "timestamp": datetime.now().isoformat(),
             }
 
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Search error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL)
+        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL) from e
 
 
 @router.get(
-    "/search",
-    summary="Search Google Maps places (GET)",
-    response_description="Search results with place details"
+    "/search", summary="Search Google Maps places (GET)", response_description="Search results with place details"
 )
 async def search_places_get(
     query: str = Query(
-        ...,
-        min_length=3,
-        max_length=500,
-        description="Search query",
-        examples=["restaurants in New York"]
+        ..., min_length=3, max_length=500, description="Search query", examples=["restaurants in New York"]
     ),
     language: str = Query("en", description="Language code"),
     max_results: int = Query(
-        20,
-        ge=1,
-        le=MAX_RESULTS_CEILING,
-        description=f"Maximum results (~{SECONDS_PER_RESULT}s each)"
+        20, ge=1, le=MAX_RESULTS_CEILING, description=f"Maximum results (~{SECONDS_PER_RESULT}s each)"
     ),
     depth: int = Query(1, ge=1, le=3, description="Crawl depth"),
     email_extraction: bool = Query(False, description="Extract emails"),
     zoom: int = Query(15, ge=1, le=21, description="Map zoom level"),
-    geo_coordinates: Optional[str] = Query(None, description="Search center (lat,lng)"),
+    geo_coordinates: str | None = Query(None, description="Search center (lat,lng)"),
     wait_for_results: bool = Query(True, description="Wait for results"),
-    timeout: int = Query(
-        300,
-        ge=30,
-        le=MAX_SEARCH_TIMEOUT_SECONDS,
-        description="Timeout in seconds"
-    ),
+    timeout: int = Query(300, ge=30, le=MAX_SEARCH_TIMEOUT_SECONDS, description="Timeout in seconds"),
     api_key: str = Depends(get_api_key),
-    rate_limit_check: None = Depends(rate_limit)
+    rate_limit_check: None = Depends(rate_limit),
 ):
     """
     Search for places on Google Maps (GET version).
@@ -254,7 +233,7 @@ async def search_places_get(
         depth=depth,
         email_extraction=email_extraction,
         zoom=zoom,
-        geo_coordinates=geo_coordinates
+        geo_coordinates=geo_coordinates,
     )
 
     async def run_search():
@@ -263,7 +242,7 @@ async def search_places_get(
             wait_for_results=wait_for_results,
             timeout=timeout,
             api_key=api_key,
-            rate_limit_check=rate_limit_check
+            rate_limit_check=rate_limit_check,
         )
 
     # Only the blocking form is cacheable. wait_for_results=False returns a job
@@ -289,17 +268,13 @@ async def search_places_get(
     return await get_cached_or_fetch(cache_key, run_search, ttl=MAPS_SEARCH_CACHE_TTL)
 
 
-@router.post(
-    "/nearby",
-    summary="Search nearby places",
-    response_description="Places within radius"
-)
+@router.post("/nearby", summary="Search nearby places", response_description="Places within radius")
 async def nearby_search(
     request: NearbySearchRequest,
     wait_for_results: bool = Query(True, description="Wait for results"),
     timeout: int = Query(300, ge=30, le=600, description="Timeout in seconds"),
     api_key: str = Depends(get_api_key),
-    rate_limit_check: None = Depends(rate_limit)
+    rate_limit_check: None = Depends(rate_limit),
 ):
     """
     Search for places near a specific location.
@@ -331,7 +306,7 @@ async def nearby_search(
             query=request.query,
             language=request.language,
             max_results=request.max_results,
-            timeout=timeout if wait_for_results else None
+            timeout=timeout if wait_for_results else None,
         )
 
         if result.get("error"):
@@ -343,38 +318,31 @@ async def nearby_search(
 
         return {
             "success": True,
-            "center": {
-                "latitude": request.latitude,
-                "longitude": request.longitude
-            },
+            "center": {"latitude": request.latitude, "longitude": request.longitude},
             "radius_meters": request.radius_meters,
             "query": request.query,
             "total_results": len(places),
             "places": places,
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now().isoformat(),
         }
 
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Nearby search error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL)
+        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL) from e
 
 
-@router.get(
-    "/nearby",
-    summary="Search nearby places (GET)",
-    response_description="Places within radius"
-)
+@router.get("/nearby", summary="Search nearby places (GET)", response_description="Places within radius")
 async def nearby_search_get(
     latitude: float = Query(..., ge=-90, le=90, description="Center latitude"),
     longitude: float = Query(..., ge=-180, le=180, description="Center longitude"),
     radius_meters: int = Query(1000, ge=100, le=50000, description="Search radius"),
-    query: Optional[str] = Query(None, description="Filter query"),
+    query: str | None = Query(None, description="Filter query"),
     language: str = Query("en", description="Language code"),
     max_results: int = Query(20, ge=1, le=100, description="Maximum results"),
     api_key: str = Depends(get_api_key),
-    rate_limit_check: None = Depends(rate_limit)
+    rate_limit_check: None = Depends(rate_limit),
 ):
     """
     Search for places near a location (GET version).
@@ -387,27 +355,23 @@ async def nearby_search_get(
         radius_meters=radius_meters,
         query=query,
         language=language,
-        max_results=max_results
+        max_results=max_results,
     )
     return await nearby_search(
-        request=request,
-        wait_for_results=True,
-        timeout=300,
-        api_key=api_key,
-        rate_limit_check=rate_limit_check
+        request=request, wait_for_results=True, timeout=300, api_key=api_key, rate_limit_check=rate_limit_check
     )
 
 
 @router.post(
     "/grid-search",
     summary="Grid-based search for comprehensive area coverage",
-    response_description="Aggregated results from multiple grid points"
+    response_description="Aggregated results from multiple grid points",
 )
 async def grid_search(
     request: GridSearchRequest,
     timeout: int = Query(600, ge=60, le=1800, description="Timeout in seconds"),
     api_key: str = Depends(get_api_key),
-    rate_limit_check: None = Depends(rate_limit)
+    rate_limit_check: None = Depends(rate_limit),
 ):
     """
     Search across a grid of coordinates for comprehensive area coverage.
@@ -441,7 +405,7 @@ async def grid_search(
             grid_size=request.grid_size,
             max_results_per_point=request.max_results_per_point,
             language=request.language,
-            timeout=timeout
+            timeout=timeout,
         )
 
         if result.get("error"):
@@ -454,19 +418,19 @@ async def grid_search(
         raise
     except Exception as e:
         logger.error(f"Grid search error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL)
+        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL) from e
 
 
 @router.post(
     "/bounding-box-search",
     summary="Search within a bounding box",
-    response_description="Places within the specified rectangular area"
+    response_description="Places within the specified rectangular area",
 )
 async def bounding_box_search(
     request: BoundingBoxRequest,
     timeout: int = Query(600, ge=60, le=1800, description="Timeout in seconds"),
     api_key: str = Depends(get_api_key),
-    rate_limit_check: None = Depends(rate_limit)
+    rate_limit_check: None = Depends(rate_limit),
 ):
     """
     Search within a rectangular bounding box defined by corner coordinates.
@@ -493,7 +457,7 @@ async def bounding_box_search(
             grid_density=request.grid_density,
             max_results_per_point=request.max_results_per_point,
             language=request.language,
-            timeout=timeout
+            timeout=timeout,
         )
 
         if result.get("error"):
@@ -503,7 +467,7 @@ async def bounding_box_search(
             "north_lat": request.north_lat,
             "south_lat": request.south_lat,
             "east_lng": request.east_lng,
-            "west_lng": request.west_lng
+            "west_lng": request.west_lng,
         }
         result["timestamp"] = datetime.now().isoformat()
         return result
@@ -512,19 +476,19 @@ async def bounding_box_search(
         raise
     except Exception as e:
         logger.error(f"Bounding box search error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL)
+        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL) from e
 
 
 @router.post(
     "/location-search",
     summary="Search by location name",
-    response_description="Grid search results with resolved coordinates"
+    response_description="Grid search results with resolved coordinates",
 )
 async def location_search(
     request: LocationSearchRequest,
     timeout: int = Query(600, ge=60, le=1800, description="Timeout in seconds"),
     api_key: str = Depends(get_api_key),
-    rate_limit_check: None = Depends(rate_limit)
+    rate_limit_check: None = Depends(rate_limit),
 ):
     """
     Search using a location name instead of coordinates.
@@ -550,7 +514,7 @@ async def location_search(
             grid_size=request.grid_size,
             max_results_per_point=request.max_results_per_point,
             language=request.language,
-            timeout=timeout
+            timeout=timeout,
         )
 
         if result.get("error"):
@@ -563,13 +527,11 @@ async def location_search(
         raise
     except Exception as e:
         logger.error(f"Location search error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL)
+        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL) from e
 
 
 @router.get(
-    "/grid-search",
-    summary="Grid-based search (GET)",
-    response_description="Aggregated results from grid search"
+    "/grid-search", summary="Grid-based search (GET)", response_description="Aggregated results from grid search"
 )
 async def grid_search_get(
     query: str = Query(..., min_length=1, max_length=500, description="Search query"),
@@ -581,7 +543,7 @@ async def grid_search_get(
     language: str = Query("en", description="Language code"),
     timeout: int = Query(600, ge=60, le=1800, description="Timeout"),
     api_key: str = Depends(get_api_key),
-    rate_limit_check: None = Depends(rate_limit)
+    rate_limit_check: None = Depends(rate_limit),
 ):
     """GET version of grid search with query parameters."""
     request = GridSearchRequest(
@@ -591,20 +553,15 @@ async def grid_search_get(
         radius_km=radius_km,
         grid_size=grid_size,
         max_results_per_point=max_results_per_point,
-        language=language
+        language=language,
     )
-    return await grid_search(
-        request=request,
-        timeout=timeout,
-        api_key=api_key,
-        rate_limit_check=rate_limit_check
-    )
+    return await grid_search(request=request, timeout=timeout, api_key=api_key, rate_limit_check=rate_limit_check)
 
 
 @router.get(
     "/location-search",
     summary="Search by location name (GET)",
-    response_description="Grid search results with resolved coordinates"
+    response_description="Grid search results with resolved coordinates",
 )
 async def location_search_get(
     query: str = Query(..., min_length=1, max_length=500, description="Search query"),
@@ -615,7 +572,7 @@ async def location_search_get(
     language: str = Query("en", description="Language code"),
     timeout: int = Query(600, ge=60, le=1800, description="Timeout"),
     api_key: str = Depends(get_api_key),
-    rate_limit_check: None = Depends(rate_limit)
+    rate_limit_check: None = Depends(rate_limit),
 ):
     """GET version of location search with query parameters."""
     request = LocationSearchRequest(
@@ -624,30 +581,21 @@ async def location_search_get(
         radius_km=radius_km,
         grid_size=grid_size,
         max_results_per_point=max_results_per_point,
-        language=language
+        language=language,
     )
-    return await location_search(
-        request=request,
-        timeout=timeout,
-        api_key=api_key,
-        rate_limit_check=rate_limit_check
-    )
+    return await location_search(request=request, timeout=timeout, api_key=api_key, rate_limit_check=rate_limit_check)
 
 
-@router.get(
-    "/autocomplete",
-    summary="Place autocomplete",
-    response_description="Autocomplete suggestions"
-)
+@router.get("/autocomplete", summary="Place autocomplete", response_description="Autocomplete suggestions")
 async def autocomplete(
     input: str = Query(..., min_length=2, max_length=200, description="Search input"),
-    types: Optional[str] = Query(None, description="Place types filter"),
-    latitude: Optional[float] = Query(None, ge=-90, le=90, description="Bias latitude"),
-    longitude: Optional[float] = Query(None, ge=-180, le=180, description="Bias longitude"),
-    radius_meters: Optional[int] = Query(None, ge=1, le=50000, description="Bias radius"),
+    types: str | None = Query(None, description="Place types filter"),
+    latitude: float | None = Query(None, ge=-90, le=90, description="Bias latitude"),
+    longitude: float | None = Query(None, ge=-180, le=180, description="Bias longitude"),
+    radius_meters: int | None = Query(None, ge=1, le=50000, description="Bias radius"),
     language: str = Query("en", description="Language code"),
     api_key: str = Depends(get_api_key),
-    rate_limit_check: None = Depends(rate_limit)
+    rate_limit_check: None = Depends(rate_limit),
 ):
     """
     Get place autocomplete suggestions.
@@ -673,7 +621,7 @@ async def autocomplete(
             latitude=latitude,
             longitude=longitude,
             radius_meters=radius_meters,
-            language=language
+            language=language,
         )
 
         if result.get("error"):
@@ -683,25 +631,19 @@ async def autocomplete(
             "success": True,
             "input": input,
             "predictions": result.get("predictions", []),
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now().isoformat(),
         }
 
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Autocomplete error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL)
+        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL) from e
 
 
-@router.post(
-    "/bulk-search",
-    summary="Bulk search places",
-    response_description="Results for multiple queries"
-)
+@router.post("/bulk-search", summary="Bulk search places", response_description="Results for multiple queries")
 async def bulk_search(
-    request: BulkSearchRequest,
-    api_key: str = Depends(get_api_key),
-    rate_limit_check: None = Depends(rate_limit)
+    request: BulkSearchRequest, api_key: str = Depends(get_api_key), rate_limit_check: None = Depends(rate_limit)
 ):
     """
     Execute multiple search queries in a single request.
@@ -728,9 +670,7 @@ async def bulk_search(
 
     try:
         result = await google_maps_service.bulk_search(
-            queries=request.queries,
-            language=request.language,
-            max_results_per_query=request.max_results_per_query
+            queries=request.queries, language=request.language, max_results_per_query=request.max_results_per_query
         )
 
         if result.get("error"):
@@ -742,11 +682,11 @@ async def bulk_search(
             "successful_queries": result.get("successful_queries", 0),
             "failed_queries": result.get("failed_queries", 0),
             "results": result.get("results", []),
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now().isoformat(),
         }
 
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Bulk search error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL)
+        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL) from e

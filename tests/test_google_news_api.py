@@ -1,8 +1,7 @@
-import httpx
-import pytest
-from unittest import mock
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import httpx
+import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
@@ -12,14 +11,15 @@ from pydantic import ValidationError
 # For simplicity, we might need to create a local app instance for testing the router
 from app.api.google_news import google_news_api
 from app.api.google_news.google_news_api import (
-    gnews_router,
-    transform_article,
+    NewsArticle,
     decode_and_process_articles,
     decode_google_news_url,
+    gnews_router,
     is_google_news_redirect,
-    NewsArticle,
+    transform_article,
 )
 from app.core import cache_manager as cache_manager_module
+from app.services import google_news_article_service
 
 # Setup a minimal FastAPI app for testing the router
 app = FastAPI()
@@ -76,9 +76,7 @@ def html_response(body: str, url: str = "https://example.com/article"):
 
 
 def redirect_response(location: str, url: str = "https://example.com/article"):
-    return httpx.Response(
-        302, headers={"location": location}, request=httpx.Request("GET", url)
-    )
+    return httpx.Response(302, headers={"location": location}, request=httpx.Request("GET", url))
 
 
 @pytest.fixture
@@ -104,7 +102,7 @@ def stub_article_fetch(monkeypatch):
     async def fake_get_client(proxy_url=None):
         return mock_client
 
-    monkeypatch.setattr(google_news_api, "get_gnews_http_client", fake_get_client)
+    monkeypatch.setattr(google_news_article_service, "get_gnews_http_client", fake_get_client)
     use.calls = lambda: holder["stream"].calls
     return use
 
@@ -118,11 +116,9 @@ def allow_example_articles(monkeypatch):
     is switched off here. The scheme, host, port and credential checks -- the
     ones these tests are about -- still run.
     """
-    monkeypatch.setattr(
-        google_news_api, "ARTICLE_DETAILS_ALLOWED_HOSTS", ("example.com", ".example.com")
-    )
-    monkeypatch.setattr(google_news_api, "ARTICLE_DETAILS_RESOLVE_DNS", False)
-    monkeypatch.setattr(google_news_api, "ARTICLE_DETAILS_ALLOW_HTTP", False)
+    monkeypatch.setattr(google_news_article_service, "ARTICLE_DETAILS_ALLOWED_HOSTS", ("example.com", ".example.com"))
+    monkeypatch.setattr(google_news_article_service, "ARTICLE_DETAILS_RESOLVE_DNS", False)
+    monkeypatch.setattr(google_news_article_service, "ARTICLE_DETAILS_ALLOW_HTTP", False)
 
 
 # 1. Test transform_article
@@ -132,21 +128,22 @@ def test_transform_article_success():
         "description": "Test Description",
         "published date": "2023-01-01T12:00:00Z",
         "url": "http://example.com/article",
-        "publisher": {"title": "Example Publisher"}
+        "publisher": {"title": "Example Publisher"},
     }
     expected_transformed_article = {
         "title": "Test Title",
         "description": "Test Description",
         "published_date": "2023-01-01T12:00:00Z",
         "url": "http://example.com/article",
-        "publisher": "Example Publisher"
+        "publisher": "Example Publisher",
     }
     assert transform_article(raw_article) == expected_transformed_article
+
 
 def test_transform_article_missing_fields():
     raw_article = {
         "title": "Test Title Only",
-        "url": "http://example.com/article_no_desc"
+        "url": "http://example.com/article_no_desc",
         # Missing description, published date, publisher
     }
     expected_transformed_article = {
@@ -154,51 +151,58 @@ def test_transform_article_missing_fields():
         "description": None,
         "published_date": None,
         "url": "http://example.com/article_no_desc",
-        "publisher": None
+        "publisher": None,
     }
     assert transform_article(raw_article) == expected_transformed_article
+
 
 def test_transform_article_publisher_none():
     raw_article = {
         "title": "Test Title",
         "published date": "2023-01-01T12:00:00Z",
         "url": "http://example.com/article",
-        "publisher": None # Publisher field exists but is None
+        "publisher": None,  # Publisher field exists but is None
     }
     expected_transformed_article = {
         "title": "Test Title",
         "description": None,
         "published_date": "2023-01-01T12:00:00Z",
         "url": "http://example.com/article",
-        "publisher": None
+        "publisher": None,
     }
     assert transform_article(raw_article) == expected_transformed_article
+
 
 def test_transform_article_publisher_empty_dict():
     raw_article = {
         "title": "Test Title",
         "published date": "2023-01-01T12:00:00Z",
         "url": "http://example.com/article",
-        "publisher": {} # Publisher is an empty dict
+        "publisher": {},  # Publisher is an empty dict
     }
     expected_transformed_article = {
         "title": "Test Title",
         "description": None,
         "published_date": "2023-01-01T12:00:00Z",
         "url": "http://example.com/article",
-        "publisher": None
+        "publisher": None,
     }
     assert transform_article(raw_article) == expected_transformed_article
 
 
 # 2. Test URL Decoding (decode_google_news_url)
 @pytest.mark.asyncio
-@patch('app.api.google_news.google_news_api.get_base64_str', new_callable=AsyncMock)
-@patch('app.api.google_news.google_news_api.get_decoding_params', new_callable=AsyncMock)
-@patch('app.api.google_news.google_news_api.decode_url', new_callable=AsyncMock)
+@patch("app.services.google_news_service.get_base64_str", new_callable=AsyncMock)
+@patch("app.services.google_news_service.get_decoding_params", new_callable=AsyncMock)
+@patch("app.services.google_news_service.decode_url", new_callable=AsyncMock)
 async def test_decode_google_news_url_success(mock_decode_url, mock_get_decoding_params, mock_get_base64_str):
     mock_get_base64_str.return_value = {"status": True, "base64_str": "test_b64_str"}
-    mock_get_decoding_params.return_value = {"status": True, "signature": "test_sig", "timestamp": "test_ts", "base64_str": "test_b64_str"}
+    mock_get_decoding_params.return_value = {
+        "status": True,
+        "signature": "test_sig",
+        "timestamp": "test_ts",
+        "base64_str": "test_b64_str",
+    }
     mock_decode_url.return_value = {"status": True, "decoded_url": "http://real-example.com"}
 
     source_url = "http://news.google.com/articles/test_b64_str"
@@ -209,20 +213,22 @@ async def test_decode_google_news_url_success(mock_decode_url, mock_get_decoding
     mock_get_decoding_params.assert_called_once_with("test_b64_str")
     mock_decode_url.assert_called_once_with("test_sig", "test_ts", "test_b64_str")
 
+
 @pytest.mark.asyncio
-@patch('app.api.google_news.google_news_api.get_base64_str', new_callable=AsyncMock)
+@patch("app.services.google_news_service.get_base64_str", new_callable=AsyncMock)
 async def test_decode_google_news_url_fail_base64(mock_get_base64_str):
     mock_get_base64_str.return_value = {"status": False, "message": "Invalid base64"}
-    
+
     source_url = "http://invalid-google-news-url.com"
     result = await decode_google_news_url(source_url)
 
     assert result == {"status": False, "message": "Invalid base64"}
     mock_get_base64_str.assert_called_once_with(source_url)
 
+
 @pytest.mark.asyncio
-@patch('app.api.google_news.google_news_api.get_base64_str', new_callable=AsyncMock)
-@patch('app.api.google_news.google_news_api.get_decoding_params', new_callable=AsyncMock)
+@patch("app.services.google_news_service.get_base64_str", new_callable=AsyncMock)
+@patch("app.services.google_news_service.get_decoding_params", new_callable=AsyncMock)
 async def test_decode_google_news_url_fail_decoding_params(mock_get_decoding_params, mock_get_base64_str):
     mock_get_base64_str.return_value = {"status": True, "base64_str": "test_b64_str"}
     mock_get_decoding_params.return_value = {"status": False, "message": "Failed to get params"}
@@ -235,12 +241,19 @@ async def test_decode_google_news_url_fail_decoding_params(mock_get_decoding_par
 
 
 @pytest.mark.asyncio
-@patch('app.api.google_news.google_news_api.get_base64_str', new_callable=AsyncMock)
-@patch('app.api.google_news.google_news_api.get_decoding_params', new_callable=AsyncMock)
-@patch('app.api.google_news.google_news_api.decode_url', new_callable=AsyncMock)
-async def test_decode_google_news_url_fail_decode_final_url(mock_decode_url, mock_get_decoding_params, mock_get_base64_str):
+@patch("app.services.google_news_service.get_base64_str", new_callable=AsyncMock)
+@patch("app.services.google_news_service.get_decoding_params", new_callable=AsyncMock)
+@patch("app.services.google_news_service.decode_url", new_callable=AsyncMock)
+async def test_decode_google_news_url_fail_decode_final_url(
+    mock_decode_url, mock_get_decoding_params, mock_get_base64_str
+):
     mock_get_base64_str.return_value = {"status": True, "base64_str": "test_b64_str"}
-    mock_get_decoding_params.return_value = {"status": True, "signature": "test_sig", "timestamp": "test_ts", "base64_str": "test_b64_str"}
+    mock_get_decoding_params.return_value = {
+        "status": True,
+        "signature": "test_sig",
+        "timestamp": "test_ts",
+        "base64_str": "test_b64_str",
+    }
     mock_decode_url.return_value = {"status": False, "message": "Failed to decode URL"}
 
     source_url = "http://news.google.com/articles/test_b64_str"
@@ -254,35 +267,64 @@ def test_get_top_google_news_success():
     # Mock GNews instance and its methods
     mock_gnews_instance = MagicMock()
     mock_gnews_instance.get_top_news.return_value = [
-        {"title": "Top News 1", "url": "http://google.com/news/1", "publisher": {"title": "Pub1"}, "published date": "date1", "description": "desc1"},
-        {"title": "Top News 2", "url": "http://google.com/news/2", "publisher": {"title": "Pub2"}, "published date": "date2", "description": "desc2"},
+        {
+            "title": "Top News 1",
+            "url": "http://google.com/news/1",
+            "publisher": {"title": "Pub1"},
+            "published date": "date1",
+            "description": "desc1",
+        },
+        {
+            "title": "Top News 2",
+            "url": "http://google.com/news/2",
+            "publisher": {"title": "Pub2"},
+            "published date": "date2",
+            "description": "desc2",
+        },
     ]
 
     expected_processed_articles = [
-        NewsArticle(title="Top News 1", url="http://decoded.com/news/1", publisher="Pub1", published_date="date1", description="desc1").model_dump(),
-        NewsArticle(title="Top News 2", url="http://decoded.com/news/2", publisher="Pub2", published_date="date2", description="desc2").model_dump(),
+        NewsArticle(
+            title="Top News 1",
+            url="http://decoded.com/news/1",
+            publisher="Pub1",
+            published_date="date1",
+            description="desc1",
+        ).model_dump(),
+        NewsArticle(
+            title="Top News 2",
+            url="http://decoded.com/news/2",
+            publisher="Pub2",
+            published_date="date2",
+            description="desc2",
+        ).model_dump(),
     ]
-    
+
     # Patch get_gnews_instance and decode_and_process_articles
-    with patch('app.api.google_news.google_news_api.get_gnews_instance', new_callable=AsyncMock) as mock_get_gnews, \
-         patch('app.api.google_news.google_news_api.decode_and_process_articles', new_callable=AsyncMock) as mock_decode_process:
-        
+    with (
+        patch("app.api.google_news.google_news_api.get_gnews_instance", new_callable=AsyncMock) as mock_get_gnews,
+        patch(
+            "app.api.google_news.google_news_api.decode_and_process_articles", new_callable=AsyncMock
+        ) as mock_decode_process,
+    ):
         mock_get_gnews.return_value = mock_gnews_instance
-        mock_decode_process.return_value = expected_processed_articles # Simulate that articles were successfully decoded
+        mock_decode_process.return_value = (
+            expected_processed_articles  # Simulate that articles were successfully decoded
+        )
 
         response = client.get("/news/top/", params={"language": "en", "country": "US", "max_results": 2})
 
         assert response.status_code == 200
         response_json = response.json()
         assert response_json == {"articles": expected_processed_articles}
-        
+
         # Assert that get_gnews_instance was called with correct parameters from the endpoint
         mock_get_gnews.assert_called_once()
-        call_args = mock_get_gnews.call_args[1] # Get kwargs
-        assert call_args['language'] == 'en'
-        assert call_args['country'] == 'US'
-        assert call_args['max_results'] == 2
-        
+        call_args = mock_get_gnews.call_args[1]  # Get kwargs
+        assert call_args["language"] == "en"
+        assert call_args["country"] == "US"
+        assert call_args["max_results"] == 2
+
         # Assert that decode_and_process_articles was called with the raw articles from gnews
         mock_decode_process.assert_called_once_with(mock_gnews_instance.get_top_news.return_value)
         mock_gnews_instance.get_top_news.assert_called_once()
@@ -290,37 +332,41 @@ def test_get_top_google_news_success():
 
 def test_get_top_google_news_gnews_returns_no_news():
     mock_gnews_instance = MagicMock()
-    mock_gnews_instance.get_top_news.return_value = [] # GNews found no articles
+    mock_gnews_instance.get_top_news.return_value = []  # GNews found no articles
 
-    with patch('app.api.google_news.google_news_api.get_gnews_instance', new_callable=AsyncMock) as mock_get_gnews:
+    with patch("app.api.google_news.google_news_api.get_gnews_instance", new_callable=AsyncMock) as mock_get_gnews:
         mock_get_gnews.return_value = mock_gnews_instance
 
         response = client.get("/news/top/")
-        
+
         assert response.status_code == 404
         assert response.json() == {"detail": "No top news found."}
+
 
 def test_get_top_google_news_decode_returns_no_news():
     # Test case where GNews returns articles, but decode_and_process_articles returns empty
     mock_gnews_instance = MagicMock()
-    mock_gnews_instance.get_top_news.return_value = [
-        {"title": "Raw News 1", "url": "http://google.com/news/raw1"}
-    ]
+    mock_gnews_instance.get_top_news.return_value = [{"title": "Raw News 1", "url": "http://google.com/news/raw1"}]
 
-    with patch('app.api.google_news.google_news_api.get_gnews_instance', new_callable=AsyncMock) as mock_get_gnews, \
-         patch('app.api.google_news.google_news_api.decode_and_process_articles', new_callable=AsyncMock) as mock_decode_process:
-        
+    with (
+        patch("app.api.google_news.google_news_api.get_gnews_instance", new_callable=AsyncMock) as mock_get_gnews,
+        patch(
+            "app.api.google_news.google_news_api.decode_and_process_articles", new_callable=AsyncMock
+        ) as mock_decode_process,
+    ):
         mock_get_gnews.return_value = mock_gnews_instance
-        mock_decode_process.return_value = [] # Simulate all articles failed decoding or were filtered
+        mock_decode_process.return_value = []  # Simulate all articles failed decoding or were filtered
 
         response = client.get("/news/top/")
-        
+
         assert response.status_code == 404
         # This detail comes from the new check in the endpoint after calling decode_and_process_articles
         assert response.json() == {"detail": "No processable top news found after URL decoding."}
         mock_decode_process.assert_called_once_with(mock_gnews_instance.get_top_news.return_value)
 
+
 # Additional comprehensive tests to increase coverage
+
 
 # Test available languages endpoint
 def test_get_languages():
@@ -344,8 +390,8 @@ def test_get_available_countries():
 
 # Test /source/ endpoint
 @pytest.mark.asyncio
-@patch('app.api.google_news.google_news_api.get_gnews_instance', new_callable=AsyncMock)
-@patch('app.api.google_news.google_news_api.decode_and_process_articles', new_callable=AsyncMock)
+@patch("app.api.google_news.google_news_api.get_gnews_instance", new_callable=AsyncMock)
+@patch("app.api.google_news.google_news_api.decode_and_process_articles", new_callable=AsyncMock)
 async def test_get_news_by_source_success(mock_decode_process, mock_get_gnews):
     mock_gnews_instance = MagicMock()
     mock_gnews_instance.get_news_by.return_value = [
@@ -353,15 +399,18 @@ async def test_get_news_by_source_success(mock_decode_process, mock_get_gnews):
     ]
     mock_get_gnews.return_value = mock_gnews_instance
     mock_decode_process.return_value = [
-        NewsArticle(title="Source News", url="http://decoded.com/news/source1", publisher="SourcePub", published_date="2023-01-01", description="Test description").model_dump()
+        NewsArticle(
+            title="Source News",
+            url="http://decoded.com/news/source1",
+            publisher="SourcePub",
+            published_date="2023-01-01",
+            description="Test description",
+        ).model_dump()
     ]
 
-    response = client.get("/news/source/", params={
-        "source": "cnn.com",
-        "language": "en",
-        "country": "US",
-        "max_results": 5
-    })
+    response = client.get(
+        "/news/source/", params={"source": "cnn.com", "language": "en", "country": "US", "max_results": 5}
+    )
 
     assert response.status_code == 200
     data = response.json()
@@ -378,8 +427,8 @@ async def test_get_news_by_source_invalid_source():
 
 # Test /search/ endpoint
 @pytest.mark.asyncio
-@patch('app.api.google_news.google_news_api.get_gnews_instance', new_callable=AsyncMock)
-@patch('app.api.google_news.google_news_api.decode_and_process_articles', new_callable=AsyncMock)
+@patch("app.api.google_news.google_news_api.get_gnews_instance", new_callable=AsyncMock)
+@patch("app.api.google_news.google_news_api.decode_and_process_articles", new_callable=AsyncMock)
 async def test_search_google_news_success(mock_decode_process, mock_get_gnews):
     mock_gnews_instance = MagicMock()
     mock_gnews_instance.get_news.return_value = [
@@ -387,15 +436,18 @@ async def test_search_google_news_success(mock_decode_process, mock_get_gnews):
     ]
     mock_get_gnews.return_value = mock_gnews_instance
     mock_decode_process.return_value = [
-        NewsArticle(title="Search Result", url="http://decoded.com/news/search1", publisher="SearchPub", published_date="2023-01-01", description="Test description").model_dump()
+        NewsArticle(
+            title="Search Result",
+            url="http://decoded.com/news/search1",
+            publisher="SearchPub",
+            published_date="2023-01-01",
+            description="Test description",
+        ).model_dump()
     ]
 
-    response = client.get("/news/search/", params={
-        "query": "test query",
-        "language": "en",
-        "country": "US",
-        "max_results": 5
-    })
+    response = client.get(
+        "/news/search/", params={"query": "test query", "language": "en", "country": "US", "max_results": 5}
+    )
 
     assert response.status_code == 200
     data = response.json()
@@ -403,7 +455,7 @@ async def test_search_google_news_success(mock_decode_process, mock_get_gnews):
 
 
 @pytest.mark.asyncio
-@patch('app.api.google_news.google_news_api.get_gnews_instance', new_callable=AsyncMock)
+@patch("app.api.google_news.google_news_api.get_gnews_instance", new_callable=AsyncMock)
 async def test_search_google_news_no_results(mock_get_gnews):
     mock_gnews_instance = MagicMock()
     mock_gnews_instance.get_news.return_value = []
@@ -415,8 +467,8 @@ async def test_search_google_news_no_results(mock_get_gnews):
 
 # Test /topic/ endpoint
 @pytest.mark.asyncio
-@patch('app.api.google_news.google_news_api.get_gnews_instance', new_callable=AsyncMock)
-@patch('app.api.google_news.google_news_api.decode_and_process_articles', new_callable=AsyncMock)
+@patch("app.api.google_news.google_news_api.get_gnews_instance", new_callable=AsyncMock)
+@patch("app.api.google_news.google_news_api.decode_and_process_articles", new_callable=AsyncMock)
 async def test_get_news_by_topic_success(mock_decode_process, mock_get_gnews):
     mock_gnews_instance = MagicMock()
     mock_gnews_instance.get_news_by_topic.return_value = [
@@ -424,15 +476,18 @@ async def test_get_news_by_topic_success(mock_decode_process, mock_get_gnews):
     ]
     mock_get_gnews.return_value = mock_gnews_instance
     mock_decode_process.return_value = [
-        NewsArticle(title="Topic News", url="http://decoded.com/news/topic1", publisher="TopicPub", published_date="2023-01-01", description="Test description").model_dump()
+        NewsArticle(
+            title="Topic News",
+            url="http://decoded.com/news/topic1",
+            publisher="TopicPub",
+            published_date="2023-01-01",
+            description="Test description",
+        ).model_dump()
     ]
 
-    response = client.get("/news/topic/", params={
-        "topic": "WORLD",
-        "language": "en",
-        "country": "US",
-        "max_results": 5
-    })
+    response = client.get(
+        "/news/topic/", params={"topic": "WORLD", "language": "en", "country": "US", "max_results": 5}
+    )
 
     assert response.status_code == 200
     data = response.json()
@@ -441,8 +496,8 @@ async def test_get_news_by_topic_success(mock_decode_process, mock_get_gnews):
 
 # Test /location/ endpoint
 @pytest.mark.asyncio
-@patch('app.api.google_news.google_news_api.get_gnews_instance', new_callable=AsyncMock)
-@patch('app.api.google_news.google_news_api.decode_and_process_articles', new_callable=AsyncMock)
+@patch("app.api.google_news.google_news_api.get_gnews_instance", new_callable=AsyncMock)
+@patch("app.api.google_news.google_news_api.decode_and_process_articles", new_callable=AsyncMock)
 async def test_get_news_by_location_success(mock_decode_process, mock_get_gnews):
     mock_gnews_instance = MagicMock()
     mock_gnews_instance.get_news_by_location.return_value = [
@@ -450,15 +505,18 @@ async def test_get_news_by_location_success(mock_decode_process, mock_get_gnews)
     ]
     mock_get_gnews.return_value = mock_gnews_instance
     mock_decode_process.return_value = [
-        NewsArticle(title="Location News", url="http://decoded.com/news/location1", publisher="LocationPub", published_date="2023-01-01", description="Test description").model_dump()
+        NewsArticle(
+            title="Location News",
+            url="http://decoded.com/news/location1",
+            publisher="LocationPub",
+            published_date="2023-01-01",
+            description="Test description",
+        ).model_dump()
     ]
 
-    response = client.get("/news/location/", params={
-        "location": "New York",
-        "language": "en",
-        "country": "US",
-        "max_results": 5
-    })
+    response = client.get(
+        "/news/location/", params={"location": "New York", "language": "en", "country": "US", "max_results": 5}
+    )
 
     assert response.status_code == 200
     data = response.json()
@@ -467,8 +525,8 @@ async def test_get_news_by_location_success(mock_decode_process, mock_get_gnews)
 
 # Test /articles/ endpoint
 @pytest.mark.asyncio
-@patch('app.api.google_news.google_news_api.get_gnews_instance', new_callable=AsyncMock)
-@patch('app.api.google_news.google_news_api.decode_and_process_articles', new_callable=AsyncMock)
+@patch("app.api.google_news.google_news_api.get_gnews_instance", new_callable=AsyncMock)
+@patch("app.api.google_news.google_news_api.decode_and_process_articles", new_callable=AsyncMock)
 async def test_get_google_news_articles_success(mock_decode_process, mock_get_gnews):
     mock_gnews_instance = MagicMock()
     mock_gnews_instance.get_news.return_value = [
@@ -476,16 +534,18 @@ async def test_get_google_news_articles_success(mock_decode_process, mock_get_gn
     ]
     mock_get_gnews.return_value = mock_gnews_instance
     mock_decode_process.return_value = [
-        NewsArticle(title="Bulk Article", url="http://decoded.com/news/bulk1", publisher="BulkPub", published_date="2023-01-01", description="Test description").model_dump()
+        NewsArticle(
+            title="Bulk Article",
+            url="http://decoded.com/news/bulk1",
+            publisher="BulkPub",
+            published_date="2023-01-01",
+            description="Test description",
+        ).model_dump()
     ]
 
-    response = client.get("/news/articles/", params={
-        "query": "test",
-        "country": "US",
-        "language": "en",
-        "period": "7d",
-        "max_results": 5
-    })
+    response = client.get(
+        "/news/articles/", params={"query": "test", "country": "US", "language": "en", "period": "7d", "max_results": 5}
+    )
 
     assert response.status_code == 200
     data = response.json()
@@ -494,10 +554,8 @@ async def test_get_google_news_articles_success(mock_decode_process, mock_get_gn
 
 # Test /article-details/ endpoint
 @pytest.mark.asyncio
-@patch('app.api.google_news.google_news_api.Article')
-async def test_get_article_details_success(
-    mock_article_class, allow_example_articles, stub_article_fetch
-):
+@patch("app.api.google_news.google_news_api.Article")
+async def test_get_article_details_success(mock_article_class, allow_example_articles, stub_article_fetch):
     # Create a mock article instance
     mock_article = MagicMock()
     mock_article.title = "Test Article Title"
@@ -512,19 +570,17 @@ async def test_get_article_details_success(
     mock_article.meta_data = {}
     mock_article.meta_description = ""
     mock_article.meta_keywords = ""
-    
+
     # Mock the synchronous methods
     mock_article.download = MagicMock()
     mock_article.parse = MagicMock()
     mock_article.nlp = MagicMock()
-    
+
     # Make the Article constructor return our mock
     mock_article_class.return_value = mock_article
 
     # https, and on the allow-list: the only kind of URL this endpoint fetches.
-    response = client.get(
-        "/news/article-details/", params={"url": "https://example.com/article"}
-    )
+    response = client.get("/news/article-details/", params={"url": "https://example.com/article"})
 
     assert response.status_code == 200
     data = response.json()
@@ -533,10 +589,12 @@ async def test_get_article_details_success(
     assert data["title"] == "Test Article Title"
     # The validated, normalised URL is what gets fetched.
     assert mock_article_class.call_args[0][0] == "https://example.com/article"
+
+
 # Test helper functions
 @pytest.mark.asyncio
-@patch('app.api.google_news.google_news_api.cache_manager')
-@patch('app.api.google_news.google_news_api.settings')
+@patch("app.services.google_news_service.cache_manager")
+@patch("app.services.google_news_service.settings")
 async def test_get_cached_or_fetch_cache_hit(mock_settings, mock_cache_manager):
     mock_settings.ENABLE_CACHE = True
     mock_cache_manager.get = AsyncMock(return_value={"cached": "data"})
@@ -552,8 +610,8 @@ async def test_get_cached_or_fetch_cache_hit(mock_settings, mock_cache_manager):
 
 
 @pytest.mark.asyncio
-@patch('app.api.google_news.google_news_api.cache_manager')
-@patch('app.api.google_news.google_news_api.settings')
+@patch("app.services.google_news_service.cache_manager")
+@patch("app.services.google_news_service.settings")
 async def test_get_cached_or_fetch_cache_miss(mock_settings, mock_cache_manager):
     mock_settings.ENABLE_CACHE = True
     mock_cache_manager.get = AsyncMock(return_value=None)
@@ -570,7 +628,7 @@ async def test_get_cached_or_fetch_cache_miss(mock_settings, mock_cache_manager)
 
 
 @pytest.mark.asyncio
-@patch('app.api.google_news.google_news_api.settings')
+@patch("app.services.google_news_service.settings")
 async def test_get_cached_or_fetch_cache_disabled(mock_settings):
     mock_settings.ENABLE_CACHE = False
 
@@ -615,7 +673,7 @@ def test_news_article_model():
         url="http://example.com",
         publisher="Test Publisher",
         published_date="2023-01-01",
-        description="Test description"
+        description="Test description",
     )
     assert article.title == "Test Title"
     assert article.url == "http://example.com"
@@ -623,7 +681,7 @@ def test_news_article_model():
 
 # Test error responses
 @pytest.mark.asyncio
-@patch('app.api.google_news.google_news_api.get_gnews_instance', new_callable=AsyncMock)
+@patch("app.api.google_news.google_news_api.get_gnews_instance", new_callable=AsyncMock)
 async def test_get_top_google_news_internal_error(mock_get_gnews):
     mock_get_gnews.side_effect = Exception("Internal error")
 
@@ -644,19 +702,13 @@ def test_search_parameters_validation():
 
 # Test date parameter validation
 def test_date_parameter_validation():
-    response = client.get("/news/search/", params={
-        "query": "test",
-        "start_date": "invalid-date"
-    })
+    response = client.get("/news/search/", params={"query": "test", "start_date": "invalid-date"})
     assert response.status_code == 422
 
 
 # Test sort_by parameter validation
 def test_sort_by_parameter_validation():
-    response = client.get("/news/search/", params={
-        "query": "test",
-        "sort_by": "invalid_sort"
-    })
+    response = client.get("/news/search/", params={"query": "test", "sort_by": "invalid_sort"})
     assert response.status_code == 422
 
 
@@ -688,7 +740,7 @@ BLOCKED_URLS = [
 
 
 @pytest.mark.parametrize("url", BLOCKED_URLS)
-@patch('app.api.google_news.google_news_api.Article')
+@patch("app.api.google_news.google_news_api.Article")
 def test_article_details_blocks_ssrf_targets(mock_article_class, allow_example_articles, url):
     """A blocked URL is refused before anything is fetched."""
     response = client.get("/news/article-details/", params={"url": url})
@@ -713,9 +765,7 @@ def test_article_details_refusals_are_indistinguishable(allow_example_articles, 
     assert response.json() == {"detail": "The supplied URL is not permitted."}
 
 
-def test_article_details_does_not_leak_upstream_failure(
-    allow_example_articles, stub_article_fetch
-):
+def test_article_details_does_not_leak_upstream_failure(allow_example_articles, stub_article_fetch):
     """A fetch failure must not describe itself to the caller.
 
     The old handler returned 503 with the exception text, which named the host
@@ -724,9 +774,7 @@ def test_article_details_does_not_leak_upstream_failure(
     """
     stub_article_fetch(httpx.ConnectError("Connection refused to 10.0.0.5:6379"))
 
-    response = client.get(
-        "/news/article-details/", params={"url": "https://example.com/article"}
-    )
+    response = client.get("/news/article-details/", params={"url": "https://example.com/article"})
 
     assert response.status_code == 502
     assert response.json() == {"detail": "Could not retrieve the requested article."}
@@ -759,7 +807,7 @@ def _stub_parsed_article(title="Parsed"):
         pytest.param("file:///etc/passwd", id="scheme-change"),
     ],
 )
-@patch('app.api.google_news.google_news_api.Article')
+@patch("app.api.google_news.google_news_api.Article")
 def test_article_details_does_not_follow_redirect_off_the_allow_list(
     mock_article_class, allow_example_articles, stub_article_fetch, location
 ):
@@ -772,9 +820,7 @@ def test_article_details_does_not_follow_redirect_off_the_allow_list(
     """
     stub_article_fetch(redirect_response(location))
 
-    response = client.get(
-        "/news/article-details/", params={"url": "https://example.com/article"}
-    )
+    response = client.get("/news/article-details/", params={"url": "https://example.com/article"})
 
     # The redirect target was refused, so nothing was ever parsed.
     assert response.status_code == 502
@@ -787,7 +833,7 @@ def test_article_details_does_not_follow_redirect_off_the_allow_list(
     assert calls[0][2]["follow_redirects"] is False
 
 
-@patch('app.api.google_news.google_news_api.Article')
+@patch("app.api.google_news.google_news_api.Article")
 def test_article_details_follows_an_allow_listed_redirect(
     mock_article_class, allow_example_articles, stub_article_fetch
 ):
@@ -798,36 +844,28 @@ def test_article_details_follows_an_allow_listed_redirect(
     )
     mock_article_class.return_value = _stub_parsed_article("Redirected")
 
-    response = client.get(
-        "/news/article-details/", params={"url": "https://example.com/article"}
-    )
+    response = client.get("/news/article-details/", params={"url": "https://example.com/article"})
 
     assert response.status_code == 200
     assert response.json()["title"] == "Redirected"
     # Newspaper parsed the body we fetched; it made no request of its own.
-    mock_article_class.return_value.download.assert_called_once_with(
-        "<html><body><p>Body text</p></body></html>"
-    )
+    mock_article_class.return_value.download.assert_called_once_with("<html><body><p>Body text</p></body></html>")
     assert mock_article_class.call_args[0][0] == "https://example.com/final"
 
 
-@patch('app.api.google_news.google_news_api.Article')
-def test_article_details_bounds_the_redirect_chain(
-    mock_article_class, allow_example_articles, stub_article_fetch
-):
+@patch("app.api.google_news.google_news_api.Article")
+def test_article_details_bounds_the_redirect_chain(mock_article_class, allow_example_articles, stub_article_fetch):
     """A redirect loop must not keep a worker busy indefinitely."""
     stub_article_fetch(*[redirect_response("/next") for _ in range(10)])
 
-    response = client.get(
-        "/news/article-details/", params={"url": "https://example.com/article"}
-    )
+    response = client.get("/news/article-details/", params={"url": "https://example.com/article"})
 
     assert response.status_code == 502
     mock_article_class.assert_not_called()
     assert len(stub_article_fetch.calls()) == google_news_api.ARTICLE_MAX_REDIRECTS + 1
 
 
-@patch('app.api.google_news.google_news_api.Article')
+@patch("app.api.google_news.google_news_api.Article")
 def test_article_details_caps_the_response_body(
     mock_article_class, allow_example_articles, stub_article_fetch, monkeypatch
 ):
@@ -836,22 +874,18 @@ def test_article_details_caps_the_response_body(
     The cap has to apply to the decompressed stream: a few kilobytes of gzip
     can expand to gigabytes, so a Content-Length check would not do.
     """
-    monkeypatch.setattr(google_news_api, "ARTICLE_MAX_BYTES", 1024)
+    monkeypatch.setattr(google_news_article_service, "ARTICLE_MAX_BYTES", 1024)
     stub_article_fetch(html_response("x" * 5000))
 
-    response = client.get(
-        "/news/article-details/", params={"url": "https://example.com/article"}
-    )
+    response = client.get("/news/article-details/", params={"url": "https://example.com/article"})
 
     assert response.status_code == 502
     assert response.json() == {"detail": "Could not retrieve the requested article."}
     mock_article_class.assert_not_called()
 
 
-@patch('app.api.google_news.google_news_api.Article')
-def test_degraded_nlp_result_is_not_cached(
-    mock_article_class, allow_example_articles, stub_article_fetch
-):
+@patch("app.api.google_news.google_news_api.Article")
+def test_degraded_nlp_result_is_not_cached(mock_article_class, allow_example_articles, stub_article_fetch):
     """A TRANSIENTLY degraded response must not be pinned for an hour.
 
     ``article.nlp()`` raises LookupError when nltk is installed but its punkt
@@ -868,9 +902,7 @@ def test_degraded_nlp_result_is_not_cached(
     degraded.nlp.side_effect = LookupError("punkt not found")
     mock_article_class.return_value = degraded
 
-    first = client.get(
-        "/news/article-details/", params={"url": "https://example.com/article"}
-    )
+    first = client.get("/news/article-details/", params={"url": "https://example.com/article"})
 
     assert first.status_code == 200
     # `error` is what is_cacheable() keys on, so it must survive: it is the
@@ -892,9 +924,7 @@ def test_degraded_nlp_result_is_not_cached(
     mock_article_class.return_value = healthy
     stub_article_fetch(html_response("<html><body><p>Body text</p></body></html>"))
 
-    second = client.get(
-        "/news/article-details/", params={"url": "https://example.com/article"}
-    )
+    second = client.get("/news/article-details/", params={"url": "https://example.com/article"})
 
     assert second.json()["summary"] == "A summary"
     assert "error" not in second.json()
@@ -902,11 +932,8 @@ def test_degraded_nlp_result_is_not_cached(
     assert cache_manager_module._cache_store != {}
 
 
-
-@patch('app.api.google_news.google_news_api.Article')
-def test_missing_nltk_result_is_cached(
-    mock_article_class, allow_example_articles, stub_article_fetch
-):
+@patch("app.api.google_news.google_news_api.Article")
+def test_missing_nltk_result_is_cached(mock_article_class, allow_example_articles, stub_article_fetch):
     """No nltk at all is a steady state, so the article is still worth caching.
 
     newspaper4k raises ImportError from split_sentences() when nltk is absent.
@@ -919,9 +946,7 @@ def test_missing_nltk_result_is_cached(
     degraded.nlp.side_effect = ImportError("nltk is required for NLP features.")
     mock_article_class.return_value = degraded
 
-    response = client.get(
-        "/news/article-details/", params={"url": "https://example.com/article"}
-    )
+    response = client.get("/news/article-details/", params={"url": "https://example.com/article"})
 
     assert response.status_code == 200
     assert response.json()["summary"] is None
@@ -953,6 +978,7 @@ def test_article_details_default_allow_list_is_closed():
 # publisher's URL. The pipeline required the news.google.com/rss/articles/...
 # form and threw away everything else, emptying the list on every request.
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.parametrize(
     "url,expected",
@@ -989,7 +1015,7 @@ async def test_pre_resolved_urls_are_kept():
     ]
 
     with patch(
-        'app.api.google_news.google_news_api.decode_google_news_url',
+        "app.services.google_news_service.decode_google_news_url",
         new_callable=AsyncMock,
     ) as mock_decode:
         result = await decode_and_process_articles(raw_articles)
@@ -1013,7 +1039,7 @@ async def test_redirect_urls_are_still_decoded():
     ]
 
     with patch(
-        'app.api.google_news.google_news_api.decode_google_news_url',
+        "app.services.google_news_service.decode_google_news_url",
         new_callable=AsyncMock,
     ) as mock_decode:
         mock_decode.return_value = {
@@ -1036,7 +1062,7 @@ async def test_failed_articles_are_counted_not_silently_dropped():
     ]
 
     with patch(
-        'app.api.google_news.google_news_api.decode_google_news_url',
+        "app.services.google_news_service.decode_google_news_url",
         new_callable=AsyncMock,
     ) as mock_decode:
         mock_decode.return_value = {"status": False, "message": "boom"}
@@ -1088,8 +1114,12 @@ def test_partial_results_are_flagged_to_the_caller():
         failed=1,
     )
 
-    with patch('app.api.google_news.google_news_api.get_gnews_instance', new_callable=AsyncMock) as mock_get_gnews, \
-         patch('app.api.google_news.google_news_api.decode_and_process_articles', new_callable=AsyncMock) as mock_decode_process:
+    with (
+        patch("app.api.google_news.google_news_api.get_gnews_instance", new_callable=AsyncMock) as mock_get_gnews,
+        patch(
+            "app.api.google_news.google_news_api.decode_and_process_articles", new_callable=AsyncMock
+        ) as mock_decode_process,
+    ):
         mock_get_gnews.return_value = mock_gnews_instance
         mock_decode_process.return_value = survivors
 
@@ -1114,17 +1144,19 @@ def test_total_decode_failure_is_502_not_404():
     mock_gnews_instance = MagicMock()
     mock_gnews_instance.get_top_news.return_value = [{"title": "a"}, {"title": "b"}]
 
-    with patch('app.api.google_news.google_news_api.get_gnews_instance', new_callable=AsyncMock) as mock_get_gnews, \
-         patch('app.api.google_news.google_news_api.decode_and_process_articles', new_callable=AsyncMock) as mock_decode_process:
+    with (
+        patch("app.api.google_news.google_news_api.get_gnews_instance", new_callable=AsyncMock) as mock_get_gnews,
+        patch(
+            "app.api.google_news.google_news_api.decode_and_process_articles", new_callable=AsyncMock
+        ) as mock_decode_process,
+    ):
         mock_get_gnews.return_value = mock_gnews_instance
         mock_decode_process.return_value = ProcessedArticles([], total=2, failed=2)
 
         response = client.get("/news/top/")
 
     assert response.status_code == 502
-    assert response.json() == {
-        "detail": "Could not resolve articles from Google News. Please retry."
-    }
+    assert response.json() == {"detail": "Could not resolve articles from Google News. Please retry."}
 
 
 def test_partial_results_are_not_cached():
@@ -1148,12 +1180,14 @@ def test_partial_results_are_not_cached():
     mock_gnews_instance = MagicMock()
     mock_gnews_instance.get_top_news.return_value = [{"title": "a"}, {"title": "b"}]
 
-    with patch('app.api.google_news.google_news_api.get_gnews_instance', new_callable=AsyncMock) as mock_get_gnews, \
-         patch('app.api.google_news.google_news_api.decode_and_process_articles', new_callable=AsyncMock) as mock_decode_process:
+    with (
+        patch("app.api.google_news.google_news_api.get_gnews_instance", new_callable=AsyncMock) as mock_get_gnews,
+        patch(
+            "app.api.google_news.google_news_api.decode_and_process_articles", new_callable=AsyncMock
+        ) as mock_decode_process,
+    ):
         mock_get_gnews.return_value = mock_gnews_instance
-        mock_decode_process.return_value = ProcessedArticles(
-            [article("one")], total=2, failed=1
-        )
+        mock_decode_process.return_value = ProcessedArticles([article("one")], total=2, failed=1)
 
         first = client.get("/news/top/")
         assert first.status_code == 200
@@ -1161,9 +1195,7 @@ def test_partial_results_are_not_cached():
         assert cache_manager_module._cache_store == {}
 
         # The transient failure clears: the next request sees both articles.
-        mock_decode_process.return_value = ProcessedArticles(
-            [article("one"), article("two")], total=2, failed=0
-        )
+        mock_decode_process.return_value = ProcessedArticles([article("one"), article("two")], total=2, failed=0)
         second = client.get("/news/top/")
 
     assert len(second.json()["articles"]) == 2
@@ -1179,8 +1211,12 @@ def test_failed_news_response_is_not_cached():
     mock_gnews_instance = MagicMock()
     mock_gnews_instance.get_top_news.return_value = [{"title": "a"}]
 
-    with patch('app.api.google_news.google_news_api.get_gnews_instance', new_callable=AsyncMock) as mock_get_gnews, \
-         patch('app.api.google_news.google_news_api.decode_and_process_articles', new_callable=AsyncMock) as mock_decode_process:
+    with (
+        patch("app.api.google_news.google_news_api.get_gnews_instance", new_callable=AsyncMock) as mock_get_gnews,
+        patch(
+            "app.api.google_news.google_news_api.decode_and_process_articles", new_callable=AsyncMock
+        ) as mock_decode_process,
+    ):
         mock_get_gnews.return_value = mock_gnews_instance
         mock_decode_process.return_value = ProcessedArticles([], total=1, failed=1)
 

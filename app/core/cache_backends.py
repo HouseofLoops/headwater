@@ -7,12 +7,13 @@ allowing easy switching between different caching strategies.
 
 Uses the shared async RedisManager for Redis operations.
 """
+
 import asyncio
 import json
 import logging
 import time
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional, Tuple, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from app.core.redis_manager import RedisManager
@@ -29,7 +30,7 @@ class CacheBackend(ABC):
     """
 
     @abstractmethod
-    async def get(self, key: str) -> Optional[Any]:
+    async def get(self, key: str) -> Any | None:
         """
         Get a value from the cache.
 
@@ -70,7 +71,7 @@ class CacheBackend(ABC):
         pass
 
     @abstractmethod
-    async def clear(self, pattern: Optional[str] = None) -> int:
+    async def clear(self, pattern: str | None = None) -> int:
         """
         Clear values from the cache.
 
@@ -96,7 +97,7 @@ class CacheBackend(ABC):
         pass
 
     @abstractmethod
-    async def get_stats(self) -> Dict[str, Any]:
+    async def get_stats(self) -> dict[str, Any]:
         """
         Get cache statistics.
 
@@ -126,14 +127,14 @@ class MemoryCacheBackend(CacheBackend):
 
     def __init__(self):
         """Initialize the memory cache backend."""
-        self._store: Dict[str, Tuple[Any, float]] = {}
+        self._store: dict[str, tuple[Any, float]] = {}
         self._lock = asyncio.Lock()
         self._hits = 0
         self._misses = 0
         self._sets = 0
         self._deletes = 0
 
-    async def get(self, key: str) -> Optional[Any]:
+    async def get(self, key: str) -> Any | None:
         """Get a value from the in-memory cache."""
         async with self._lock:
             if key in self._store:
@@ -171,13 +172,13 @@ class MemoryCacheBackend(CacheBackend):
                 return True
             return False
 
-    async def clear(self, pattern: Optional[str] = None) -> int:
+    async def clear(self, pattern: str | None = None) -> int:
         """Clear values from the in-memory cache."""
         async with self._lock:
             if pattern:
                 # Pattern matching (simple prefix matching)
                 prefix = pattern.rstrip("*")
-                keys_to_delete = [k for k in self._store.keys() if k.startswith(prefix)]
+                keys_to_delete = [k for k in self._store if k.startswith(prefix)]
                 for key in keys_to_delete:
                     del self._store[key]
                 count = len(keys_to_delete)
@@ -199,7 +200,7 @@ class MemoryCacheBackend(CacheBackend):
                 del self._store[key]
             return False
 
-    async def get_stats(self) -> Dict[str, Any]:
+    async def get_stats(self) -> dict[str, Any]:
         """Get cache statistics."""
         async with self._lock:
             total = self._hits + self._misses
@@ -211,7 +212,7 @@ class MemoryCacheBackend(CacheBackend):
                 "misses": self._misses,
                 "sets": self._sets,
                 "deletes": self._deletes,
-                "hit_rate": f"{hit_rate:.2f}%"
+                "hit_rate": f"{hit_rate:.2f}%",
             }
 
     async def health_check(self) -> bool:
@@ -227,10 +228,7 @@ class MemoryCacheBackend(CacheBackend):
         """
         async with self._lock:
             now = time.time()
-            expired_keys = [
-                key for key, (_, expiry) in self._store.items()
-                if expiry <= now
-            ]
+            expired_keys = [key for key, (_, expiry) in self._store.items() if expiry <= now]
             for key in expired_keys:
                 del self._store[key]
 
@@ -248,7 +246,7 @@ class RedisCacheBackend(CacheBackend):
     Falls back gracefully if Redis is unavailable.
     """
 
-    def __init__(self, redis_url: str = None):
+    def __init__(self, redis_url: str | None = None):
         """
         Initialize the Redis cache backend.
 
@@ -256,16 +254,17 @@ class RedisCacheBackend(CacheBackend):
             redis_url: Redis connection URL (unused, kept for compatibility)
                       Uses shared RedisManager instead
         """
-        self._manager: Optional["RedisManager"] = None
+        self._manager: RedisManager | None = None
         self._hits = 0
         self._misses = 0
         self._sets = 0
         self._deletes = 0
 
-    async def _get_manager(self) -> Optional["RedisManager"]:
+    async def _get_manager(self) -> RedisManager | None:
         """Get the shared Redis manager."""
         if self._manager is None:
             from app.core.redis_manager import RedisManager
+
             self._manager = await RedisManager.get_instance()
         return self._manager
 
@@ -273,17 +272,17 @@ class RedisCacheBackend(CacheBackend):
         """Serialize a value to JSON string."""
         try:
             return json.dumps(value)
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             return str(value)
 
     def _deserialize(self, value: str) -> Any:
         """Deserialize a JSON string to value."""
         try:
             return json.loads(value)
-        except (json.JSONDecodeError, TypeError, AttributeError):
+        except json.JSONDecodeError, TypeError, AttributeError:
             return value
 
-    async def get(self, key: str) -> Optional[Any]:
+    async def get(self, key: str) -> Any | None:
         """Get a value from Redis."""
         manager = await self._get_manager()
         if not manager or not manager.is_available:
@@ -336,7 +335,7 @@ class RedisCacheBackend(CacheBackend):
             logger.error(f"Redis delete error: {e}")
             return False
 
-    async def clear(self, pattern: Optional[str] = None) -> int:
+    async def clear(self, pattern: str | None = None) -> int:
         """Clear values from Redis."""
         manager = await self._get_manager()
         if not manager or not manager.is_available:
@@ -368,7 +367,7 @@ class RedisCacheBackend(CacheBackend):
             logger.error(f"Redis exists error: {e}")
             return False
 
-    async def get_stats(self) -> Dict[str, Any]:
+    async def get_stats(self) -> dict[str, Any]:
         """Get cache statistics."""
         manager = await self._get_manager()
         total = self._hits + self._misses
@@ -381,7 +380,7 @@ class RedisCacheBackend(CacheBackend):
             "misses": self._misses,
             "sets": self._sets,
             "deletes": self._deletes,
-            "hit_rate": f"{hit_rate:.2f}%"
+            "hit_rate": f"{hit_rate:.2f}%",
         }
 
         if manager and manager.is_available:
@@ -408,7 +407,7 @@ class TieredCacheBackend(CacheBackend):
     Reads check L1 first, then L2. Writes update both levels.
     """
 
-    def __init__(self, redis_url: Optional[str] = None):
+    def __init__(self, redis_url: str | None = None):
         """
         Initialize the tiered cache backend.
 
@@ -416,11 +415,11 @@ class TieredCacheBackend(CacheBackend):
             redis_url: Optional Redis URL for L2 cache
         """
         self._memory = MemoryCacheBackend()
-        self._redis: Optional[RedisCacheBackend] = None
+        self._redis: RedisCacheBackend | None = None
         if redis_url:
             self._redis = RedisCacheBackend(redis_url)
 
-    async def get(self, key: str) -> Optional[Any]:
+    async def get(self, key: str) -> Any | None:
         """Get from L1, then L2 if miss."""
         # Check L1 (memory) first
         value = await self._memory.get(key)
@@ -457,7 +456,7 @@ class TieredCacheBackend(CacheBackend):
             redis_result = await self._redis.delete(key)
         return memory_result or redis_result
 
-    async def clear(self, pattern: Optional[str] = None) -> int:
+    async def clear(self, pattern: str | None = None) -> int:
         """Clear from both L1 and L2."""
         memory_count = await self._memory.clear(pattern)
         redis_count = 0
@@ -473,13 +472,10 @@ class TieredCacheBackend(CacheBackend):
             return await self._redis.exists(key)
         return False
 
-    async def get_stats(self) -> Dict[str, Any]:
+    async def get_stats(self) -> dict[str, Any]:
         """Get combined statistics."""
         memory_stats = await self._memory.get_stats()
-        stats = {
-            "backend": "tiered",
-            "l1_memory": memory_stats
-        }
+        stats = {"backend": "tiered", "l1_memory": memory_stats}
         if self._redis:
             stats["l2_redis"] = await self._redis.get_stats()
         return stats
@@ -493,10 +489,7 @@ class TieredCacheBackend(CacheBackend):
         return memory_healthy or redis_healthy
 
 
-def create_cache_backend(
-    backend_type: str = "auto",
-    redis_url: Optional[str] = None
-) -> CacheBackend:
+def create_cache_backend(backend_type: str = "auto", redis_url: str | None = None) -> CacheBackend:
     """
     Factory function to create a cache backend.
 

@@ -7,6 +7,7 @@ call without ever assigning the module global, so shutdown closed exactly one
 of the many pools that had been created and the rest leaked for the life of
 the process.
 """
+
 import pytest
 
 from app.core import http_client as http_client_module

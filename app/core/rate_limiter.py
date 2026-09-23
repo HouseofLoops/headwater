@@ -46,20 +46,23 @@ taken **loudly** (an ERROR log per occurrence), never silently.
 
 See also: app/core/redis_manager.py for Redis configuration details.
 """
+
+import asyncio
+import contextlib
+import json
+import logging
+import os
+import sys
+import time
+from collections.abc import Callable
+from typing import Any
+
 from fastapi import Request, Response
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
-import contextlib
-import json
-import os
-import sys
-import time
-import asyncio
-from typing import Dict, Tuple, Optional, Callable, Any, Union, Set
-import logging
 
-from app.core.config import get_settings, Settings
+from app.core.config import Settings, get_settings
 from app.core.exceptions import RateLimitExceededError, ServiceUnavailableError
 
 # Configure logger
@@ -83,21 +86,22 @@ DEFAULT_CLEANUP_INTERVAL = 60
 
 # Thread-safe in-memory storage for rate limiting (single-process fallback)
 # Format: {key: (requests_count, window_start_timestamp)}
-_rate_limit_store: Dict[str, Tuple[int, float]] = {}
+_rate_limit_store: dict[str, tuple[int, float]] = {}
 
 # Lock for thread-safe access to in-memory store
 _rate_limit_lock: asyncio.Lock = asyncio.Lock()
 
 # Global cleanup task reference to prevent garbage collection
-_cleanup_task: Optional[asyncio.Task] = None
+_cleanup_task: asyncio.Task | None = None
 
 # Shared Redis manager instance (initialized lazily)
-_redis_manager: Optional[Any] = None
+_redis_manager: Any | None = None
 
 
 # ---------------------------------------------------------------------------
 # Errors
 # ---------------------------------------------------------------------------
+
 
 class RateLimiterUnavailableError(RuntimeError):
     """Base error for "the limiter could not make a decision"."""
@@ -114,6 +118,7 @@ class RateLimiterConfigurationError(RateLimiterUnavailableError):
 # ---------------------------------------------------------------------------
 # Configuration helpers
 # ---------------------------------------------------------------------------
+
 
 def _env_flag(name: str, default: bool = False) -> bool:
     """Read a boolean flag from the process environment."""
@@ -132,7 +137,7 @@ def fail_open_enabled() -> bool:
     return _env_flag("RATE_LIMIT_FAIL_OPEN", False)
 
 
-def _worker_count_from_argv(argv: Optional[list] = None) -> int:
+def _worker_count_from_argv(argv: list | None = None) -> int:
     """
     Worker count declared on the command line (``--workers N`` / ``-w N``).
 
@@ -150,7 +155,7 @@ def _worker_count_from_argv(argv: Optional[list] = None) -> int:
             continue
         try:
             workers = int(value.strip())
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             continue
         if workers > 0:
             return workers
@@ -176,7 +181,7 @@ def get_worker_count() -> int:
             continue
         try:
             workers = int(raw.strip())
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             logger.warning("Ignoring non-numeric %s=%r when checking worker count", var, raw)
             continue
         if workers > 0:
@@ -190,12 +195,12 @@ def _is_production(settings: Settings) -> bool:
     return environment in PRODUCTION_ENVIRONMENTS
 
 
-def _redis_url(settings: Settings) -> Optional[str]:
+def _redis_url(settings: Settings) -> str | None:
     url = getattr(settings, "REDIS_URL", None)
     return str(url) if url else None
 
 
-def requires_shared_store(settings: Optional[Settings] = None) -> bool:
+def requires_shared_store(settings: Settings | None = None) -> bool:
     """
     Whether this deployment needs (but lacks) a shared rate limit store.
 
@@ -214,7 +219,7 @@ def requires_shared_store(settings: Optional[Settings] = None) -> bool:
     return get_worker_count() > 1
 
 
-def validate_rate_limit_configuration(settings: Optional[Settings] = None) -> None:
+def validate_rate_limit_configuration(settings: Settings | None = None) -> None:
     """
     Refuse to run a deployment that cannot enforce its configured limits.
 
@@ -240,7 +245,7 @@ def validate_rate_limit_configuration(settings: Optional[Settings] = None) -> No
         )
 
 
-async def _get_redis_manager(settings: Optional[Settings] = None) -> Optional[Any]:
+async def _get_redis_manager(settings: Settings | None = None) -> Any | None:
     """
     Get the shared Redis manager for rate limiting, or None when Redis is unused.
 
@@ -290,7 +295,8 @@ def reset_rate_limit_state() -> None:
 # Identity helpers
 # ---------------------------------------------------------------------------
 
-def _clean_api_key(value: Any) -> Optional[str]:
+
+def _clean_api_key(value: Any) -> str | None:
     """Normalise one API key token from any configuration source."""
     if not isinstance(value, str):
         return None
@@ -298,7 +304,7 @@ def _clean_api_key(value: Any) -> Optional[str]:
     return value or None
 
 
-def parse_api_keys_env(raw: Optional[str] = None) -> Set[str]:
+def parse_api_keys_env(raw: str | None = None) -> set[str]:
     """
     Parse API keys straight from the ``API_KEYS`` environment variable.
 
@@ -312,7 +318,7 @@ def parse_api_keys_env(raw: Optional[str] = None) -> Set[str]:
     silently degrades to per-IP bucketing again (the CRT-8 failure mode).
     """
     raw = os.getenv("API_KEYS") if raw is None else raw
-    keys: Set[str] = set()
+    keys: set[str] = set()
 
     if raw and raw.strip():
         stripped = raw.strip()
@@ -336,7 +342,7 @@ def parse_api_keys_env(raw: Optional[str] = None) -> Set[str]:
     return keys
 
 
-def _configured_api_keys(settings: Optional[Settings] = None) -> Set[str]:
+def _configured_api_keys(settings: Settings | None = None) -> set[str]:
     """
     All API keys this process considers valid.
 
@@ -345,7 +351,7 @@ def _configured_api_keys(settings: Optional[Settings] = None) -> Set[str]:
     bucket a request lands in does not depend on which source parsed the value.
     """
     settings = settings or get_settings()
-    keys: Set[str] = parse_api_keys_env()
+    keys: set[str] = parse_api_keys_env()
 
     for key in getattr(settings, "API_KEYS", None) or []:
         cleaned = _clean_api_key(key)
@@ -366,7 +372,7 @@ def _configured_api_keys(settings: Optional[Settings] = None) -> Set[str]:
     return keys
 
 
-def extract_api_key(request: Request) -> Optional[str]:
+def extract_api_key(request: Request) -> str | None:
     """
     Read the API key header from a request without invoking auth dependencies.
 
@@ -408,7 +414,7 @@ def client_host(request: Request) -> str:
     return host if isinstance(host, str) and host else "unknown"
 
 
-def build_rate_limit_key(api_key: Optional[str] = None, host: Optional[str] = None) -> str:
+def build_rate_limit_key(api_key: str | None = None, host: str | None = None) -> str:
     """
     Build the storage key for an identity.
 
@@ -436,9 +442,9 @@ class RateLimiter:
 
     def __init__(
         self,
-        requests: Optional[int] = None,
-        timeframe: Optional[int] = None,  # seconds
-        settings: Optional[Settings] = None
+        requests: int | None = None,
+        timeframe: int | None = None,  # seconds
+        settings: Settings | None = None,
     ):
         """
         Initialize the rate limiter.
@@ -466,10 +472,8 @@ class RateLimiter:
             return self._settings_override
         try:
             return get_settings()
-        except Exception as exc:  # noqa: BLE001 - re-raised as a typed error
-            raise RateLimiterConfigurationError(
-                f"Rate limit settings could not be loaded: {exc}"
-            ) from exc
+        except Exception as exc:
+            raise RateLimiterConfigurationError(f"Rate limit settings could not be loaded: {exc}") from exc
 
     @property
     def requests(self) -> int:
@@ -512,7 +516,7 @@ class RateLimiter:
             logger.debug("Unrecognised API key presented; rate limiting by client address")
         return build_rate_limit_key(host=client_host(request))
 
-    async def is_rate_limited(self, request: Request) -> Tuple[bool, Dict[str, Any]]:
+    async def is_rate_limited(self, request: Request) -> tuple[bool, dict[str, Any]]:
         """
         Check if a request is rate limited.
 
@@ -539,16 +543,13 @@ class RateLimiter:
         if redis_manager is not None:
             if getattr(redis_manager, "is_available", False):
                 return await self._check_rate_limit_redis(key, redis_manager, limit, timeframe)
-            raise RateLimiterBackendError(
-                "REDIS_URL is configured but the Redis connection is unavailable"
-            )
+            raise RateLimiterBackendError("REDIS_URL is configured but the Redis connection is unavailable")
 
         # No Redis configured: the in-memory store is only correct in a single
         # process. Refuse rather than silently enforce limit * workers.
         if requires_shared_store(self.settings):
             raise RateLimiterConfigurationError(
-                f"Rate limiting requires a shared store: {get_worker_count()} workers "
-                "are configured without REDIS_URL"
+                f"Rate limiting requires a shared store: {get_worker_count()} workers are configured without REDIS_URL"
             )
 
         return await self._check_rate_limit_memory(key, limit, timeframe)
@@ -559,7 +560,7 @@ class RateLimiter:
         redis_manager: Any,
         limit: int,
         timeframe: int,
-    ) -> Tuple[bool, Dict[str, Any]]:
+    ) -> tuple[bool, dict[str, Any]]:
         """
         Check rate limit using Redis storage (shared across workers).
 
@@ -576,10 +577,8 @@ class RateLimiter:
             RateLimiterBackendError: if Redis errored or did not count the request.
         """
         try:
-            allowed, current_count, reset = await redis_manager.rate_limit_check(
-                key, limit, timeframe
-            )
-        except Exception as exc:  # noqa: BLE001 - re-raised as a typed error below
+            allowed, current_count, reset = await redis_manager.rate_limit_check(key, limit, timeframe)
+        except Exception as exc:
             raise RateLimiterBackendError(f"Redis rate limit check failed: {exc}") from exc
 
         # RedisManager.rate_limit_check returns (True, 0, 0) when it could not
@@ -588,20 +587,17 @@ class RateLimiter:
         # an allow.
         if current_count is None or current_count < 1:
             raise RateLimiterBackendError(
-                "Redis rate limit check did not record the request "
-                "(Redis unreachable or returned no count)"
+                "Redis rate limit check did not record the request (Redis unreachable or returned no count)"
             )
 
-        return (not allowed), self._get_rate_limit_headers(
-            current_count, limit, timeframe, reset_seconds=reset
-        )
+        return (not allowed), self._get_rate_limit_headers(current_count, limit, timeframe, reset_seconds=reset)
 
     async def _check_rate_limit_memory(
         self,
         key: str,
-        limit: Optional[int] = None,
-        timeframe: Optional[int] = None,
-    ) -> Tuple[bool, Dict[str, Any]]:
+        limit: int | None = None,
+        timeframe: int | None = None,
+    ) -> tuple[bool, dict[str, Any]]:
         """
         Check rate limit using the process-local in-memory store.
 
@@ -639,9 +635,9 @@ class RateLimiter:
         current: int,
         limit: int,
         timeframe: int,
-        window_start: Optional[float] = None,
-        reset_seconds: Optional[int] = None,
-    ) -> Dict[str, Any]:
+        window_start: float | None = None,
+        reset_seconds: int | None = None,
+    ) -> dict[str, Any]:
         """
         Get rate limit headers for the response.
 
@@ -665,11 +661,11 @@ class RateLimiter:
             "headers": {
                 "X-RateLimit-Limit": str(limit),
                 "X-RateLimit-Remaining": str(max(0, limit - current)),
-                "X-RateLimit-Reset": str(reset)
+                "X-RateLimit-Reset": str(reset),
             },
             "current": current,
             "limit": limit,
-            "reset": reset
+            "reset": reset,
         }
 
     @staticmethod
@@ -677,17 +673,13 @@ class RateLimiter:
         """Retry-After value for a 429/503 response (always at least 1 second)."""
         return str(max(1, int(reset)))
 
-    def _too_many_requests(self, rate_limit_info: Dict[str, Any]) -> Dict[str, Any]:
+    def _too_many_requests(self, rate_limit_info: dict[str, Any]) -> dict[str, Any]:
         """Build the headers for a 429 response, including Retry-After."""
         headers = dict(rate_limit_info["headers"])
         headers["Retry-After"] = self._retry_after(rate_limit_info["reset"])
         return headers
 
-    async def limit(
-        self,
-        request: Request,
-        call_next: Optional[Callable] = None
-    ) -> Union[Response, Any]:
+    async def limit(self, request: Request, call_next: Callable | None = None) -> Response | Any:
         """
         Apply rate limiting to a request.
 
@@ -724,14 +716,12 @@ class RateLimiter:
                     "path": str(getattr(getattr(request, "url", None), "path", "")),
                     "method": getattr(request, "method", ""),
                     "client_host": client_host(request),
-                    "rate_limit_info": rate_limit_info
-                }
+                    "rate_limit_info": rate_limit_info,
+                },
             )
 
             headers = self._too_many_requests(rate_limit_info)
-            detail = (
-                f"Rate limit exceeded. Try again in {rate_limit_info['reset']} seconds."
-            )
+            detail = f"Rate limit exceeded. Try again in {rate_limit_info['reset']} seconds."
 
             # If used as a middleware, return a response
             if call_next:
@@ -743,17 +733,14 @@ class RateLimiter:
                         "status": 429,
                         "detail": detail,
                         "limit": rate_limit_info["limit"],
-                        "reset": rate_limit_info["reset"]
+                        "reset": rate_limit_info["reset"],
                     },
-                    headers=headers
+                    headers=headers,
                 )
 
             # If used as a dependency, raise an exception
             raise RateLimitExceededError(
-                detail=detail,
-                headers=headers,
-                reset=rate_limit_info["reset"],
-                limit=rate_limit_info["limit"]
+                detail=detail, headers=headers, reset=rate_limit_info["reset"], limit=rate_limit_info["limit"]
             )
 
         # Add rate limit headers to the response
@@ -772,8 +759,8 @@ class RateLimiter:
         self,
         request: Request,
         exc: RateLimiterUnavailableError,
-        call_next: Optional[Callable],
-    ) -> Union[Response, Any]:
+        call_next: Callable | None,
+    ) -> Response | Any:
         """
         Apply the configured failure policy when the limiter cannot decide.
 
@@ -831,9 +818,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     def __init__(
         self,
         app: ASGIApp,
-        requests: Optional[int] = None,
-        timeframe: Optional[int] = None,  # seconds
-        settings: Optional[Settings] = None
+        requests: int | None = None,
+        timeframe: int | None = None,  # seconds
+        settings: Settings | None = None,
     ):
         """
         Initialize the middleware.
@@ -847,9 +834,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         super().__init__(app)
         self.limiter = RateLimiter(requests, timeframe, settings)
 
-    async def dispatch(
-        self, request: Request, call_next: Callable
-    ) -> Response:
+    async def dispatch(self, request: Request, call_next: Callable) -> Response:
         """
         Apply rate limiting to the request.
 
@@ -889,9 +874,10 @@ async def rate_limit(request: Request):
 # In-memory store maintenance
 # ---------------------------------------------------------------------------
 
+
 async def purge_expired_entries(
-    now: Optional[float] = None,
-    timeframe: Optional[int] = None,
+    now: float | None = None,
+    timeframe: int | None = None,
 ) -> int:
     """
     Remove expired entries from the in-memory rate limit store.
@@ -908,10 +894,7 @@ async def purge_expired_entries(
         timeframe = int(getattr(get_settings(), "RATE_LIMIT_TIMEFRAME", 3600) or 3600)
 
     async with _rate_limit_lock:
-        expired_keys = [
-            key for key, (_, window_start) in _rate_limit_store.items()
-            if now - window_start > timeframe
-        ]
+        expired_keys = [key for key, (_, window_start) in _rate_limit_store.items() if now - window_start > timeframe]
         for key in expired_keys:
             del _rate_limit_store[key]
 
@@ -936,7 +919,7 @@ async def cleanup_rate_limit_store(interval: int = DEFAULT_CLEANUP_INTERVAL) -> 
             await purge_expired_entries()
         except asyncio.CancelledError:
             raise
-        except Exception as exc:  # noqa: BLE001 - keep the janitor alive
+        except Exception as exc:
             logger.error("Error in rate limit store cleanup: %s", exc, exc_info=True)
 
         await asyncio.sleep(interval)

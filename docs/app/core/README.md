@@ -19,10 +19,12 @@ from app.core.base_router import BaseRouter
 # Create a router with auto-derived service name
 router = BaseRouter(prefix="/google-ads")
 
+
 # Define routes
 @router.get("/keywords")
 async def get_keywords():
     return {"keywords": ["python", "programming", "api"]}
+
 
 # Include the router in your FastAPI app
 app.include_router(router())
@@ -32,10 +34,7 @@ app.include_router(router())
 
 ```python
 # Create a router with explicit service name
-router = BaseRouter(
-    prefix="/google-ads",
-    service_name="google-ads-service"
-)
+router = BaseRouter(prefix="/google-ads", service_name="google-ads-service")
 ```
 
 ### With Custom Responses
@@ -45,13 +44,7 @@ router = BaseRouter(
 custom_responses = {
     200: {
         "description": "Success",
-        "content": {
-            "application/json": {
-                "example": {
-                    "keywords": ["python", "programming", "api"]
-                }
-            }
-        }
+        "content": {"application/json": {"example": {"keywords": ["python", "programming", "api"]}}},
     },
     400: {
         "description": "Bad Request",
@@ -62,18 +55,15 @@ custom_responses = {
                     "title": "Validation Error",
                     "status": 400,
                     "detail": "Invalid parameters",
-                    "fields": ["query"]
+                    "fields": ["query"],
                 }
             }
-        }
-    }
+        },
+    },
 }
 
 # Create a router with custom responses
-router = BaseRouter(
-    prefix="/google-ads",
-    responses=custom_responses
-)
+router = BaseRouter(prefix="/google-ads", responses=custom_responses)
 ```
 
 ## Error Handling
@@ -87,10 +77,7 @@ The `BaseRouter` class provides several methods for raising RFC7807 compliant er
 async def get_item(item_id: str):
     if not item_exists(item_id):
         router.raise_http_exception(
-            status_code=404,
-            detail=f"Item with ID {item_id} not found",
-            type="item_not_found",
-            item_id=item_id
+            status_code=404, detail=f"Item with ID {item_id} not found", type="item_not_found", item_id=item_id
         )
     return get_item_by_id(item_id)
 ```
@@ -148,7 +135,7 @@ router.raise_http_exception(
     type="validation_error",
     field="email",
     code="invalid_format",
-    suggestion="Use a valid email address format"
+    suggestion="Use a valid email address format",
 )
 ```
 

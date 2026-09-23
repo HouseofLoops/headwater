@@ -4,9 +4,11 @@ Integration tests for authentication flow.
 These tests verify the API key authentication works correctly
 across the application.
 """
+
+import os
+
 import pytest
 from fastapi.testclient import TestClient
-import os
 
 
 @pytest.fixture
@@ -24,9 +26,11 @@ def auth_enabled_app():
 
     # Clear any cached settings
     from app.core.config import get_settings
+
     get_settings.cache_clear()
 
     from main import create_application
+
     app = create_application()
 
     yield app
@@ -64,6 +68,7 @@ def _attach_probe(app):
     keep them off the network at the same time.
     """
     from fastapi import Depends
+
     from app.core.auth import get_api_key
 
     @app.get(PROTECTED_PROBE)
@@ -107,9 +112,7 @@ class TestApiKeyAuthentication:
         response = auth_client.get("/status")
         assert response.status_code == 401
 
-        response = auth_client.get(
-            "/status", headers={"X-API-Key": "valid-test-key-123"}
-        )
+        response = auth_client.get("/status", headers={"X-API-Key": "valid-test-key-123"})
         assert response.status_code == 200, response.text
 
     def test_docs_endpoints_without_auth(self, auth_client):
@@ -125,35 +128,23 @@ class TestApiKeyAuthentication:
 
     def test_valid_api_key_in_header(self, auth_client):
         """Test that valid API key in header is accepted."""
-        response = auth_client.get(
-            PROTECTED_PROBE,
-            headers={"X-API-Key": "valid-test-key-123"}
-        )
+        response = auth_client.get(PROTECTED_PROBE, headers={"X-API-Key": "valid-test-key-123"})
         assert response.status_code == 200, response.text
 
     def test_another_valid_api_key(self, auth_client):
         """Test that another valid API key is accepted."""
-        response = auth_client.get(
-            PROTECTED_PROBE,
-            headers={"X-API-Key": "another-valid-key-456"}
-        )
+        response = auth_client.get(PROTECTED_PROBE, headers={"X-API-Key": "another-valid-key-456"})
         assert response.status_code == 200, response.text
 
     def test_invalid_api_key_rejected(self, auth_client):
         """Test that invalid API key is rejected on a protected route."""
-        response = auth_client.get(
-            PROTECTED_PROBE,
-            headers={"X-API-Key": "invalid-key"}
-        )
+        response = auth_client.get(PROTECTED_PROBE, headers={"X-API-Key": "invalid-key"})
         # Should return 401 or 403
         assert response.status_code in [401, 403], response.text
 
     def test_valid_api_key_on_protected_route(self, auth_client):
         """A configured key must actually authenticate, not 500."""
-        response = auth_client.get(
-            PROTECTED_PROBE,
-            headers={"X-API-Key": "valid-test-key-123"}
-        )
+        response = auth_client.get(PROTECTED_PROBE, headers={"X-API-Key": "valid-test-key-123"})
         assert response.status_code == 200, response.text
         assert response.json()["api_key"] == "valid-test-key-123"
 
@@ -171,27 +162,18 @@ class TestApiKeyAuthentication:
 
     def test_empty_api_key_rejected(self, auth_client):
         """Test that empty API key is rejected."""
-        response = auth_client.get(
-            "/api/v1/google-news/search?query=test",
-            headers={"X-API-Key": ""}
-        )
+        response = auth_client.get("/api/v1/google-news/search?query=test", headers={"X-API-Key": ""})
         assert response.status_code in [401, 403, 422]
 
     def test_case_sensitive_header_name(self, auth_client):
         """Test that header name is handled correctly."""
         # Standard header name
-        response = auth_client.get(
-            PROTECTED_PROBE,
-            headers={"X-API-Key": "valid-test-key-123"}
-        )
+        response = auth_client.get(PROTECTED_PROBE, headers={"X-API-Key": "valid-test-key-123"})
         assert response.status_code == 200, response.text
 
     def test_whitespace_in_api_key_handled(self, auth_client):
         """Test that whitespace around API key is handled."""
-        response = auth_client.get(
-            PROTECTED_PROBE,
-            headers={"X-API-Key": " valid-test-key-123 "}
-        )
+        response = auth_client.get(PROTECTED_PROBE, headers={"X-API-Key": " valid-test-key-123 "})
         # Depends on implementation - might strip whitespace or reject
         # Just verify it doesn't crash
         assert response.status_code in [200, 401, 403]
@@ -207,9 +189,11 @@ class TestAuthenticationDisabled:
         os.environ["ENABLE_API_KEY_AUTH"] = "false"
 
         from app.core.config import get_settings
+
         get_settings.cache_clear()
 
         from main import create_application
+
         app = create_application()
 
         yield app
@@ -248,10 +232,7 @@ class TestAuthErrorResponses:
 
     def test_unauthorized_response_format(self, auth_client):
         """Test that unauthorized response follows expected format."""
-        response = auth_client.get(
-            "/api/v1/google-news/search?query=test",
-            headers={"X-API-Key": "invalid-key"}
-        )
+        response = auth_client.get("/api/v1/google-news/search?query=test", headers={"X-API-Key": "invalid-key"})
 
         if response.status_code in [401, 403]:
             data = response.json()

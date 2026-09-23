@@ -11,10 +11,12 @@ variable was never actually loaded from ``.env`` (pydantic-settings reads the
 file itself and does not export values into ``os.environ``), so every
 authenticated request failed. Read keys from ``get_settings()`` only.
 """
-from fastapi import Security, HTTPException, status, Depends, Request
-from fastapi.security.api_key import APIKeyHeader
+
 import threading
-from typing import Dict, FrozenSet, NamedTuple, Optional, Set
+from typing import NamedTuple
+
+from fastapi import Depends, HTTPException, Request, Security, status
+from fastapi.security.api_key import APIKeyHeader
 
 from app.core.config import Settings, get_settings
 
@@ -30,9 +32,10 @@ class _AuthState(NamedTuple):
     keys.
     """
 
-    settings: Optional[Settings]
-    keys: FrozenSet[str]
-    metadata: Dict[str, Dict]
+    settings: Settings | None
+    keys: frozenset[str]
+    metadata: dict[str, dict]
+
 
 # Create API Key header schema.
 #
@@ -51,7 +54,7 @@ _auth_state = _AuthState(settings=None, keys=frozenset(), metadata={})
 _refresh_lock = threading.Lock()
 
 
-def initialize_api_keys(settings: Optional[Settings] = None) -> Set[str]:
+def initialize_api_keys(settings: Settings | None = None) -> set[str]:
     """
     (Re)build the set of accepted API keys from application settings.
 
@@ -69,8 +72,8 @@ def initialize_api_keys(settings: Optional[Settings] = None) -> Set[str]:
 
     settings = settings if settings is not None else get_settings()
 
-    keys: Set[str] = set()
-    metadata: Dict[str, Dict] = {}
+    keys: set[str] = set()
+    metadata: dict[str, dict] = {}
 
     candidates = list(settings.API_KEYS or [])
     if settings.API_KEY:
@@ -84,15 +87,10 @@ def initialize_api_keys(settings: Optional[Settings] = None) -> Set[str]:
 
     # One atomic rebind: any concurrent reader sees either the whole old
     # snapshot or the whole new one, never a mix.
-    _auth_state = _AuthState(
-        settings=settings, keys=frozenset(keys), metadata=metadata
-    )
+    _auth_state = _AuthState(settings=settings, keys=frozenset(keys), metadata=metadata)
 
     if not keys and settings.ENABLE_API_KEY_AUTH:
-        print(
-            "WARNING: No API keys configured. API key authentication is "
-            "enabled but will reject all requests."
-        )
+        print("WARNING: No API keys configured. API key authentication is enabled but will reject all requests.")
 
     return set(keys)
 
@@ -131,7 +129,7 @@ def _auth_snapshot() -> _AuthState:
 initialize_api_keys()
 
 
-def validate_api_key(api_key: Optional[str]) -> bool:
+def validate_api_key(api_key: str | None) -> bool:
     """
     Validate if the provided API key is valid.
 
@@ -146,7 +144,7 @@ def validate_api_key(api_key: Optional[str]) -> bool:
     return api_key in _auth_snapshot().keys
 
 
-def get_api_key_metadata(api_key: str) -> Optional[Dict]:
+def get_api_key_metadata(api_key: str) -> dict | None:
     """
     Get metadata for an API key.
 
@@ -159,7 +157,7 @@ def get_api_key_metadata(api_key: str) -> Optional[Dict]:
     return _auth_snapshot().metadata.get(api_key)
 
 
-async def get_api_key(api_key_header: Optional[str] = Security(api_key_header)) -> str:
+async def get_api_key(api_key_header: str | None = Security(api_key_header)) -> str:
     """
     Validate API key from request header.
 
@@ -178,8 +176,7 @@ async def get_api_key(api_key_header: Optional[str] = Security(api_key_header)) 
 
 
 async def authenticate_api_key(
-    api_key_header: Optional[str] = Security(api_key_header),
-    request: Optional[Request] = None
+    api_key_header: str | None = Security(api_key_header), request: Request | None = None
 ) -> str:
     """
     Validate API key from request header.
@@ -220,7 +217,7 @@ async def authenticate_api_key(
     if not state.keys:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="API key authentication is enabled but no API keys are configured."
+            detail="API key authentication is enabled but no API keys are configured.",
         )
 
     # Validate the API key
@@ -234,9 +231,7 @@ async def authenticate_api_key(
     return api_key_header
 
 
-def get_current_api_key(
-    api_key: str = Depends(authenticate_api_key)
-) -> str:
+def get_current_api_key(api_key: str = Depends(authenticate_api_key)) -> str:
     """
     Get the current API key.
 

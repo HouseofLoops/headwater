@@ -1,5 +1,9 @@
 # Improvement Recommendations & Complementary Projects
 
+> **Archived 2026-09-23.** Items still open after checking them against the code are tracked in the
+> "Open items" section of [ROADMAP.md](../ROADMAP.md#open-items). Compression, Prometheus metrics and
+> dependency health checks from this list have since been implemented.
+
 This document outlines recommended improvements for the Headwater API and suggests open source projects that could be integrated to extend functionality.
 
 ## Table of Contents
@@ -36,6 +40,7 @@ Use task queues for long-running operations like batch transcript fetches or tre
 from arq import create_pool
 from arq.connections import RedisSettings
 
+
 async def fetch_transcripts_task(ctx, video_ids: list):
     """Background task for batch transcript fetching."""
     results = []
@@ -57,11 +62,8 @@ Add resilience patterns to handle external API failures gracefully.
 ```python
 from pybreaker import CircuitBreaker
 
-google_breaker = CircuitBreaker(
-    fail_max=5,
-    reset_timeout=60,
-    name="google_api"
-)
+google_breaker = CircuitBreaker(fail_max=5, reset_timeout=60, name="google_api")
+
 
 @google_breaker
 async def call_google_api():
@@ -88,9 +90,8 @@ Beyond URL-based versioning, add header-based version selection.
 ```python
 from fastapi import Header
 
-async def get_api_version(
-    x_api_version: str = Header(default="1.0")
-) -> str:
+
+async def get_api_version(x_api_version: str = Header(default="1.0")) -> str:
     return x_api_version
 ```
 
@@ -103,7 +104,8 @@ Implement cursor-based pagination for endpoints returning large datasets.
 from pydantic import BaseModel
 from typing import Optional, List, Generic, TypeVar
 
-T = TypeVar('T')
+T = TypeVar("T")
+
 
 class PaginatedResponse(BaseModel, Generic[T]):
     items: List[T]
@@ -130,6 +132,7 @@ from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+
 
 async def get_current_user(token: str = Depends(oauth2_scheme)):
     credentials_exception = HTTPException(
@@ -158,11 +161,13 @@ class APIKeyScope(str, Enum):
     READ_TRANSCRIPTS = "transcripts:read"
     ADMIN = "admin"
 
+
 def require_scope(scope: APIKeyScope):
     def dependency(api_key: str = Depends(get_api_key)):
         if scope not in get_key_scopes(api_key):
             raise HTTPException(status_code=403, detail="Insufficient permissions")
         return api_key
+
     return dependency
 ```
 
@@ -175,12 +180,9 @@ HMAC signatures for request integrity verification.
 import hmac
 import hashlib
 
+
 def verify_signature(payload: bytes, signature: str, secret: str) -> bool:
-    expected = hmac.new(
-        secret.encode(),
-        payload,
-        hashlib.sha256
-    ).hexdigest()
+    expected = hmac.new(secret.encode(), payload, hashlib.sha256).hexdigest()
     return hmac.compare_digest(expected, signature)
 ```
 
@@ -213,12 +215,7 @@ JSON logs with correlation IDs for distributed tracing.
 ```python
 import structlog
 
-structlog.configure(
-    processors=[
-        structlog.processors.TimeStamper(fmt="iso"),
-        structlog.processors.JSONRenderer()
-    ]
-)
+structlog.configure(processors=[structlog.processors.TimeStamper(fmt="iso"), structlog.processors.JSONRenderer()])
 
 logger = structlog.get_logger()
 logger.info("request_processed", request_id="abc123", duration_ms=45)
@@ -285,18 +282,13 @@ class WebhookConfig(BaseModel):
     events: List[str]
     secret: str
 
+
 async def send_webhook(config: WebhookConfig, event: str, payload: dict):
-    signature = hmac.new(
-        config.secret.encode(),
-        json.dumps(payload).encode(),
-        hashlib.sha256
-    ).hexdigest()
+    signature = hmac.new(config.secret.encode(), json.dumps(payload).encode(), hashlib.sha256).hexdigest()
 
     async with httpx.AsyncClient() as client:
         await client.post(
-            config.url,
-            json={"event": event, "data": payload},
-            headers={"X-Webhook-Signature": signature}
+            config.url, json={"event": event, "data": payload}, headers={"X-Webhook-Signature": signature}
         )
 ```
 
@@ -312,6 +304,7 @@ Alternative query interface for flexible data fetching.
 import strawberry
 from strawberry.fastapi import GraphQLRouter
 
+
 @strawberry.type
 class NewsArticle:
     title: str
@@ -319,12 +312,14 @@ class NewsArticle:
     url: str
     published_at: str
 
+
 @strawberry.type
 class Query:
     @strawberry.field
     async def news(self, query: str, limit: int = 10) -> list[NewsArticle]:
         # Fetch news logic
         pass
+
 
 schema = strawberry.Schema(Query)
 graphql_app = GraphQLRouter(schema)
@@ -358,19 +353,16 @@ Auto-generate client libraries from OpenAPI spec.
 ```python
 import praw
 
-reddit = praw.Reddit(
-    client_id="YOUR_CLIENT_ID",
-    client_secret="YOUR_CLIENT_SECRET",
-    user_agent="Headwater/1.0"
-)
+reddit = praw.Reddit(client_id="YOUR_CLIENT_ID", client_secret="YOUR_CLIENT_SECRET", user_agent="Headwater/1.0")
+
 
 def get_trending_subreddits(limit=10):
     return [sub.display_name for sub in reddit.subreddits.popular(limit=limit)]
 
+
 def get_subreddit_hot_posts(subreddit_name, limit=25):
     subreddit = reddit.subreddit(subreddit_name)
-    return [{"title": post.title, "score": post.score, "url": post.url}
-            for post in subreddit.hot(limit=limit)]
+    return [{"title": post.title, "score": post.score, "url": post.url} for post in subreddit.hot(limit=limit)]
 ```
 
 ### Content Analysis & NLP
@@ -391,13 +383,9 @@ from keybert import KeyBERT
 
 kw_model = KeyBERT()
 
+
 def extract_keywords(text: str, top_n: int = 10):
-    keywords = kw_model.extract_keywords(
-        text,
-        keyphrase_ngram_range=(1, 2),
-        stop_words='english',
-        top_n=top_n
-    )
+    keywords = kw_model.extract_keywords(text, keyphrase_ngram_range=(1, 2), stop_words="english", top_n=top_n)
     return [{"keyword": kw, "score": score} for kw, score in keywords]
 ```
 
@@ -407,6 +395,7 @@ from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 
 analyzer = SentimentIntensityAnalyzer()
 
+
 def analyze_sentiment(text: str):
     scores = analyzer.polarity_scores(text)
     return {
@@ -414,9 +403,7 @@ def analyze_sentiment(text: str):
         "positive": scores["pos"],
         "negative": scores["neg"],
         "neutral": scores["neu"],
-        "label": "positive" if scores["compound"] > 0.05
-                 else "negative" if scores["compound"] < -0.05
-                 else "neutral"
+        "label": "positive" if scores["compound"] > 0.05 else "negative" if scores["compound"] < -0.05 else "neutral",
     }
 ```
 
@@ -435,6 +422,7 @@ def analyze_sentiment(text: str):
 ```python
 import feedparser
 
+
 def parse_rss_feed(feed_url: str):
     feed = feedparser.parse(feed_url)
     return {
@@ -445,11 +433,12 @@ def parse_rss_feed(feed_url: str):
                 "title": entry.get("title"),
                 "link": entry.get("link"),
                 "published": entry.get("published"),
-                "summary": entry.get("summary")
+                "summary": entry.get("summary"),
             }
             for entry in feed.entries
-        ]
+        ],
     }
+
 
 # Popular news RSS feeds
 NEWS_FEEDS = {
@@ -473,6 +462,7 @@ NEWS_FEEDS = {
 ```python
 import trafilatura
 
+
 def extract_article_content(url: str):
     """Extract clean article content from URL."""
     downloaded = trafilatura.fetch_url(url)
@@ -480,14 +470,10 @@ def extract_article_content(url: str):
         return None
 
     # Extract main content
-    content = trafilatura.extract(
-        downloaded,
-        include_comments=False,
-        include_tables=True,
-        output_format='json'
-    )
+    content = trafilatura.extract(downloaded, include_comments=False, include_tables=True, output_format="json")
 
     return content
+
 
 def extract_article_metadata(url: str):
     """Extract article metadata."""
@@ -520,26 +506,31 @@ def extract_article_metadata(url: str):
 ```python
 from litellm import completion
 
+
 async def summarize_content(text: str, model: str = "gpt-3.5-turbo"):
     """Summarize content using any LLM provider."""
     response = completion(
         model=model,
         messages=[
             {"role": "system", "content": "Summarize the following text concisely."},
-            {"role": "user", "content": text}
-        ]
+            {"role": "user", "content": text},
+        ],
     )
     return response.choices[0].message.content
+
 
 async def analyze_sentiment_llm(text: str):
     """Analyze sentiment using LLM."""
     response = completion(
         model="gpt-3.5-turbo",
         messages=[
-            {"role": "system", "content": "Analyze the sentiment. Respond with JSON: {sentiment: positive/negative/neutral, confidence: 0-1, reasoning: string}"},
-            {"role": "user", "content": text}
+            {
+                "role": "system",
+                "content": "Analyze the sentiment. Respond with JSON: {sentiment: positive/negative/neutral, confidence: 0-1, reasoning: string}",
+            },
+            {"role": "user", "content": text},
         ],
-        response_format={"type": "json_object"}
+        response_format={"type": "json_object"},
     )
     return response.choices[0].message.content
 ```
@@ -662,8 +653,8 @@ ANTHROPIC_API_KEY=your_anthropic_key
 
 ## Related Documentation
 
-- [API Reference](./API_REFERENCE.md)
-- [Architecture Overview](./ARCHITECTURE_OVERVIEW.md)
-- [Performance Tuning](./PERFORMANCE_TUNING.md)
-- [Security Guidelines](./SECURITY_GUIDELINES.md)
-- [Roadmap](./ROADMAP.md)
+- [API Reference](../API_REFERENCE.md)
+- [Architecture Overview](../ARCHITECTURE_OVERVIEW.md)
+- [Performance Tuning](../PERFORMANCE_TUNING.md)
+- [Security Guidelines](../SECURITY_GUIDELINES.md)
+- [Roadmap](../ROADMAP.md)

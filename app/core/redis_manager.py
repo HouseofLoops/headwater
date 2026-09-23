@@ -7,12 +7,11 @@ that can be used by caching, rate limiting, and other Redis-dependent features.
 
 import asyncio
 import logging
-from typing import Optional, Any
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 
 import redis.asyncio as aioredis
 from redis.asyncio import Redis
-from redis.exceptions import ConnectionError, TimeoutError, RedisError
+from redis.exceptions import ConnectionError, RedisError, TimeoutError
 
 from app.core.config import get_settings
 
@@ -31,19 +30,19 @@ class RedisManager:
     - Graceful shutdown
     """
 
-    _instance: Optional['RedisManager'] = None
+    _instance: RedisManager | None = None
     _lock: asyncio.Lock = asyncio.Lock()
 
     def __init__(self):
         """Initialize the Redis manager."""
         self.settings = get_settings()
-        self._client: Optional[Redis] = None
+        self._client: Redis | None = None
         self._initialized = False
         self._connection_error_count = 0
         self._max_connection_errors = 5
 
     @classmethod
-    async def get_instance(cls) -> 'RedisManager':
+    async def get_instance(cls) -> RedisManager:
         """
         Get the singleton instance of RedisManager.
 
@@ -62,7 +61,7 @@ class RedisManager:
         if self._initialized:
             return
 
-        redis_url = getattr(self.settings, 'REDIS_URL', None)
+        redis_url = getattr(self.settings, "REDIS_URL", None)
         if not redis_url:
             logger.warning("REDIS_URL not configured. Redis features disabled.")
             return
@@ -84,7 +83,7 @@ class RedisManager:
                 socket_connect_timeout=5.0,
                 socket_timeout=5.0,
                 retry_on_timeout=True,
-                health_check_interval=30
+                health_check_interval=30,
             )
 
             # Test connection
@@ -105,7 +104,7 @@ class RedisManager:
         """Check if Redis is available."""
         return self._client is not None and self._initialized
 
-    async def get_client(self) -> Optional[Redis]:
+    async def get_client(self) -> Redis | None:
         """
         Get the Redis client, attempting reconnection if necessary.
 
@@ -124,35 +123,24 @@ class RedisManager:
             dict: Health check results with status and latency
         """
         if not self._client:
-            return {
-                "status": "unavailable",
-                "latency_ms": None,
-                "error": "Redis client not initialized"
-            }
+            return {"status": "unavailable", "latency_ms": None, "error": "Redis client not initialized"}
 
         try:
             import time
+
             start = time.perf_counter()
             await self._client.ping()
             latency = (time.perf_counter() - start) * 1000
 
-            return {
-                "status": "healthy",
-                "latency_ms": round(latency, 2),
-                "error": None
-            }
+            return {"status": "healthy", "latency_ms": round(latency, 2), "error": None}
         except Exception as e:
-            return {
-                "status": "unhealthy",
-                "latency_ms": None,
-                "error": str(e)
-            }
+            return {"status": "unhealthy", "latency_ms": None, "error": str(e)}
 
     # ==========================================================================
     # Async Redis Operations
     # ==========================================================================
 
-    async def get(self, key: str) -> Optional[str]:
+    async def get(self, key: str) -> str | None:
         """
         Get a value from Redis.
 
@@ -173,12 +161,7 @@ class RedisManager:
             self._handle_connection_error()
             return None
 
-    async def set(
-        self,
-        key: str,
-        value: str,
-        ttl: Optional[int] = None
-    ) -> bool:
+    async def set(self, key: str, value: str, ttl: int | None = None) -> bool:
         """
         Set a value in Redis.
 
@@ -247,7 +230,7 @@ class RedisManager:
             self._handle_connection_error()
             return 0
 
-    async def incr(self, key: str) -> Optional[int]:
+    async def incr(self, key: str) -> int | None:
         """
         Increment a counter in Redis.
 
@@ -350,12 +333,7 @@ class RedisManager:
     # Rate Limiting Support
     # ==========================================================================
 
-    async def rate_limit_check(
-        self,
-        key: str,
-        limit: int,
-        window: int
-    ) -> tuple[bool, int, int]:
+    async def rate_limit_check(self, key: str, limit: int, window: int) -> tuple[bool, int, int]:
         """
         Atomic rate limit check using Redis.
 
@@ -417,10 +395,8 @@ class RedisManager:
             bool: True if reconnection successful
         """
         if self._client:
-            try:
+            with suppress(Exception):
                 await self._client.close()
-            except Exception:
-                pass
 
         self._client = None
         self._initialized = False
@@ -453,7 +429,8 @@ class RedisManager:
 # Convenience Functions
 # =============================================================================
 
-async def get_redis() -> Optional[Redis]:
+
+async def get_redis() -> Redis | None:
     """
     Get the Redis client.
 

@@ -4,8 +4,11 @@ Configuration settings for the Headwater application.
 This module provides a centralized way to access configuration settings
 from environment variables using Pydantic's BaseSettings.
 """
+
 import json
-from typing import Annotated, List, Optional, Union
+from functools import lru_cache
+from typing import Annotated
+
 from pydantic import (
     RedisDsn,
     ValidationError,
@@ -13,19 +16,20 @@ from pydantic import (
     model_validator,
 )
 from pydantic_settings import BaseSettings, NoDecode
-from functools import lru_cache
 
 # Placeholder credentials shipped in .env.example. Usable in development so
 # `cp .env.example .env` boots, rejected everywhere else -- otherwise a
 # deployment that copies the file unchanged would run behind a credential
 # published in this repository. Compared lowercase.
-PLACEHOLDER_CREDENTIALS = frozenset({
-    "your-secure-api-key-here",
-    "your-secure-secret-key-minimum-32-characters-here",
-    "development-secret-key-change-in-production",
-    "changeme",
-    "change-me",
-})
+PLACEHOLDER_CREDENTIALS = frozenset(
+    {
+        "your-secure-api-key-here",
+        "your-secure-secret-key-minimum-32-characters-here",
+        "development-secret-key-change-in-production",
+        "changeme",
+        "change-me",
+    }
+)
 
 # Environments where placeholder credentials are tolerated.
 _NON_PRODUCTION_ENVIRONMENTS = frozenset({"development", "dev", "local", "test", "testing"})
@@ -36,10 +40,10 @@ _NON_PRODUCTION_ENVIRONMENTS = frozenset({"development", "dev", "local", "test",
 # string from the environment / .env file. Without it pydantic-settings tries
 # ``json.loads`` FIRST and raises ``SettingsError`` on ``API_KEYS=key1,key2``
 # before any validator can run.
-CsvList = Annotated[List[str], NoDecode]
+CsvList = Annotated[list[str], NoDecode]
 
 
-def _parse_delimited_list(value: Union[str, List[str], None]) -> List[str]:
+def _parse_delimited_list(value: str | list[str] | None) -> list[str]:
     """
     Parse a list-valued setting from either a JSON array or a comma-separated
     string.
@@ -74,6 +78,7 @@ def _parse_delimited_list(value: Union[str, List[str], None]) -> List[str]:
         return [str(item).strip() for item in value if str(item).strip()]
     return []
 
+
 # Import version from version file
 try:
     from app.__version__ import __version__ as app_version
@@ -84,96 +89,96 @@ except ImportError:
 class Settings(BaseSettings):
     """
     Application settings loaded from environment variables.
-    
+
     This class uses Pydantic's BaseSettings to load and validate
     configuration settings from environment variables.
     """
+
     # API settings
     # Accepts "key1,key2" or '["key1","key2"]'. API_KEY (below) is merged in
     # by app.core.auth so the single-key form documented in the README works.
     API_KEYS: CsvList = []
     ENABLE_API_KEY_AUTH: bool = True
-    
+
     # Rate limiting
     RATE_LIMIT_ENABLED: bool = True
     RATE_LIMIT_REQUESTS: int = 100
     RATE_LIMIT_TIMEFRAME: int = 3600  # seconds
-    
+
     # Caching
     ENABLE_CACHE: bool = True
     CACHE_TTL: int = 3600  # seconds
-    REDIS_URL: Optional[RedisDsn] = None
-    
-    
+    REDIS_URL: RedisDsn | None = None
+
     # Proxy settings
     ENABLE_PROXY: bool = False
-    PROXY_URL: Optional[str] = None
+    PROXY_URL: str | None = None
     # Hosts that must never be proxied, comma separated. Suffix match, so
     # "youtube.com" also covers www. and m. See proxy.proxy_for().
-    NO_PROXY_HOSTS: Optional[str] = None
-    
+    NO_PROXY_HOSTS: str | None = None
+
     # CORS settings
     CORS_ORIGINS: CsvList = ["*"]
     CORS_METHODS: CsvList = ["*"]
     CORS_HEADERS: CsvList = ["*"]
-    
+
     # Autocomplete settings
     AUTOCOMPLETE_MAX_PARALLEL_REQUESTS: int = 10
     AUTOCOMPLETE_REQUEST_TIMEOUT: int = 30
     AUTOCOMPLETE_MAX_RETRIES: int = 3
     AUTOCOMPLETE_RETRY_DELAY: float = 1.0
-    
+
     # Connection Pooling settings
     HTTP_CONNECTION_POOL_SIZE: int = 20
     HTTP_MAX_KEEPALIVE_CONNECTIONS: int = 10
     HTTP_MAX_CONNECTIONS_PER_HOST: int = 5
     HTTP_CONNECTION_TIMEOUT: float = 10.0
     HTTP_READ_TIMEOUT: float = 30.0
-    
+
     # Batch Processing settings
     BATCH_PROCESSING_ENABLED: bool = True
     BATCH_SIZE: int = 50
     BATCH_TIMEOUT: float = 60.0
     MAX_CONCURRENT_BATCHES: int = 3
-    
+
     # Input Sanitization settings
     INPUT_SANITIZATION_ENABLED: bool = True
     MAX_QUERY_LENGTH: int = 200
     ALLOWED_CHARACTERS_PATTERN: str = r"^[a-zA-Z0-9\s\-\.\,\?\!\(\)\[\]\{\}\'\"]+$"
     BLOCK_SUSPICIOUS_PATTERNS: bool = True
     SUSPICIOUS_PATTERNS: CsvList = ["<script", "javascript:", "onload=", "onerror=", "eval(", "alert("]
-    
+
     # Response Metadata settings
     RESPONSE_METADATA_ENABLED: bool = True
     INCLUDE_REQUEST_TIMING: bool = True
     INCLUDE_CONNECTION_INFO: bool = True
     INCLUDE_CACHE_INFO: bool = True
     INCLUDE_RATE_LIMIT_INFO: bool = True
-    
+
     # API Keys (for backward compatibility)
-    API_KEY: Optional[str] = None
-    
+    API_KEY: str | None = None
+
     # Proxy settings (for backward compatibility)
-    PROXY_URLS: Optional[str] = None
-    
+    PROXY_URLS: str | None = None
+
     # Twitter API settings (for backward compatibility)
-    TWITTER_API_KEY: Optional[str] = None
-    TWITTER_API_SECRET_KEY: Optional[str] = None
-    TWITTER_ACCESS_TOKEN: Optional[str] = None
-    TWITTER_ACCESS_TOKEN_SECRET: Optional[str] = None
-    TWITTER_BEARER_TOKEN: Optional[str] = None
-    
+    TWITTER_API_KEY: str | None = None
+    TWITTER_API_SECRET_KEY: str | None = None
+    TWITTER_ACCESS_TOKEN: str | None = None
+    TWITTER_ACCESS_TOKEN_SECRET: str | None = None
+    TWITTER_BEARER_TOKEN: str | None = None
+
     # Security
     SECRET_KEY: str = "development-secret-key-change-in-production"
-    X_BEARER_TOKEN: Optional[str] = None
-    
+    X_BEARER_TOKEN: str | None = None
+
     # Application settings
     DEBUG: bool = False
     ENVIRONMENT: str = "development"
     PROJECT_NAME: str = "Headwater"
     VERSION: str = app_version  # Use version from __version__.py
     DESCRIPTION: str = "API for Google Search, News, Trends and Maps data, plus YouTube transcripts"
-    
+
     @field_validator(
         "API_KEYS",
         "CORS_ORIGINS",
@@ -183,7 +188,7 @@ class Settings(BaseSettings):
         mode="before",
     )
     @classmethod
-    def assemble_list_setting(cls, v: Union[str, List[str], None]) -> List[str]:
+    def assemble_list_setting(cls, v: str | list[str] | None) -> list[str]:
         """
         Parse a list-valued setting from a comma-separated or JSON string.
 
@@ -200,7 +205,7 @@ class Settings(BaseSettings):
         return _parse_delimited_list(v)
 
     @model_validator(mode="after")
-    def reject_placeholder_credentials(self) -> "Settings":
+    def reject_placeholder_credentials(self) -> Settings:
         """
         Refuse to run outside development with the .env.example placeholders.
 
@@ -296,7 +301,7 @@ def _build_settings() -> Settings:
         ) from None
 
 
-@lru_cache()
+@lru_cache
 def get_settings() -> Settings:
     """
     Get the application settings.
@@ -390,7 +395,7 @@ def get_settings_cache_info() -> dict:
         "hits": cache_info.hits,
         "misses": cache_info.misses,
         "maxsize": cache_info.maxsize,
-        "currsize": cache_info.currsize
+        "currsize": cache_info.currsize,
     }
 
 

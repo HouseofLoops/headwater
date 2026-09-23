@@ -1,0 +1,6 @@
+# Bulk formatting commits. Use with:
+#   git config blame.ignoreRevsFile .git-blame-ignore-revs
+# (GitHub applies this file automatically.)
+
+# style: apply ruff format across the repository
+7e7c5fa9b25e93f2df9b38b0601d9bb79954ad5a

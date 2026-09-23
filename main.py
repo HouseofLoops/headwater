@@ -5,48 +5,46 @@ This module initializes the FastAPI application with all necessary middleware,
 exception handlers, and API routers. It serves as the main entry point for the
 Headwater API service.
 """
+
 import logging
 import os
 import time
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import AsyncIterator, Dict, Any, Optional
 
-from fastapi import FastAPI, Depends, Request, Response, APIRouter, Security
+from fastapi import APIRouter, Depends, FastAPI, Security
+from fastapi.openapi.docs import get_redoc_html, get_swagger_ui_html
 from fastapi.security.api_key import APIKeyHeader
-from fastapi.responses import JSONResponse
-from fastapi.exceptions import RequestValidationError
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.openapi.docs import get_swagger_ui_html, get_redoc_html
-from fastapi.openapi.utils import get_openapi
-from starlette.exceptions import HTTPException
+
+from app.api.google_autocomplete.google_autocomplete_api import router as google_autocomplete_router
+from app.api.google_maps.google_maps_api import google_maps_router
+
+# Import API routers
+from app.api.google_news.google_news_api import gnews_router, setup_nltk
+from app.api.google_trends.google_trends_api import google_trends_router
+from app.api.youtube_transcripts.youtube_transcripts_api import youtube_transcripts_router
+from app.core.auth import get_api_key
 
 # Import application modules
-from app.core.config import get_settings, Settings
+from app.core.config import get_settings
 from app.core.exceptions import (
-    HeadwaterException, 
     configure_exception_handlers,
 )
-from app.core.middleware import setup_middleware
 from app.core.health_checks import check_health
-from app.core.auth import get_api_key
 from app.core.http_client import shutdown_http_client_manager
 from app.core.log_safety import install_log_injection_filter
+from app.core.middleware import setup_middleware
 from app.core.rate_limiter import (
     RateLimitMiddleware,
     shutdown_rate_limiting,
+)
+from app.core.rate_limiter import (
     start_cleanup_task as start_rate_limit_cleanup_task,
 )
 from app.services.google_maps_monitors import (
     start_monitor_scheduler,
     stop_monitor_scheduler,
 )
-
-# Import API routers
-from app.api.google_news.google_news_api import gnews_router, setup_nltk
-from app.api.google_autocomplete.google_autocomplete_api import router as google_autocomplete_router
-from app.api.google_trends.google_trends_api import google_trends_router
-from app.api.youtube_transcripts.youtube_transcripts_api import youtube_transcripts_router
-from app.api.google_maps.google_maps_api import google_maps_router
 
 # Configure logging
 logging.basicConfig(
@@ -101,7 +99,7 @@ _operational_api_key_scheme = APIKeyHeader(name="X-API-Key", auto_error=False)
 
 
 async def require_api_key(
-    api_key: Optional[str] = Security(_operational_api_key_scheme),
+    api_key: str | None = Security(_operational_api_key_scheme),
 ) -> None:
     """
     Gate for endpoints that disclose host or configuration detail.
@@ -190,7 +188,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     # Log rate limiting status
     if settings.RATE_LIMIT_ENABLED:
-        logger.info(f"Rate limiting enabled: {settings.RATE_LIMIT_REQUESTS} requests per {settings.RATE_LIMIT_TIMEFRAME} seconds")
+        logger.info(
+            f"Rate limiting enabled: {settings.RATE_LIMIT_REQUESTS} requests per {settings.RATE_LIMIT_TIMEFRAME} seconds"
+        )
     else:
         logger.info("Rate limiting disabled")
 
@@ -252,15 +252,15 @@ def create_application() -> FastAPI:
 
     # Setup middleware
     setup_middleware(app, settings)
-    
+
     # Configure exception handlers
     configure_exception_handlers(app)
-    
+
     # Install the real rate limiter. Depends(rate_limit) covers the /api/v1
     # routes that declare it; the middleware covers everything else, including
     # /api-config, /status and /health.
     app.add_middleware(RateLimitMiddleware)
-    
+
     # Setup metrics if available.
     # /metrics is gated too: Prometheus' default collectors publish process
     # memory and start time, the Python version, and one labelled series per
@@ -274,10 +274,11 @@ def create_application() -> FastAPI:
             include_in_schema=False,
             dependencies=[Depends(require_api_key)],
         )
-    
+
     # Add custom OpenAPI documentation endpoints (non-production only, see
     # _docs_enabled: they enumerate the entire authenticated API surface).
     if docs_enabled:
+
         @app.get("/api/docs", include_in_schema=False)
         async def custom_swagger_ui_html():
             """Serve custom Swagger UI."""
@@ -349,7 +350,7 @@ def create_application() -> FastAPI:
             "version": settings.VERSION,
             "environment": settings.ENVIRONMENT,
             "timestamp": time.time(),
-            "uptime": time.time() - app.state.start_time if hasattr(app.state, "start_time") else 0
+            "uptime": time.time() - app.state.start_time if hasattr(app.state, "start_time") else 0,
         }
 
     # Add API configuration endpoints
@@ -368,19 +369,16 @@ def create_application() -> FastAPI:
             "rate_limiting": {
                 "enabled": settings.RATE_LIMIT_ENABLED,
                 "requests": settings.RATE_LIMIT_REQUESTS,
-                "timeframe": settings.RATE_LIMIT_TIMEFRAME
+                "timeframe": settings.RATE_LIMIT_TIMEFRAME,
             },
-            "caching": {
-                "enabled": settings.ENABLE_CACHE,
-                "ttl": settings.CACHE_TTL
-            },
+            "caching": {"enabled": settings.ENABLE_CACHE, "ttl": settings.CACHE_TTL},
             "cors": {
                 "origins": settings.CORS_ORIGINS,
                 "methods": settings.CORS_METHODS,
-                "headers": settings.CORS_HEADERS
-            }
+                "headers": settings.CORS_HEADERS,
+            },
         }
-    
+
     @app.get(
         "/config-sources",
         tags=["Configuration"],
@@ -394,55 +392,47 @@ def create_application() -> FastAPI:
             # model_config["env_file"] may be None, a single path, or a
             # sequence. `".env" in None` raises TypeError, so normalise first.
             "env_file": _env_file_configured(settings),
-            "defaults": True
+            "defaults": True,
         }
-    
+
     # Create v1 router
     v1_router = APIRouter(prefix="/api/v1")
-    
+
     # Include API routers in v1 router
     v1_router.include_router(
-        gnews_router,
-        prefix="/google-news",
-        tags=["Google News API"],
-        dependencies=[Depends(get_api_key)]
+        gnews_router, prefix="/google-news", tags=["Google News API"], dependencies=[Depends(get_api_key)]
     )
-    
+
     v1_router.include_router(
-        google_trends_router,
-        prefix="/google-trends",
-        tags=["Google Trends API"],
-        dependencies=[Depends(get_api_key)]
+        google_trends_router, prefix="/google-trends", tags=["Google Trends API"], dependencies=[Depends(get_api_key)]
     )
-    
+
     v1_router.include_router(
         google_autocomplete_router,
-        prefix="/google-autocomplete", 
+        prefix="/google-autocomplete",
         tags=["Google Autocomplete API"],
-        dependencies=[Depends(get_api_key)]
+        dependencies=[Depends(get_api_key)],
     )
-    
+
     v1_router.include_router(
         youtube_transcripts_router,
         prefix="/youtube-transcripts",
         tags=["YouTube Transcripts API"],
-        dependencies=[Depends(get_api_key)]
+        dependencies=[Depends(get_api_key)],
     )
 
     v1_router.include_router(
-        google_maps_router,
-        prefix="/google-maps",
-        tags=["Google Maps API"],
-        dependencies=[Depends(get_api_key)]
+        google_maps_router, prefix="/google-maps", tags=["Google Maps API"], dependencies=[Depends(get_api_key)]
     )
 
     # Include v1 router in app
     app.include_router(v1_router)
-    
+
     # Store start time for uptime calculation
     app.state.start_time = time.time()
-    
+
     return app
+
 
 # Create the application instance
 app = create_application()
@@ -450,15 +440,9 @@ app = create_application()
 # Run the application if executed directly
 if __name__ == "__main__":
     import uvicorn
-    
+
     # Get host and port from settings if available
-    host = getattr(settings, "HOST", "0.0.0.0")
+    host = getattr(settings, "HOST", "0.0.0.0")  # nosec B104 - container entrypoint; exposure is set by the port mapping
     port = getattr(settings, "PORT", 8000)
-    
-    uvicorn.run(
-        "main:app",
-        host=host,
-        port=port,
-        reload=settings.DEBUG,
-        log_level="info"
-    )
+
+    uvicorn.run("main:app", host=host, port=port, reload=settings.DEBUG, log_level="info")

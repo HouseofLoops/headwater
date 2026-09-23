@@ -247,6 +247,7 @@ curl -X GET "http://localhost:8000/api/v1/youtube-transcripts/list-transcripts?v
 import asyncio
 from headwater import HeadwaterClient
 
+
 async def main():
     api_key = "your_api_key_here"
     client = HeadwaterClient(api_key)
@@ -263,6 +264,7 @@ async def main():
     trends = await client.google_trends.get_trending()
     print(f"Trending: {trends[0].title if trends else 'None'}")
 
+
 asyncio.run(main())
 ```
 
@@ -273,51 +275,40 @@ import asyncio
 import json
 from headwater import HeadwaterClient
 
+
 async def comprehensive_example():
     client = HeadwaterClient("your_api_key_here")
 
     try:
         # Get news with filters
         news_response = await client.google_news.search(
-            query="machine learning",
-            country="US",
-            language="en",
-            max_results=10,
-            sort_by="relevance",
-            freshness="Week"
+            query="machine learning", country="US", language="en", max_results=10, sort_by="relevance", freshness="Week"
         )
 
         print(f"News search completed: {len(news_response.results)} results")
 
         # Get autocomplete with variations
         autocomplete_response = await client.google_autocomplete.get_suggestions(
-            query="data science",
-            variations=True,
-            output="json",
-            geo="US"
+            query="data science", variations=True, output="json", geo="US"
         )
 
         print(f"Autocomplete suggestions: {len(autocomplete_response.suggestions)}")
 
         # Get trends comparison
         trends_response = await client.google_trends.compare_keywords(
-            keywords=["python", "javascript", "rust"],
-            geo="US",
-            timeframe="1-Y"
+            keywords=["python", "javascript", "rust"], geo="US", timeframe="1-Y"
         )
 
         print(f"Trends comparison completed for {len(trends_response.keywords)} keywords")
 
         # Get YouTube transcript
-        transcript_response = await client.youtube_transcripts.get_transcript(
-            video_id="dQw4w9WgXcQ",
-            language="en"
-        )
+        transcript_response = await client.youtube_transcripts.get_transcript(video_id="dQw4w9WgXcQ", language="en")
 
         print(f"Transcript retrieved: {len(transcript_response.transcript)} segments")
 
     except Exception as e:
         print(f"Error: {e}")
+
 
 asyncio.run(comprehensive_example())
 ```
@@ -327,6 +318,7 @@ asyncio.run(comprehensive_example())
 ```python
 import asyncio
 from headwater import HeadwaterClient, HeadwaterError
+
 
 async def robust_example():
     client = HeadwaterClient("your_api_key_here")
@@ -346,6 +338,7 @@ async def robust_example():
 
     except Exception as e:
         print(f"Unexpected error: {e}")
+
 
 asyncio.run(robust_example())
 ```
@@ -524,6 +517,7 @@ examples();
 import httpx
 import asyncio
 
+
 async def handle_errors():
     api_key = "your_api_key_here"
     headers = {"x-api-key": api_key}
@@ -531,9 +525,7 @@ async def handle_errors():
     async with httpx.AsyncClient() as client:
         try:
             response = await client.get(
-                "http://localhost:8000/api/v1/google-news/search",
-                params={"q": "test query"},
-                headers=headers
+                "http://localhost:8000/api/v1/google-news/search", params={"q": "test query"}, headers=headers
             )
             response.raise_for_status()
             data = response.json()
@@ -554,6 +546,7 @@ async def handle_errors():
 
         except Exception as e:
             print(f"💥 Unexpected error: {e}")
+
 
 asyncio.run(handle_errors())
 ```
@@ -612,35 +605,30 @@ import asyncio
 import httpx
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
+
 @retry(
     stop=stop_after_attempt(3),
     wait=wait_exponential(multiplier=1, min=4, max=10),
-    retry=retry_if_exception_type((httpx.HTTPStatusError, httpx.RequestError))
+    retry=retry_if_exception_type((httpx.HTTPStatusError, httpx.RequestError)),
 )
 async def robust_api_call(endpoint, params=None, headers=None):
     async with httpx.AsyncClient() as client:
-        response = await client.get(
-            f"http://localhost:8000/api/v1{endpoint}",
-            params=params,
-            headers=headers
-        )
+        response = await client.get(f"http://localhost:8000/api/v1{endpoint}", params=params, headers=headers)
         response.raise_for_status()
         return response.json()
+
 
 async def example_with_retry():
     headers = {"x-api-key": "your_api_key_here"}
 
     try:
         # This will retry automatically on failures
-        news = await robust_api_call(
-            "/google-news/search",
-            params={"q": "artificial intelligence"},
-            headers=headers
-        )
+        news = await robust_api_call("/google-news/search", params={"q": "artificial intelligence"}, headers=headers)
         print(f"Success after retries: {len(news['results'])} results")
 
     except Exception as e:
         print(f"Failed after all retries: {e}")
+
 
 asyncio.run(example_with_retry())
 ```
@@ -654,6 +642,7 @@ import asyncio
 import httpx
 from typing import List, Dict
 
+
 async def batch_news_search(queries: List[str], api_key: str) -> List[Dict]:
     """Search for multiple queries concurrently"""
     headers = {"x-api-key": api_key}
@@ -663,7 +652,7 @@ async def batch_news_search(queries: List[str], api_key: str) -> List[Dict]:
             response = await client.get(
                 "http://localhost:8000/api/v1/google-news/search",
                 params={"q": query, "max_results": 5},
-                headers=headers
+                headers=headers,
             )
             response.raise_for_status()
             return response.json()
@@ -683,13 +672,9 @@ async def batch_news_search(queries: List[str], api_key: str) -> List[Dict]:
 
     return processed_results
 
+
 async def main():
-    queries = [
-        "artificial intelligence",
-        "machine learning",
-        "data science",
-        "python programming"
-    ]
+    queries = ["artificial intelligence", "machine learning", "data science", "python programming"]
 
     results = await batch_news_search(queries, "your_api_key_here")
 
@@ -698,6 +683,7 @@ async def main():
             print(f"❌ {result['query']}: {result['error']}")
         else:
             print(f"✅ {result['query']}: {len(result['results'])} articles")
+
 
 asyncio.run(main())
 ```
@@ -709,6 +695,7 @@ import asyncio
 import httpx
 import json
 
+
 async def stream_large_response():
     """Handle large responses efficiently"""
     api_key = "your_api_key_here"
@@ -719,7 +706,7 @@ async def stream_large_response():
             "GET",
             "http://localhost:8000/api/v1/google-news/search",
             params={"q": "big data", "max_results": 100},
-            headers=headers
+            headers=headers,
         ) as response:
             response.raise_for_status()
 
@@ -733,6 +720,7 @@ async def stream_large_response():
                     except json.JSONDecodeError:
                         # Handle partial JSON
                         pass
+
 
 asyncio.run(stream_large_response())
 ```

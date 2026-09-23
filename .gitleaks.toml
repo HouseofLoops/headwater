@@ -29,3 +29,11 @@ paths = [
   # definition and are asserted to be placeholders by tests/test_boot.py.
   '''\.env\.example$''',
 ]
+# Fixture API keys used by tests/integration/test_auth_flow.py (it sets them
+# in API_KEYS itself). Allowed by exact value, not by path, so a real-looking
+# key added to tests/ is still caught. These started matching generic-api-key
+# only when `ruff format` joined each headers={...} onto the request line.
+regexTarget = "secret"
+regexes = [
+  '''^(valid-test-key-123|another-valid-key-456)$''',
+]

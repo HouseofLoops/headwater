@@ -13,10 +13,9 @@
 # cp314 wheel; the regenerated lock takes 3.4.1, which does. Every other pin is
 # either pure-Python or already publishes a cp314 build.
 #
-# ACTION REQUIRED (owner of scripts/): scripts/update_base_image.sh:10 still
-# defaults BASE_IMAGE_TAG to "3.11-slim-bookworm" and .github/workflows/
-# update-base-image.yml invokes it with no --tag, so its grep will not match
-# the FROM lines below until that default becomes "3.14-slim-trixie".
+# scripts/update_base_image.sh (run weekly by .github/workflows/
+# update-base-image.yml with no --tag) derives BASE_IMAGE_TAG from the first
+# FROM line below, so moving the Python version here needs no change there.
 # python:3.14-slim-trixie as of 2026-09-19
 FROM python:3.14-slim-trixie@sha256:caaf356f40667c496d405780745b9ac25771c189a51dfcc42430d531ea09f8a2 AS builder
 
@@ -61,7 +60,8 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # (PYSEC-2026-3740) and is only needed for article summary and keywords. This
 # also removes a network call from the image build.
 # Restore this RUN, the NLTK_DATA env and the two /opt/nltk_data lines below
-# when a fixed nltk is re-pinned.
+# when a fixed nltk is re-pinned. nltk.txt (repo root) is the corpus list to
+# download at that point; it is kept deliberately, not a leftover.
 
 
 # =============================================================================

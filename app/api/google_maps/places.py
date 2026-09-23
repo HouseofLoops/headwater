@@ -4,9 +4,9 @@ attributes, history and availability.
 Mounted onto ``google_maps_router`` by this package's ``__init__``; the paths
 declared here are relative to the ``/google-maps`` prefix applied there.
 """
+
 import logging
 from datetime import datetime
-from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
 
@@ -19,24 +19,20 @@ from app.api.google_maps.schemas import (
     PlaceLookupRequest,
 )
 from app.core.auth import get_api_key
+from app.core.log_safety import scrub
 from app.core.rate_limiter import rate_limit
 from app.services.google_maps_service import google_maps_service
-from app.core.log_safety import scrub
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(route_class=SafeUrlValidationRoute)
 
 
-@router.get(
-    "/place/{place_id}",
-    summary="Get place details by ID",
-    response_description="Comprehensive place details"
-)
+@router.get("/place/{place_id}", summary="Get place details by ID", response_description="Comprehensive place details")
 async def get_place_by_id(
     place_id: str = Path(..., description="Google Place ID (CID) or URL-encoded place identifier"),
     api_key: str = Depends(get_api_key),
-    rate_limit_check: None = Depends(rate_limit)
+    rate_limit_check: None = Depends(rate_limit),
 ):
     """
     Get detailed information for a specific place by its ID.
@@ -59,25 +55,19 @@ async def get_place_by_id(
             "success": True,
             "place_id": place_id,
             "place": result.get("place"),
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now().isoformat(),
         }
 
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Place lookup error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL)
+        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL) from e
 
 
-@router.post(
-    "/place/lookup",
-    summary="Lookup place by URL or ID",
-    response_description="Place details"
-)
+@router.post("/place/lookup", summary="Lookup place by URL or ID", response_description="Place details")
 async def lookup_place(
-    request: PlaceLookupRequest,
-    api_key: str = Depends(get_api_key),
-    rate_limit_check: None = Depends(rate_limit)
+    request: PlaceLookupRequest, api_key: str = Depends(get_api_key), rate_limit_check: None = Depends(rate_limit)
 ):
     """
     Look up a place by Google Maps URL or Place ID.
@@ -89,47 +79,37 @@ async def lookup_place(
     Returns comprehensive place details.
     """
     if not request.url and not request.place_id:
-        raise HTTPException(
-            status_code=400,
-            detail="Either 'url' or 'place_id' must be provided"
-        )
+        raise HTTPException(status_code=400, detail="Either 'url' or 'place_id' must be provided")
 
     try:
-        result = await google_maps_service.lookup_place(
-            url=request.url,
-            place_id=request.place_id
-        )
+        result = await google_maps_service.lookup_place(url=request.url, place_id=request.place_id)
 
         if result.get("error"):
             raise upstream_error(result, "Failed to lookup place")
 
-        return {
-            "success": True,
-            "place": result.get("place"),
-            "timestamp": datetime.now().isoformat()
-        }
+        return {"success": True, "place": result.get("place"), "timestamp": datetime.now().isoformat()}
 
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Place lookup error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL)
+        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL) from e
 
 
 @router.get(
     "/place/{place_id}/reviews",
     summary="Get place reviews",
-    response_description="Paginated reviews with owner responses"
+    response_description="Paginated reviews with owner responses",
 )
 async def get_place_reviews(
     place_id: str = Path(..., description="Place ID"),
     sort_by: str = Query("most_relevant", description="Sort order"),
     limit: int = Query(50, ge=1, le=200, description="Number of reviews"),
     offset: int = Query(0, ge=0, description="Pagination offset"),
-    min_rating: Optional[int] = Query(None, ge=1, le=5, description="Minimum rating filter"),
+    min_rating: int | None = Query(None, ge=1, le=5, description="Minimum rating filter"),
     include_owner_responses: bool = Query(True, description="Include owner responses"),
     api_key: str = Depends(get_api_key),
-    rate_limit_check: None = Depends(rate_limit)
+    rate_limit_check: None = Depends(rate_limit),
 ):
     """
     Get reviews for a specific place.
@@ -155,7 +135,7 @@ async def get_place_reviews(
             limit=limit,
             offset=offset,
             min_rating=min_rating,
-            include_owner_responses=include_owner_responses
+            include_owner_responses=include_owner_responses,
         )
 
         if result.get("error"):
@@ -167,33 +147,25 @@ async def get_place_reviews(
             "total_reviews": result.get("total_reviews", 0),
             "average_rating": result.get("average_rating"),
             "reviews": result.get("reviews", []),
-            "pagination": {
-                "limit": limit,
-                "offset": offset,
-                "has_more": result.get("has_more", False)
-            },
-            "timestamp": datetime.now().isoformat()
+            "pagination": {"limit": limit, "offset": offset, "has_more": result.get("has_more", False)},
+            "timestamp": datetime.now().isoformat(),
         }
 
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Get reviews error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL)
+        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL) from e
 
 
-@router.get(
-    "/place/{place_id}/photos",
-    summary="Get place photos",
-    response_description="Photo URLs with metadata"
-)
+@router.get("/place/{place_id}/photos", summary="Get place photos", response_description="Photo URLs with metadata")
 async def get_place_photos(
     place_id: str = Path(..., description="Place ID"),
     max_photos: int = Query(20, ge=1, le=100, description="Maximum photos"),
     size: str = Query("large", description="Photo size (thumbnail, medium, large, original)"),
-    category: Optional[str] = Query(None, description="Photo category filter"),
+    category: str | None = Query(None, description="Photo category filter"),
     api_key: str = Depends(get_api_key),
-    rate_limit_check: None = Depends(rate_limit)
+    rate_limit_check: None = Depends(rate_limit),
 ):
     """
     Get photos for a specific place.
@@ -217,10 +189,7 @@ async def get_place_photos(
 
     try:
         result = await google_maps_service.get_place_photos(
-            place_id=place_id,
-            max_photos=max_photos,
-            size=size,
-            category=category
+            place_id=place_id, max_photos=max_photos, size=size, category=category
         )
 
         if result.get("error"):
@@ -231,27 +200,23 @@ async def get_place_photos(
             "place_id": place_id,
             "total_photos": result.get("total_photos", 0),
             "photos": result.get("photos", []),
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now().isoformat(),
         }
 
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Get photos error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL)
+        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL) from e
 
 
-@router.get(
-    "/place/{place_id}/qa",
-    summary="Get place Q&A",
-    response_description="Questions and answers"
-)
+@router.get("/place/{place_id}/qa", summary="Get place Q&A", response_description="Questions and answers")
 async def get_place_qa(
     place_id: str = Path(..., description="Place ID"),
     limit: int = Query(20, ge=1, le=100, description="Maximum Q&A pairs"),
     include_answers: bool = Query(True, description="Include answers"),
     api_key: str = Depends(get_api_key),
-    rate_limit_check: None = Depends(rate_limit)
+    rate_limit_check: None = Depends(rate_limit),
 ):
     """
     Get Questions & Answers for a specific place.
@@ -264,11 +229,7 @@ async def get_place_qa(
     logger.info("Get Q&A for place: %s", scrub(place_id))
 
     try:
-        result = await google_maps_service.get_place_qa(
-            place_id=place_id,
-            limit=limit,
-            include_answers=include_answers
-        )
+        result = await google_maps_service.get_place_qa(place_id=place_id, limit=limit, include_answers=include_answers)
 
         if result.get("error"):
             raise upstream_error(result, "Failed to get Q&A")
@@ -278,28 +239,24 @@ async def get_place_qa(
             "place_id": place_id,
             "total_questions": result.get("total_questions", 0),
             "questions": result.get("questions", []),
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now().isoformat(),
         }
 
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Get Q&A error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL)
+        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL) from e
 
 
-@router.get(
-    "/place/{place_id}/menu",
-    summary="Extract menu",
-    response_description="Structured menu data"
-)
+@router.get("/place/{place_id}/menu", summary="Extract menu", response_description="Structured menu data")
 async def extract_menu(
     place_id: str = Path(..., description="Place ID"),
     include_prices: bool = Query(True, description="Include prices"),
     include_descriptions: bool = Query(True, description="Include descriptions"),
     categorize: bool = Query(True, description="Categorize items"),
     api_key: str = Depends(get_api_key),
-    rate_limit_check: None = Depends(rate_limit)
+    rate_limit_check: None = Depends(rate_limit),
 ):
     """
     Extract and structure menu information for a restaurant.
@@ -320,7 +277,7 @@ async def extract_menu(
             place_id=place_id,
             include_prices=include_prices,
             include_descriptions=include_descriptions,
-            categorize=categorize
+            categorize=categorize,
         )
 
         if result.get("error"):
@@ -332,25 +289,23 @@ async def extract_menu(
             "menu_available": result.get("menu_available", False),
             "menu": result.get("menu", []),
             "categories": result.get("categories", []),
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now().isoformat(),
         }
 
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Menu extraction error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL)
+        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL) from e
 
 
 @router.get(
-    "/place/{place_id}/attributes",
-    summary="Get place attributes",
-    response_description="Detailed place attributes"
+    "/place/{place_id}/attributes", summary="Get place attributes", response_description="Detailed place attributes"
 )
 async def get_place_attributes(
     place_id: str = Path(..., description="Place ID"),
     api_key: str = Depends(get_api_key),
-    rate_limit_check: None = Depends(rate_limit)
+    rate_limit_check: None = Depends(rate_limit),
 ):
     """
     Get detailed attributes for a place.
@@ -367,9 +322,7 @@ async def get_place_attributes(
     logger.info("Get attributes for place: %s", scrub(place_id))
 
     try:
-        result = await google_maps_service.get_place_attributes(
-            place_id=place_id
-        )
+        result = await google_maps_service.get_place_attributes(place_id=place_id)
 
         if result.get("error"):
             raise upstream_error(result, "Failed to get attributes")
@@ -378,28 +331,24 @@ async def get_place_attributes(
             "success": True,
             "place_id": place_id,
             "attributes": result.get("attributes", {}),
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now().isoformat(),
         }
 
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Get attributes error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL)
+        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL) from e
 
 
-@router.get(
-    "/place/{place_id}/history",
-    summary="Get place history",
-    response_description="Historical data for place"
-)
+@router.get("/place/{place_id}/history", summary="Get place history", response_description="Historical data for place")
 async def get_place_history(
     place_id: str = Path(..., description="Place ID"),
-    field: Optional[str] = Query(None, description="Specific field to get history for"),
-    start_date: Optional[str] = Query(None, description="Start date (YYYY-MM-DD)"),
-    end_date: Optional[str] = Query(None, description="End date (YYYY-MM-DD)"),
+    field: str | None = Query(None, description="Specific field to get history for"),
+    start_date: str | None = Query(None, description="Start date (YYYY-MM-DD)"),
+    end_date: str | None = Query(None, description="End date (YYYY-MM-DD)"),
     api_key: str = Depends(get_api_key),
-    rate_limit_check: None = Depends(rate_limit)
+    rate_limit_check: None = Depends(rate_limit),
 ):
     """
     Get historical data for a monitored place.
@@ -418,11 +367,7 @@ async def get_place_history(
 
     try:
         result = await google_maps_service.get_place_history(
-            place_id=place_id,
-            field=field,
-            start_date=start_date,
-            end_date=end_date,
-            api_key=api_key
+            place_id=place_id, field=field, start_date=start_date, end_date=end_date, api_key=api_key
         )
 
         if result.get("error"):
@@ -433,27 +378,27 @@ async def get_place_history(
             "place_id": place_id,
             "field": field or "all",
             "history": result.get("history", []),
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now().isoformat(),
         }
 
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Get history error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL)
+        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL) from e
 
 
 @router.get(
     "/place/{place_id}/availability",
     summary="Check reservation availability",
-    response_description="Available reservation times"
+    response_description="Available reservation times",
 )
 async def check_availability(
     place_id: str = Path(..., description="Place ID"),
     date: str = Query(..., description="Date to check (YYYY-MM-DD)"),
     party_size: int = Query(2, ge=1, le=20, description="Number of guests"),
     api_key: str = Depends(get_api_key),
-    rate_limit_check: None = Depends(rate_limit)
+    rate_limit_check: None = Depends(rate_limit),
 ):
     """
     Check reservation availability for a restaurant.
@@ -466,11 +411,7 @@ async def check_availability(
     logger.info("Check availability for place: %s on %s", scrub(place_id), scrub(date))
 
     try:
-        result = await google_maps_service.check_availability(
-            place_id=place_id,
-            date=date,
-            party_size=party_size
-        )
+        result = await google_maps_service.check_availability(place_id=place_id, date=date, party_size=party_size)
 
         if result.get("error"):
             raise upstream_error(result, "Failed to check availability")
@@ -483,11 +424,11 @@ async def check_availability(
             "reservations_available": result.get("reservations_available", False),
             "time_slots": result.get("time_slots", []),
             "booking_url": result.get("booking_url"),
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now().isoformat(),
         }
 
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Check availability error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL)
+        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL) from e

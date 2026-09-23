@@ -26,6 +26,7 @@ from fastapi.testclient import TestClient
 REPO_ROOT = Path(__file__).resolve().parents[1]
 ENV_EXAMPLE = REPO_ROOT / ".env.example"
 
+
 # The API key shipped in .env.example. Read from the file rather than
 # hard-coded so the two cannot drift apart.
 def _example_env() -> dict:
@@ -170,9 +171,7 @@ class TestBootFromDocumentedConfig:
             text=True,
             timeout=180,
         )
-        assert result.returncode == 0, (
-            f"importing main with .env.example failed:\n{result.stderr[-4000:]}"
-        )
+        assert result.returncode == 0, f"importing main with .env.example failed:\n{result.stderr[-4000:]}"
         assert "BOOT_OK" in result.stdout
 
     def test_settings_errors_do_not_leak_values(self, monkeypatch):
@@ -242,9 +241,7 @@ class TestPlaceholderCredentialGuard:
 
         monkeypatch.setenv("ENVIRONMENT", "production")
         monkeypatch.setenv("API_KEYS", "a-real-generated-api-key")
-        monkeypatch.setenv(
-            "SECRET_KEY", EXAMPLE_ENV["SECRET_KEY"]
-        )
+        monkeypatch.setenv("SECRET_KEY", EXAMPLE_ENV["SECRET_KEY"])
         get_settings.cache_clear()
         try:
             with pytest.raises(SettingsError):
@@ -304,16 +301,12 @@ class TestListSettingsRoundTrip:
             ("API_KEYS", "solo", ["solo"]),
             ("API_KEYS", "", []),
             ("CORS_ORIGINS", "https://a.com", ["https://a.com"]),
-            ("CORS_ORIGINS", "https://a.com,https://b.com",
-             ["https://a.com", "https://b.com"]),
-            ("CORS_ORIGINS", '["https://a.com","https://b.com"]',
-             ["https://a.com", "https://b.com"]),
+            ("CORS_ORIGINS", "https://a.com,https://b.com", ["https://a.com", "https://b.com"]),
+            ("CORS_ORIGINS", '["https://a.com","https://b.com"]', ["https://a.com", "https://b.com"]),
             ("CORS_METHODS", "GET,POST", ["GET", "POST"]),
             ("CORS_METHODS", '["GET","POST"]', ["GET", "POST"]),
-            ("CORS_HEADERS", "X-API-Key, Content-Type",
-             ["X-API-Key", "Content-Type"]),
-            ("CORS_HEADERS", '["X-API-Key","Content-Type"]',
-             ["X-API-Key", "Content-Type"]),
+            ("CORS_HEADERS", "X-API-Key, Content-Type", ["X-API-Key", "Content-Type"]),
+            ("CORS_HEADERS", '["X-API-Key","Content-Type"]', ["X-API-Key", "Content-Type"]),
             ("SUSPICIOUS_PATTERNS", "<script,eval(", ["<script", "eval("]),
             ("SUSPICIOUS_PATTERNS", '["<script","eval("]', ["<script", "eval("]),
         ],
@@ -344,9 +337,7 @@ class TestProtectedRouteAuth:
         authenticated request returned 500.
         """
         client = _protected_client(app_with_env())
-        response = client.get(
-            "/__boot_probe__", headers={"X-API-Key": EXAMPLE_API_KEY}
-        )
+        response = client.get("/__boot_probe__", headers={"X-API-Key": EXAMPLE_API_KEY})
         assert response.status_code == 200, response.text
         assert response.json()["api_key"] == EXAMPLE_API_KEY
 
@@ -360,9 +351,7 @@ class TestProtectedRouteAuth:
     def test_wrong_key_returns_401(self, app_with_env):
         """A wrong X-API-Key must be 401 -- not 500, not 200."""
         client = _protected_client(app_with_env())
-        response = client.get(
-            "/__boot_probe__", headers={"X-API-Key": "definitely-not-the-key"}
-        )
+        response = client.get("/__boot_probe__", headers={"X-API-Key": "definitely-not-the-key"})
         assert response.status_code == 401, response.text
 
     def test_empty_header_returns_401(self, app_with_env):
@@ -400,9 +389,7 @@ class TestProtectedRouteAuth:
         app = app_with_env(API_KEYS="", API_KEY="")
         client = _protected_client(app)
         assert client.get("/__boot_probe__").status_code == 401
-        assert client.get(
-            "/__boot_probe__", headers={"X-API-Key": "guess"}
-        ).status_code == 500
+        assert client.get("/__boot_probe__", headers={"X-API-Key": "guess"}).status_code == 500
 
 
 class TestRealProtectedApiRoute:
@@ -461,9 +448,7 @@ def test_env_example_has_no_shell_interpolation():
     the containers would disagree about the database password.
     """
     offenders = [
-        line
-        for line in ENV_EXAMPLE.read_text().splitlines()
-        if not line.strip().startswith("#") and "${" in line
+        line for line in ENV_EXAMPLE.read_text().splitlines() if not line.strip().startswith("#") and "${" in line
     ]
     assert offenders == [], f"interpolation found in .env.example: {offenders}"
 

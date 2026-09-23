@@ -19,13 +19,13 @@ test declares.
 """
 
 import socket
+from typing import ClassVar
 from unittest.mock import AsyncMock, patch
 
 import pytest
 
 from app.services.google_maps_service import GoogleMapsService, google_maps_service
 from app.services.record_store import RecordStore
-
 
 # --------------------------------------------------------------------------
 # Playwright doubles
@@ -82,7 +82,7 @@ class FakeScraper:
     """Stands in for GoogleMapsScraper. ``page`` is set by each test."""
 
     page = None
-    instances = []
+    instances: ClassVar[list] = []
 
     def __init__(self, *args, **kwargs):
         self.closed = False
@@ -99,8 +99,8 @@ class FakeScraper:
 @pytest.fixture(autouse=True)
 def fast_and_offline(monkeypatch):
     """No real sleeps, no real browser, no real Redis, no real DNS."""
-    import app.services.google_maps_scraper as scraper_module
     import app.core.url_guard as url_guard
+    import app.services.google_maps_scraper as scraper_module
     import app.services.record_store as record_store
 
     record_store._stores.clear()
@@ -188,9 +188,7 @@ class TestDirections:
         that produced roughly 67 km and 80 minutes regardless of any road. The
         scraped values must be what the page said, not that.
         """
-        FakeScraper.page = FakePage(
-            {DIRECTIONS_SELECTOR: [route_card("via US-101 S\n1 hr 5 min\n77.2 km")]}
-        )
+        FakeScraper.page = FakePage({DIRECTIONS_SELECTOR: [route_card("via US-101 S\n1 hr 5 min\n77.2 km")]})
 
         result = await service.get_directions(37.77, -122.41, 37.33, -121.88)
 
@@ -224,9 +222,7 @@ class TestDirections:
 
     async def test_missing_steps_are_reported_not_implied(self, service):
         """steps: [] with steps_available False, so 'no turns' is not claimed."""
-        FakeScraper.page = FakePage(
-            {DIRECTIONS_SELECTOR: [route_card("via A\n12 min\n8 km")]}
-        )
+        FakeScraper.page = FakePage({DIRECTIONS_SELECTOR: [route_card("via A\n12 min\n8 km")]})
 
         result = await service.get_directions(1.0, 2.0, 3.0, 4.0)
 
@@ -330,7 +326,7 @@ class TestDirectionParsers:
         ],
     )
     def test_distance(self, text, metres):
-        label, value = GoogleMapsService._parse_distance(text)
+        _label, value = GoogleMapsService._parse_distance(text)
         assert round(value) == metres
 
     def test_distance_absent(self):
@@ -369,9 +365,7 @@ class TestExtractMenu:
         assert result["categories"] == {"Menu": result["menu"]}
 
     async def test_include_flags_are_honoured(self, service):
-        FakeScraper.page = FakePage(
-            {MENU_ITEM_SELECTOR: [FakeNode("Flat White\n$4.50\nDouble ristretto")]}
-        )
+        FakeScraper.page = FakePage({MENU_ITEM_SELECTOR: [FakeNode("Flat White\n$4.50\nDouble ristretto")]})
         with patch.object(service, "get_place_by_id", AsyncMock(return_value=self._place())):
             result = await service.extract_menu(
                 "p1", include_prices=False, include_descriptions=False, categorize=False
@@ -423,9 +417,7 @@ class TestExtractMenu:
         assert result["status_code"] == 502
 
     async def test_place_lookup_failure_propagates(self, service):
-        with patch.object(
-            service, "get_place_by_id", AsyncMock(return_value={"error": True, "message": "nope"})
-        ):
+        with patch.object(service, "get_place_by_id", AsyncMock(return_value={"error": True, "message": "nope"})):
             result = await service.extract_menu("p1")
         assert result["error"] is True
 
