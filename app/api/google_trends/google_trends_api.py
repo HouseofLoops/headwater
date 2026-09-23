@@ -86,8 +86,8 @@ def get_random_headers():
     Selects a random referer and user-agent from predefined lists.
     Returns a dictionary of headers.
     """
-    referer = random.choice(REFERER_LIST)
-    user_agent = random.choice(USER_AGENT_LIST)
+    referer = random.choice(REFERER_LIST)  # nosec B311 - header rotation, not security
+    user_agent = random.choice(USER_AGENT_LIST)  # nosec B311
     headers = {
         "Referer": referer,
         "User-Agent": user_agent,

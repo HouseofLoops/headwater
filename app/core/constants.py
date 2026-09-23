@@ -333,7 +333,7 @@ def get_random_user_agent() -> str:
     """
     import random
 
-    return random.choice(USER_AGENT_LIST)
+    return random.choice(USER_AGENT_LIST)  # nosec B311 - header rotation, not security
 
 
 def get_random_referer() -> str:
@@ -345,4 +345,4 @@ def get_random_referer() -> str:
     """
     import random
 
-    return random.choice(REFERER_LIST)
+    return random.choice(REFERER_LIST)  # nosec B311 - header rotation, not security

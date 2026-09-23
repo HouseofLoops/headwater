@@ -50,8 +50,9 @@ repos:
 
   # bandit < 1.9 cannot parse Python 3.14 source: it skipped every file with
   # "exception while scanning file" and reported a false pass. 1.9.4 really
-  # scans, and surfaces 13 pre-existing findings in app/ and main.py that were
-  # always there (B324 md5, B311 random, B314/B405 xml.etree, B104, B110).
+  # scans. The 13 findings it surfaced were resolved on 2026-09-23: md5 cache
+  # keys now pass usedforsecurity=False, and the rest carry a `# nosec <id>`
+  # with the reason on the line. Keep new nosecs just as specific.
   - repo: https://github.com/PyCQA/bandit
     rev: 1.9.4
     hooks:

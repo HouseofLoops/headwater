@@ -9,7 +9,12 @@ with support for all available parameters and output formats.
 import json
 import logging
 import time
-import xml.etree.ElementTree as ET
+
+# Parsing Google's autocomplete XML with the stdlib is safe on CPython 3.14:
+# the bundled expat (>= 2.4.1) blocks entity-expansion attacks, and
+# ElementTree never resolves external entities. See the "XML vulnerabilities"
+# table in the Python docs.
+import xml.etree.ElementTree as ET  # nosec B405
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -515,7 +520,7 @@ async def get_autocomplete(
                     if output in [OutputFormat.XML, OutputFormat.TOOLBAR]:
                         try:
                             # Use response_text (with XSSI prefix stripped) instead of raw response.content
-                            root = ET.fromstring(response_text.encode("utf-8"))
+                            root = ET.fromstring(response_text.encode("utf-8"))  # nosec B314
                             suggestions = []
                             for complete_suggestion in root.findall("CompleteSuggestion"):
                                 suggestion_element = complete_suggestion.find("suggestion")
@@ -547,7 +552,7 @@ async def get_autocomplete(
                 # Try XML parsing first for toolbar/XML output formats
                 try:
                     # Use response_text (with XSSI prefix stripped) instead of raw response.content
-                    root = ET.fromstring(response_text.encode("utf-8"))
+                    root = ET.fromstring(response_text.encode("utf-8"))  # nosec B314
                     suggestions = []
                     for complete_suggestion in root.findall("CompleteSuggestion"):
                         suggestion_element = complete_suggestion.find("suggestion")

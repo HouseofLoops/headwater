@@ -442,7 +442,7 @@ if __name__ == "__main__":
     import uvicorn
 
     # Get host and port from settings if available
-    host = getattr(settings, "HOST", "0.0.0.0")
+    host = getattr(settings, "HOST", "0.0.0.0")  # nosec B104 - container entrypoint; exposure is set by the port mapping
     port = getattr(settings, "PORT", 8000)
 
     uvicorn.run("main:app", host=host, port=port, reload=settings.DEBUG, log_level="info")

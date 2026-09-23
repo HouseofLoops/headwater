@@ -8,7 +8,12 @@ Google Autocomplete suggestions, including keyword variation generation.
 import asyncio
 import json
 import logging
-import xml.etree.ElementTree as ET
+
+# Parsing Google's autocomplete XML with the stdlib is safe on CPython 3.14:
+# the bundled expat (>= 2.4.1) blocks entity-expansion attacks, and
+# ElementTree never resolves external entities. See the "XML vulnerabilities"
+# table in the Python docs.
+import xml.etree.ElementTree as ET  # nosec B405
 from typing import Any
 
 import httpx
@@ -105,7 +110,7 @@ class GoogleAutocompleteService:
         """
         suggestions = []
         try:
-            root = ET.fromstring(content)
+            root = ET.fromstring(content)  # nosec B314
             for complete_suggestion in root.findall("CompleteSuggestion"):
                 suggestion_element = complete_suggestion.find("suggestion")
                 if suggestion_element is not None:

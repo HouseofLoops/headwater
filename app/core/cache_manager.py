@@ -445,7 +445,7 @@ class CacheManager:
                     # Join and hash if too long
                     key_str = ":".join(key_parts)
                     if len(key_str) > 250:  # Redis keys are limited to 512 bytes
-                        key = hashlib.md5(key_str.encode()).hexdigest()
+                        key = hashlib.md5(key_str.encode(), usedforsecurity=False).hexdigest()
                     else:
                         key = key_str
 
@@ -643,7 +643,7 @@ def generate_cache_key(base_key: str, **kwargs) -> str:
 
     # If key is too long, hash it
     if len(full_key) > 250:  # Redis key limit is 512 bytes, be conservative
-        full_key = hashlib.md5(full_key.encode()).hexdigest()
+        full_key = hashlib.md5(full_key.encode(), usedforsecurity=False).hexdigest()
 
     return full_key
 

@@ -397,7 +397,7 @@ class RedisManager:
         if self._client:
             try:
                 await self._client.close()
-            except Exception:
+            except Exception:  # nosec B110 - best-effort close of a client being replaced
                 pass
 
         self._client = None
