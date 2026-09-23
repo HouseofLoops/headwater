@@ -5,6 +5,53 @@ All notable changes to the Headwater API will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.0] - 2026-09-23
+
+Releases 2.0.0 and 2.1.0 are described in their
+[GitHub release notes](https://github.com/rainmanjam/headwater/releases).
+
+### Fixed
+
+- **Autocomplete `ds` filter was ignored.** `str()` of a `(str, Enum)` member is
+  `DataSource.YOUTUBE` on Python 3.12+, and httpx sent that to Google instead of
+  `yt`. All enums are now `StrEnum`. Autocomplete requests using `ds` get a new
+  cache key, so they miss the cache once after upgrading.
+- **YouTube transcript requests had no timeout.** A stalled connection held an
+  executor thread forever. Requests now use `HTTP_CONNECTION_TIMEOUT` /
+  `HTTP_READ_TIMEOUT`, a timeout is retried with proxy rotation, and a final
+  timeout returns **504** (previously 500, or a misleading 502).
+- **`/health/detailed` could return the Redis password.** A failed durability
+  probe echoed the exception text, which can include `REDIS_URL`. It now logs the
+  error and reports `"unknown"`.
+- **Maps scrape jobs could stall in `pending`.** The background task had no
+  strong reference and could be garbage-collected mid-run.
+- A bare `except:` in optional API-key auth turned request cancellation into
+  "no API key".
+- `from app.schemas import ...` and `from app.services import *` raised
+  `ImportError`.
+- Photo URLs are matched by hostname (`*.googleusercontent.com`), not by
+  substring.
+
+### Security
+
+- Request-derived values in logs go through `scrub()` at every call site that
+  CodeQL flagged (19), in addition to the root-logger filter.
+- bandit 1.8 could not parse Python 3.14 and silently passed every file; 1.9.4
+  now scans for real, and its 13 findings are resolved.
+- CodeQL: 0 open alerts (was 147). Gitleaks passes on full-history scans.
+
+### Changed
+
+- starlette 1.6.0 -> 1.7.0, uvicorn 0.52.4 -> 0.53.0, watchfiles 1.2.0 -> 1.3.0.
+- Pydantic V2 migration completed (`field_validator`, `ConfigDict`,
+  `min_length`/`max_length`). The OpenAPI schema is unchanged.
+- FastAPI `Query(example=, regex=)` -> `examples=`, `pattern=`. The OpenAPI
+  schema changes only in those example fields.
+- Large modules split (Google Maps service/scraper, Google News, `core/utils`).
+  All previous import paths still work.
+- Lint and format are ruff only, and both block CI.
+- cosign-installer v4, with cosign kept on 2.x so signatures verify as before.
+
 ## [1.1.0] - 2025-01-15
 
 ### Added
