@@ -99,8 +99,8 @@ cosign.key
 cosign.pub
 
 # Documentation
-# docs/ is tracked: README links into docs/features/ and docs/comparisons/,
-# which 404 for anyone cloning while the whole tree is ignored.
+# docs/ is tracked: README links into docs/, which 404s for anyone cloning
+# while the whole tree is ignored. Point-in-time docs live in docs/archive/.
 # These two subtrees stay out -- they are scraped third-party business data
 # and enrichment-tool research notes, not project documentation.
 docs/reports/
