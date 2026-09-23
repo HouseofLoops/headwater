@@ -8,9 +8,9 @@ handler happens to read it.
 
 import math
 from enum import StrEnum
-from typing import Any, ClassVar
+from typing import Any
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.api.google_maps.common import validate_maps_url
 
@@ -68,8 +68,8 @@ class SearchRequest(BaseModel):
         None, description="Search center coordinates (format: 'lat,lng')", examples=["40.7128,-74.0060"]
     )
 
-    class Config:
-        json_schema_extra: ClassVar[dict[str, Any]] = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "query": "coffee shops in Manhattan",
                 "language": "en",
@@ -79,6 +79,7 @@ class SearchRequest(BaseModel):
                 "zoom": 15,
             }
         }
+    )
 
 
 class JobResponse(BaseModel):
@@ -219,8 +220,8 @@ class PlaceResult(BaseModel):
         examples=[{"facebook": "https://facebook.com/...", "instagram": "https://instagram.com/..."}],
     )
 
-    class Config:
-        json_schema_extra: ClassVar[dict[str, Any]] = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "place_id": "0x54950a0d7f8a85e5:0x1234567890abcdef",
                 "name": "Starbucks",
@@ -240,6 +241,7 @@ class PlaceResult(BaseModel):
                 "menu_link": "https://www.starbucks.com/menu",
             }
         }
+    )
 
 
 class SearchResponse(BaseModel):
@@ -280,7 +282,8 @@ class PlaceLookupRequest(BaseModel):
         None, description="Google Place ID (CID)", examples=["0x89c259af18b60947:0x8c5e3c1d36e36e0a"]
     )
 
-    @validator("url")
+    @field_validator("url")
+    @classmethod
     def url_must_be_an_allowed_google_maps_url(cls, v):
         """Reject any URL that is not a Google Maps URL we may fetch."""
         return validate_maps_url(v)
@@ -289,7 +292,7 @@ class PlaceLookupRequest(BaseModel):
 class BulkSearchRequest(BaseModel):
     """Request model for bulk search operations."""
 
-    queries: list[str] = Field(..., min_items=1, max_items=50, description="List of search queries")
+    queries: list[str] = Field(..., min_length=1, max_length=50, description="List of search queries")
     language: str = Field("en", description="Language code")
     max_results_per_query: int = Field(10, ge=1, le=50, description="Max results per query")
 
@@ -355,7 +358,8 @@ class MonitorRequest(BaseModel):
     check_interval_hours: int = Field(24, ge=1, le=168, description="Check interval in hours")
     track_fields: list[str] = Field(["rating", "review_count", "hours"], description="Fields to track for changes")
 
-    @validator("url")
+    @field_validator("url")
+    @classmethod
     def url_must_be_an_allowed_google_maps_url(cls, v):
         """Same sink as ``PlaceLookupRequest.url``.
 
@@ -394,7 +398,7 @@ class DirectionsRequest(BaseModel):
 class GeocodeRequest(BaseModel):
     """Request model for batch geocoding."""
 
-    addresses: list[str] = Field(..., min_items=1, max_items=100, description="List of addresses to geocode")
+    addresses: list[str] = Field(..., min_length=1, max_length=100, description="List of addresses to geocode")
 
 
 class MenuExtractionRequest(BaseModel):
@@ -554,8 +558,8 @@ class GridSearchRequest(BaseModel):
     max_results_per_point: int = Field(default=10, ge=1, le=20, description="Maximum results per grid point")
     language: str = Field(default="en", description="Language code")
 
-    class Config:
-        json_schema_extra: ClassVar[dict[str, Any]] = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "query": "restaurants",
                 "center_lat": 45.3807,
@@ -566,6 +570,7 @@ class GridSearchRequest(BaseModel):
                 "language": "en",
             }
         }
+    )
 
 
 class BoundingBoxRequest(BaseModel):
@@ -580,8 +585,8 @@ class BoundingBoxRequest(BaseModel):
     max_results_per_point: int = Field(default=10, ge=1, le=20, description="Max results per point")
     language: str = Field(default="en", description="Language code")
 
-    class Config:
-        json_schema_extra: ClassVar[dict[str, Any]] = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "query": "coffee shops",
                 "north_lat": 45.42,
@@ -592,6 +597,7 @@ class BoundingBoxRequest(BaseModel):
                 "max_results_per_point": 10,
             }
         }
+    )
 
 
 class LocationSearchRequest(BaseModel):
@@ -608,7 +614,8 @@ class LocationSearchRequest(BaseModel):
     max_results_per_point: int = Field(default=10, ge=1, le=20, description="Max results per point")
     language: str = Field(default="en", description="Language code")
 
-    class Config:
-        json_schema_extra: ClassVar[dict[str, Any]] = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {"query": "restaurants", "location": "Gladstone, OR", "radius_km": 2.0, "grid_size": 5}
         }
+    )

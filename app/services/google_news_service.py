@@ -411,6 +411,12 @@ class ProcessedArticles(list):
     read the counters with ``getattr(..., "failed", 0)``.
     """
 
+    # Equality is list equality, on purpose: a ProcessedArticles must compare
+    # equal to the plain list of the same articles, whatever the counters say.
+    # The counters are side-channel metadata, not part of the value.
+    __eq__ = list.__eq__
+    __ne__ = list.__ne__
+
     def __init__(
         self,
         articles: Iterable[dict] = (),

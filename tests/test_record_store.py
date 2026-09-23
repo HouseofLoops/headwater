@@ -33,7 +33,8 @@ class TestOwnerIsolation:
 
     async def test_owner_cannot_delete_another_owners_record(self, store):
         await store.put("alice", "job1", {"x": 1})
-        assert await store.delete("bob", "job1") is False
+        deleted = await store.delete("bob", "job1")
+        assert deleted is False
         # Alice's record is untouched.
         assert (await store.get("alice", "job1")).data == {"x": 1}
 
@@ -80,7 +81,8 @@ class TestCrud:
         assert second.updated_at >= first.updated_at
 
     async def test_delete_returns_false_for_missing(self, store):
-        assert await store.delete("alice", "nope") is False
+        deleted = await store.delete("alice", "nope")
+        assert deleted is False
 
     async def test_get_missing_returns_none(self, store):
         assert await store.get("alice", "nope") is None

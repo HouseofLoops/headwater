@@ -19,6 +19,7 @@ from typing import Any
 import httpx
 
 from app.core.constants import KEYWORD_CATEGORIES
+from app.core.log_safety import scrub
 
 logger = logging.getLogger(__name__)
 
@@ -211,7 +212,7 @@ class GoogleAutocompleteService:
             response = await http_client.get(self.GOOGLE_AUTOCOMPLETE_URL, params=params)
 
             if response.status_code != 200:
-                logger.error(f"Failed to fetch suggestions for '{query}': {response.status_code}")
+                logger.error("Failed to fetch suggestions for '%s': %s", scrub(query), response.status_code)
                 return result
 
             extracted = self.extract_suggestions_from_response(
@@ -224,7 +225,7 @@ class GoogleAutocompleteService:
             result["suggestions"] = [s.lower() for s in result["suggestions"]]
 
         except Exception as e:
-            logger.error(f"Error fetching suggestions for '{query}': {e}")
+            logger.error("Error fetching suggestions for '%s': %s", scrub(query), scrub(e))
 
         return result
 
@@ -273,7 +274,7 @@ class GoogleAutocompleteService:
                 for j, result in enumerate(batch_results):
                     info = batch_info[j]
                     if isinstance(result, Exception):
-                        logger.warning(f"Error for '{info['query']}': {result}")
+                        logger.warning("Error for '%s': %s", scrub(info["query"]), scrub(result))
                         categorized_suggestions[info["category"]][info["prefix"]] = []
                     else:
                         categorized_suggestions[info["category"]][info["prefix"]] = result["suggestions"]

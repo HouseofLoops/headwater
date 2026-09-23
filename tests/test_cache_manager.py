@@ -199,28 +199,27 @@ class TestCacheManager:
         # Clear any existing cache first
         asyncio.run(manager.clear())
 
-        call_count = 0
+        calls = []
 
         @manager.cached(ttl=60)
         async def test_function(x, y=10):
-            nonlocal call_count
-            call_count += 1
+            calls.append((x, y))
             return x + y
 
         # First call should execute function
         result1 = asyncio.run(test_function(5, 15))
         assert result1 == 20
-        assert call_count == 1
+        assert calls == [(5, 15)]
 
         # Second call with same args should use cache
         result2 = asyncio.run(test_function(5, 15))
         assert result2 == 20
-        assert call_count == 1  # Should not have incremented
+        assert calls == [(5, 15)]  # Should not have been invoked again
 
         # Call with different args should execute again
         result3 = asyncio.run(test_function(10, 15))
         assert result3 == 25
-        assert call_count == 2
+        assert calls == [(5, 15), (10, 15)]
 
 
 class TestGenerateCacheKey:
@@ -279,10 +278,10 @@ class TestGetCachedOrFetch:
         test_manager = CacheManager(settings=mock_settings)
 
         # Patch the global cache_manager
-        import app.core.cache_manager
+        from app.core import cache_manager as cache_manager_module
 
-        original_manager = app.core.cache_manager.cache_manager
-        app.core.cache_manager.cache_manager = test_manager
+        original_manager = cache_manager_module.cache_manager
+        cache_manager_module.cache_manager = test_manager
 
         try:
             # Set up cache with a value
@@ -302,7 +301,7 @@ class TestGetCachedOrFetch:
             assert fetch_called is False
         finally:
             # Restore original manager
-            app.core.cache_manager.cache_manager = original_manager
+            cache_manager_module.cache_manager = original_manager
 
     @pytest.mark.asyncio
     async def test_cache_miss_fetch_success(self):
@@ -316,10 +315,10 @@ class TestGetCachedOrFetch:
         test_manager = CacheManager(settings=mock_settings)
 
         # Patch the global cache_manager
-        import app.core.cache_manager
+        from app.core import cache_manager as cache_manager_module
 
-        original_manager = app.core.cache_manager.cache_manager
-        app.core.cache_manager.cache_manager = test_manager
+        original_manager = cache_manager_module.cache_manager
+        cache_manager_module.cache_manager = test_manager
 
         try:
             # Ensure cache is empty
@@ -342,7 +341,7 @@ class TestGetCachedOrFetch:
             assert cached_value == "fetched_value"
         finally:
             # Restore original manager
-            app.core.cache_manager.cache_manager = original_manager
+            cache_manager_module.cache_manager = original_manager
 
     @pytest.mark.asyncio
     async def test_fetch_failure(self):
@@ -367,10 +366,10 @@ class TestGetCachedOrFetch:
         test_manager = CacheManager(settings=mock_settings)
 
         # Patch the global cache_manager
-        import app.core.cache_manager
+        from app.core import cache_manager as cache_manager_module
 
-        original_manager = app.core.cache_manager.cache_manager
-        app.core.cache_manager.cache_manager = test_manager
+        original_manager = cache_manager_module.cache_manager
+        cache_manager_module.cache_manager = test_manager
 
         try:
             await delete_from_cache("test_key")
@@ -388,7 +387,7 @@ class TestGetCachedOrFetch:
             assert cached_value == "test_value"
         finally:
             # Restore original manager
-            app.core.cache_manager.cache_manager = original_manager
+            cache_manager_module.cache_manager = original_manager
 
 
 class TestConvenienceFunctions:
@@ -406,10 +405,10 @@ class TestConvenienceFunctions:
         test_manager = CacheManager(settings=mock_settings)
 
         # Patch the global cache_manager
-        import app.core.cache_manager
+        from app.core import cache_manager as cache_manager_module
 
-        original_manager = app.core.cache_manager.cache_manager
-        app.core.cache_manager.cache_manager = test_manager
+        original_manager = cache_manager_module.cache_manager
+        cache_manager_module.cache_manager = test_manager
 
         try:
             await set_in_cache("test_key", "test_value")
@@ -421,7 +420,7 @@ class TestConvenienceFunctions:
             assert result == "default"
         finally:
             # Restore original manager
-            app.core.cache_manager.cache_manager = original_manager
+            cache_manager_module.cache_manager = original_manager
 
     @pytest.mark.asyncio
     async def test_set_in_cache(self):
@@ -435,10 +434,10 @@ class TestConvenienceFunctions:
         test_manager = CacheManager(settings=mock_settings)
 
         # Patch the global cache_manager
-        import app.core.cache_manager
+        from app.core import cache_manager as cache_manager_module
 
-        original_manager = app.core.cache_manager.cache_manager
-        app.core.cache_manager.cache_manager = test_manager
+        original_manager = cache_manager_module.cache_manager
+        cache_manager_module.cache_manager = test_manager
 
         try:
             result = await set_in_cache("test_key", "test_value", ttl=60)
@@ -448,7 +447,7 @@ class TestConvenienceFunctions:
             assert cached_value == "test_value"
         finally:
             # Restore original manager
-            app.core.cache_manager.cache_manager = original_manager
+            cache_manager_module.cache_manager = original_manager
 
     @pytest.mark.asyncio
     async def test_delete_from_cache(self):
@@ -462,10 +461,10 @@ class TestConvenienceFunctions:
         test_manager = CacheManager(settings=mock_settings)
 
         # Patch the global cache_manager
-        import app.core.cache_manager
+        from app.core import cache_manager as cache_manager_module
 
-        original_manager = app.core.cache_manager.cache_manager
-        app.core.cache_manager.cache_manager = test_manager
+        original_manager = cache_manager_module.cache_manager
+        cache_manager_module.cache_manager = test_manager
 
         try:
             await set_in_cache("test_key", "test_value")
@@ -477,7 +476,7 @@ class TestConvenienceFunctions:
             assert cached_value is None
         finally:
             # Restore original manager
-            app.core.cache_manager.cache_manager = original_manager
+            cache_manager_module.cache_manager = original_manager
 
     @pytest.mark.asyncio
     async def test_clear_cache_convenience(self):
@@ -491,10 +490,10 @@ class TestConvenienceFunctions:
         test_manager = CacheManager(settings=mock_settings)
 
         # Patch the global cache_manager
-        import app.core.cache_manager
+        from app.core import cache_manager as cache_manager_module
 
-        original_manager = app.core.cache_manager.cache_manager
-        app.core.cache_manager.cache_manager = test_manager
+        original_manager = cache_manager_module.cache_manager
+        cache_manager_module.cache_manager = test_manager
 
         try:
             await set_in_cache("key1", "value1")
@@ -507,7 +506,7 @@ class TestConvenienceFunctions:
             assert await get_from_cache("key2", namespace="test") is None
         finally:
             # Restore original manager
-            app.core.cache_manager.cache_manager = original_manager
+            cache_manager_module.cache_manager = original_manager
 
     def test_cached_decorator_convenience(self):
         """Test cached decorator convenience function."""
@@ -523,41 +522,40 @@ class TestConvenienceFunctions:
         test_manager = CacheManager(settings=mock_settings)
 
         # Patch the global cache_manager
-        import app.core.cache_manager
+        from app.core import cache_manager as cache_manager_module
 
-        original_manager = app.core.cache_manager.cache_manager
-        app.core.cache_manager.cache_manager = test_manager
+        original_manager = cache_manager_module.cache_manager
+        cache_manager_module.cache_manager = test_manager
 
         try:
             # Clear cache
             asyncio.run(test_manager.clear())
 
-            call_count = 0
+            calls = []
 
             @cached(ttl=60)
             async def test_function(x):
-                nonlocal call_count
-                call_count += 1
+                calls.append(x)
                 return x * 2
 
             # First call
             result1 = asyncio.run(test_function(5))
             assert result1 == 10
-            assert call_count == 1
+            assert calls == [5]
 
             # Second call should use cache
             result2 = asyncio.run(test_function(5))
             assert result2 == 10
-            assert call_count == 1  # Should not increment
+            assert calls == [5]  # Should not be invoked again
 
             # Different arg should execute again
             result3 = asyncio.run(test_function(10))
             assert result3 == 20
-            assert call_count == 2
+            assert calls == [5, 10]
 
         finally:
             # Restore original manager
-            app.core.cache_manager.cache_manager = original_manager
+            cache_manager_module.cache_manager = original_manager
 
 
 class TestCleanupTask:

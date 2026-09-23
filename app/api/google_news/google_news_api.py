@@ -7,8 +7,9 @@ from urllib.parse import quote, urlparse
 from fastapi import APIRouter, Depends, HTTPException, Query, Request  # Ensure Depends is imported if not already
 from fastapi.responses import JSONResponse
 from newspaper import Article, ArticleException, Config
-from pydantic import BaseModel, ValidationError, validator
+from pydantic import BaseModel, ValidationError, field_validator
 
+from app.core.log_safety import scrub
 from app.core.rate_limiter import rate_limit
 from app.core.url_guard import UrlNotAllowed
 from app.services.google_news_article_service import (
@@ -114,7 +115,8 @@ logger = logging.getLogger(__name__)
 class SourceQuery(BaseModel):
     source: str
 
-    @validator("source")
+    @field_validator("source")
+    @classmethod
     def validate_source(cls, v):
         # Optimized regex to validate domain names or full URLs
         pattern = r"^(https?://)?(www\.)?([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}$"
@@ -244,12 +246,12 @@ async def get_news_by_source(
         return await get_cached_or_fetch(cache_key, fetch_source_news, ttl=600)
 
     except ValidationError as ve:
-        logger.error(f"Validation error for source '{source}': {ve}")
+        logger.error("Validation error for source '%s': %s", scrub(source), scrub(ve))
         raise HTTPException(status_code=400, detail="Invalid source URL or domain.") from ve
     except HTTPException as http_exc:
         raise http_exc
     except Exception as e:
-        logger.error(f"Unexpected error fetching Google News for source '{source}': {e!s}")
+        logger.error("Unexpected error fetching Google News for source '%s': %s", scrub(source), scrub(e))
         raise HTTPException(status_code=500, detail="Internal Server Error") from e
 
 
@@ -324,7 +326,7 @@ async def search_google_news(
     except HTTPException as http_exc:
         raise http_exc
     except Exception as e:
-        logger.error(f"Error fetching Google News for query '{query}': {e!s}")
+        logger.error("Error fetching Google News for query '%s': %s", scrub(query), scrub(e))
         raise HTTPException(status_code=500, detail="Internal Server Error") from e
 
 
@@ -428,7 +430,7 @@ async def get_news_by_topic(
     except HTTPException as http_exc:
         raise http_exc
     except Exception as e:
-        logger.error(f"Error fetching Google News for topic '{topic}': {e!s}")
+        logger.error("Error fetching Google News for topic '%s': %s", scrub(topic), scrub(e))
         raise HTTPException(status_code=500, detail="Internal Server Error") from e
 
 
@@ -499,7 +501,7 @@ async def get_news_by_location(
     except HTTPException as http_exc:
         raise http_exc
     except Exception as e:
-        logger.error(f"Error fetching Google News for location '{location}': {e!s}")
+        logger.error("Error fetching Google News for location '%s': %s", scrub(location), scrub(e))
         raise HTTPException(status_code=500, detail="Internal Server Error") from e
 
 
@@ -553,7 +555,7 @@ async def get_google_news_articles(
     except HTTPException as http_exc:
         raise http_exc
     except Exception as e:
-        logger.error(f"Error fetching Google News articles for query '{query}': {e!s}")
+        logger.error("Error fetching Google News articles for query '%s': %s", scrub(query), scrub(e))
         raise HTTPException(status_code=500, detail="Internal Server Error") from e
 
 
@@ -610,6 +612,7 @@ async def get_article_details(
 
             # Try NLP processing
             nlp_success = True
+            nlp_permanently_absent = False
             try:
                 await loop.run_in_executor(None, article.nlp)
             except (LookupError, ImportError) as le:

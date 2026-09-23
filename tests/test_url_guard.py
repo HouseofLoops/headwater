@@ -222,7 +222,7 @@ class TestErrorMessagesAreNotAnOracle:
         # The detailed reason still exists -- for server-side logging only.
         with pytest.raises(UrlNotAllowed) as exc:
             _validate("https://evil.com/x")
-        assert "evil.com" in exc.value.reason
+        assert exc.value.reason == "host 'evil.com' is not on the allow-list"
 
 
 class TestGloballyRoutableHelper:

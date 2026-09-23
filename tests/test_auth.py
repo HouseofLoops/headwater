@@ -17,7 +17,7 @@ from unittest.mock import patch
 
 import pytest
 
-import app.core.auth
+from app.core import auth as auth_module
 from app.core.auth import (
     _auth_snapshot,
     # Objects
@@ -66,7 +66,7 @@ class TestAuthSettingsSource:
 
         A second class here is how API_KEY silently stopped being loaded.
         """
-        assert not hasattr(app.core.auth, "AuthSettings")
+        assert not hasattr(auth_module, "AuthSettings")
 
     @patch.dict(os.environ, {"API_KEY": "single-documented-key"})
     def test_single_api_key_variable_is_loaded(self):
@@ -92,8 +92,8 @@ class TestAPIKeyValidation:
 
     def setup_method(self):
         """Reset global state before each test."""
-        self.original_state = app.core.auth._auth_state
-        app.core.auth._auth_state = app.core.auth._AuthState(
+        self.original_state = auth_module._auth_state
+        auth_module._auth_state = auth_module._AuthState(
             settings=get_settings(),
             keys=frozenset({"valid_key1", "valid_key2"}),
             metadata={
@@ -104,7 +104,7 @@ class TestAPIKeyValidation:
 
     def teardown_method(self):
         """Restore global state after each test."""
-        app.core.auth._auth_state = self.original_state
+        auth_module._auth_state = self.original_state
 
     def test_validate_api_key_valid(self):
         """Test validating a valid API key."""
@@ -139,10 +139,10 @@ class TestAuthenticationDependencies:
         # monkeypatch restores os.environ after the test body, so a cache
         # refilled inside that body would otherwise leak stale values here.
         get_settings.cache_clear()
-        self.original_state = app.core.auth._auth_state
+        self.original_state = auth_module._auth_state
         # Pin the snapshot's settings to the live object so _auth_snapshot()
         # does not rebuild (and discard) the key set below.
-        app.core.auth._auth_state = app.core.auth._AuthState(
+        auth_module._auth_state = auth_module._AuthState(
             settings=get_settings(),
             keys=frozenset({"test_key"}),
             metadata={"test_key": {"source": "settings"}},
@@ -151,7 +151,7 @@ class TestAuthenticationDependencies:
     def teardown_method(self):
         """Restore global state after each test."""
         get_settings.cache_clear()
-        app.core.auth._auth_state = self.original_state
+        auth_module._auth_state = self.original_state
 
     @pytest.mark.asyncio
     async def test_authenticate_api_key_valid(self):
@@ -204,7 +204,7 @@ class TestAuthenticationDependencies:
         """Auth enabled but no keys configured must still reject."""
         from fastapi import HTTPException
 
-        app.core.auth._auth_state = app.core.auth._auth_state._replace(keys=frozenset())
+        auth_module._auth_state = auth_module._auth_state._replace(keys=frozenset())
         with pytest.raises(HTTPException) as exc_info:
             await authenticate_api_key("anything")
         assert exc_info.value.status_code == 500
@@ -289,7 +289,7 @@ class TestGlobalState:
             may_proceed = threading.Event()
             result = {}
 
-            real_lock = app.core.auth._refresh_lock
+            real_lock = auth_module._refresh_lock
 
             class _GatedLock:
                 """Signals on entry, then blocks until the test releases it."""
@@ -303,12 +303,12 @@ class TestGlobalState:
                     return real_lock.__exit__(*exc)
 
             def _slow_refresh():
-                monkeypatch.setattr(app.core.auth, "_refresh_lock", _GatedLock(), raising=False)
-                result["keys"] = app.core.auth._auth_snapshot().keys
+                monkeypatch.setattr(auth_module, "_refresh_lock", _GatedLock(), raising=False)
+                result["keys"] = auth_module._auth_snapshot().keys
 
             # Force the snapshot to look stale so _auth_snapshot() takes the
             # rebuild path.
-            app.core.auth._auth_state = app.core.auth._auth_state._replace(settings=None)
+            auth_module._auth_state = auth_module._auth_state._replace(settings=None)
 
             worker = threading.Thread(target=_slow_refresh)
             worker.start()
@@ -345,7 +345,7 @@ class TestGlobalState:
             # validate_api_key must see the reload on its own, with no
             # authenticated request needed to trigger a refresh first.
             assert validate_api_key("rotated-key") is True
-            assert app.core.auth._auth_snapshot().settings.API_KEYS == ["rotated-key"]
+            assert auth_module._auth_snapshot().settings.API_KEYS == ["rotated-key"]
         finally:
             get_settings.cache_clear()
             initialize_api_keys(get_settings())
@@ -356,18 +356,18 @@ class TestBasicFunctionality:
 
     def test_validate_api_key_with_empty_set(self):
         """Validation against an empty key set rejects everything."""
-        original = app.core.auth._auth_state
-        app.core.auth._auth_state = original._replace(settings=get_settings(), keys=frozenset())
+        original = auth_module._auth_state
+        auth_module._auth_state = original._replace(settings=get_settings(), keys=frozenset())
         try:
             assert validate_api_key("any_key") is False
         finally:
-            app.core.auth._auth_state = original
+            auth_module._auth_state = original
 
     def test_get_api_key_metadata_with_empty_mapping(self):
         """Metadata lookup against an empty mapping returns None."""
-        original = app.core.auth._auth_state
-        app.core.auth._auth_state = original._replace(settings=get_settings(), metadata={})
+        original = auth_module._auth_state
+        auth_module._auth_state = original._replace(settings=get_settings(), metadata={})
         try:
             assert get_api_key_metadata("any_key") is None
         finally:
-            app.core.auth._auth_state = original
+            auth_module._auth_state = original

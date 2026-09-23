@@ -20,6 +20,7 @@ from trendspy import BatchPeriod, Trends
 
 from app.core.cache_manager import generate_cache_key, get_cached_or_fetch
 from app.core.constants import REFERER_LIST, USER_AGENT_LIST
+from app.core.log_safety import scrub
 from app.core.proxy import get_proxy, mask_proxy
 from app.core.rate_limiter import rate_limit
 from app.schemas.enums import (
@@ -672,7 +673,7 @@ async def trending_now_news_by_ids(
 ):
     """Get related news articles for news tokens."""
     try:
-        logger.debug(f"Received request with tokens: {news_tokens}, max_news: {max_news}")
+        logger.debug("Received request with tokens: %s, max_news: %s", scrub(news_tokens), scrub(max_news))
 
         token_list = [token.strip() for token in news_tokens.split(",") if token.strip()]
         logger.debug(f"Parsed token list: {token_list}")

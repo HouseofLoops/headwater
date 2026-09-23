@@ -98,7 +98,7 @@ def offline(monkeypatch):
     import httpx
 
     import app.core.url_guard as url_guard
-    import app.services.record_store as record_store
+    from app.services import record_store
 
     record_store._stores.clear()
     FakeAsyncClient.calls = []
