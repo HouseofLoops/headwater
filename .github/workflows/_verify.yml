@@ -46,25 +46,16 @@ jobs:
   # ---------------------------------------------------------------------------
   # Lint
   # ---------------------------------------------------------------------------
-  # Ratchet, deliberately in two steps:
+  # Both steps block. The full rule set in pyproject.toml used to run with
+  # --exit-zero behind a separate "real errors only" gate (E9,F63,F7,F82),
+  # because the codebase started at ~1242 findings and making them blocking on
+  # day one would have turned every pull request red. That ratchet reached zero
+  # on 2026-09-23, so the full rule set is now the gate (it includes the old
+  # E9/F63/F7/F82 selection). Silence a deliberate exception on its line with
+  # `# noqa: <RULE> - <reason>`; do not widen `lint.ignore` to make CI pass.
   #
-  #   1. "Ruff (blocking)" runs only the rules that flag genuinely broken code:
-  #      E9  syntax errors, F63 invalid comparisons, F7  misplaced statements,
-  #      F82 undefined names. The repository is currently CLEAN on these
-  #      (verified: 0 findings), so this gate blocks today and catches the
-  #      class of mistake that would otherwise reach production as a NameError.
-  #
-  #   2. "Ruff (full, advisory)" runs the whole configured rule set with
-  #      --exit-zero. WHY: the full rule set currently reports ~1242 findings
-  #      across the existing codebase. Making that blocking on day one would
-  #      turn every pull request red for pre-existing debt and force everyone to
-  #      bypass CI, which is how the pipeline became meaningless in the first
-  #      place. Instead the count is published to the job summary every run so
-  #      the trend is visible.
-  #
-  #   RATCHET PLAN: as the count is driven down, move rule groups out of
-  #   `lint.ignore` in pyproject.toml, or drop `--exit-zero` from step 2 once
-  #   the count reaches 0. Do not weaken step 1.
+  # The repository was formatted in one pass (see .git-blame-ignore-revs), so
+  # `ruff format --check` blocks too.
   lint:
     name: Lint (ruff)
     runs-on: ubuntu-latest
@@ -86,23 +77,28 @@ jobs:
       - name: Install ruff
         run: python -m pip install --upgrade pip && pip install 'ruff==0.16.4'
 
-      - name: Ruff (blocking - real errors only)
-        run: ruff check --output-format=github --select E9,F63,F7,F82 .
+      - name: Ruff (full rule set, blocking)
+        id: ruff-check
+        run: ruff check --output-format=github .
 
-      - name: Ruff (full rule set, advisory)
+      # On failure, publish per-rule counts to the job summary and as an
+      # artifact, so a red run says at a glance which rules regressed.
+      - name: Ruff statistics
+        if: failure() && steps.ruff-check.outcome == 'failure'
         run: |
-          set -euo pipefail
           ruff check --exit-zero --statistics . | tee ruff-report.txt
-          COUNT=$(ruff check --exit-zero --output-format=concise . | wc -l | tr -d ' ')
           {
-            echo "## Ruff findings (advisory)"
-            echo ""
-            echo "**Total: ${COUNT}**  (baseline at gate introduction: 1242)"
+            echo "## Ruff findings"
             echo ""
             echo '```'
             cat ruff-report.txt
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+
+      # Runs even if the lint step failed, so one push reports both problems.
+      - name: Ruff format (blocking)
+        if: success() || steps.ruff-check.outcome == 'failure'
+        run: ruff format --check .
 
       - name: Upload ruff report
         if: always()

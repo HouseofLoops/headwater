@@ -15,9 +15,10 @@
 #     wholesale on first run, producing an enormous unrelated diff.
 #   * name-tests-test - would rename existing test files.
 #
-# `ruff` runs WITHOUT --fix here: the repository currently has ~1242 findings
-# and an auto-fixing hook would silently rewrite unrelated code in every commit.
-# Match the CI ratchet instead: only the blocking rule set is enforced.
+# `ruff` runs the full rule set from pyproject.toml, matching CI, which has
+# been blocking on it since the finding count reached zero (2026-09-23). It
+# runs WITHOUT --fix so a commit never silently rewrites code; run
+# `ruff check --fix` yourself. `ruff-format` checks formatting the same way.
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
@@ -40,13 +41,16 @@ repos:
       # a real .env committed to the repository.
       - id: detect-private-key
 
-  # Same blocking rule set the CI lint job uses (see _verify.yml).
+  # Same rule set and format check the CI lint job uses (see _verify.yml).
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.16.4
     hooks:
       - id: ruff
-        name: ruff (blocking rules only)
-        args: [--select, "E9,F63,F7,F82", --no-fix]
+        name: ruff (full rule set)
+        args: [--no-fix]
+      - id: ruff-format
+        name: ruff format (check only)
+        args: [--check]
 
   # bandit < 1.9 cannot parse Python 3.14 source: it skipped every file with
   # "exception while scanning file" and reported a false pass. 1.9.4 really
