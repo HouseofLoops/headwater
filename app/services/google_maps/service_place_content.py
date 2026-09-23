@@ -11,6 +11,7 @@ from typing import Any
 
 from app.core.log_safety import scrub
 from app.core.proxy import ENABLE_PROXY, proxy_for
+from app.core.url_utils import is_googleusercontent_url
 from app.services.google_maps.constants import GOOGLE_MAPS_HOST
 
 # Logs under the facade module's name so log routing and filters keyed on
@@ -127,7 +128,7 @@ class PlaceContentMixin:
 
             sized_photos = []
             for photo_url in photos[:max_photos]:
-                if "googleusercontent.com" in photo_url:
+                if is_googleusercontent_url(photo_url):
                     # Replace size in URL
                     import re
 

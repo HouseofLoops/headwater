@@ -26,6 +26,7 @@ from app.core.cache_manager import generate_cache_key, get_cached_or_fetch
 from app.core.config import get_settings
 from app.core.http_client import get_http_client_manager
 from app.core.input_sanitizer import get_input_sanitizer
+from app.core.log_safety import scrub
 from app.core.proxy import get_proxy, mask_proxy
 from app.core.rate_limiter import rate_limit
 from app.schemas.enums import (
@@ -244,7 +245,7 @@ async def get_autocomplete(
 
         # If variations is True, use the variations endpoint functionality
         if variations:
-            logger.info(f"Generating keyword variations for query: {q}")
+            logger.info("Generating keyword variations for query: %s", scrub(q))
 
             # Get settings for parallel processing configuration
             settings = get_settings()

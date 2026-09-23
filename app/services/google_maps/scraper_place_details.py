@@ -10,6 +10,7 @@ import logging
 import re
 from typing import Any
 
+from app.core.url_utils import is_googleusercontent_url
 from app.services.google_maps.scraper_errors import (
     CORE_PLACE_FIELDS,
     REQUIRED_PLACE_FIELDS,
@@ -232,7 +233,7 @@ class PlaceDetailsMixin:
                 for i in range(min(photo_count, 10)):  # Limit to 10 photos
                     photo = photo_elements.nth(i)
                     src = await photo.get_attribute("src")
-                    if src and "googleusercontent.com" in src:
+                    if is_googleusercontent_url(src):
                         # Get higher resolution version
                         high_res_src = re.sub(r"=w\d+-h\d+", "=w800-h600", src)
                         place["photos"].append(high_res_src)

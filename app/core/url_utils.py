@@ -55,3 +55,16 @@ def build_url(base_url: str, path: str | None = None, params: dict[str, Any] | N
             url += "?" + urlencode(filtered_params, doseq=True)
 
     return url
+
+
+def is_googleusercontent_url(url: str | None) -> bool:
+    """True if ``url`` is served from googleusercontent.com or a subdomain.
+
+    Checks the parsed hostname, not a substring: ``"googleusercontent.com" in
+    url`` also matches ``https://evil.example/?x=googleusercontent.com`` and
+    ``https://googleusercontent.com.evil.example/``.
+    """
+    if not url:
+        return False
+    host = (urlparse(url).hostname or "").lower()
+    return host == "googleusercontent.com" or host.endswith(".googleusercontent.com")

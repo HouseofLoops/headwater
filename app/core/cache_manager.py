@@ -254,7 +254,7 @@ class CacheManager:
             try:
                 value = await redis_manager.get(full_key)
                 if value is not None:
-                    logger.debug(f"Cache hit (Redis): {full_key}")
+                    logger.debug("Cache hit (Redis): %s", scrub(full_key))
                     return self._deserialize(value)
             except Exception as e:
                 logger.error(f"Redis error in get: {e!s}")
@@ -266,13 +266,13 @@ class CacheManager:
 
                 # Check if expired
                 if expiry > time.time():
-                    logger.debug(f"Cache hit (memory): {full_key}")
+                    logger.debug("Cache hit (memory): %s", scrub(full_key))
                     return value
 
                 # Remove expired entry
                 del _cache_store[full_key]
 
-        logger.debug(f"Cache miss: {full_key}")
+        logger.debug("Cache miss: %s", scrub(full_key))
         return default
 
     async def set(self, key: str, value: Any, ttl: int | None = None, namespace: str | None = None) -> bool:
@@ -310,7 +310,7 @@ class CacheManager:
             try:
                 success = await redis_manager.set(full_key, serialized, ttl)
                 if success:
-                    logger.debug(f"Cache set (Redis): {full_key}, TTL: {ttl}s")
+                    logger.debug("Cache set (Redis): %s, TTL: %ss", scrub(full_key), ttl)
                     return True
             except Exception as e:
                 logger.error(f"Redis error in set: {e!s}")
@@ -323,7 +323,7 @@ class CacheManager:
         async with _cache_lock:
             expiry = time.time() + ttl
             _cache_store[full_key] = (self._deserialize(serialized), expiry)
-            logger.debug(f"Cache set (memory): {full_key}, TTL: {ttl}s")
+            logger.debug("Cache set (memory): %s, TTL: %ss", scrub(full_key), ttl)
         return True
 
     async def delete(self, key: str, namespace: str | None = None) -> bool:
@@ -349,7 +349,7 @@ class CacheManager:
             try:
                 count = await redis_manager.delete(full_key)
                 if count > 0:
-                    logger.debug(f"Cache delete (Redis): {full_key}")
+                    logger.debug("Cache delete (Redis): %s", scrub(full_key))
                     deleted = True
             except Exception as e:
                 logger.error(f"Redis error in delete: {e!s}")
@@ -358,7 +358,7 @@ class CacheManager:
         async with _cache_lock:
             if full_key in _cache_store:
                 del _cache_store[full_key]
-                logger.debug(f"Cache delete (memory): {full_key}")
+                logger.debug("Cache delete (memory): %s", scrub(full_key))
                 deleted = True
 
         return deleted
@@ -396,7 +396,7 @@ class CacheManager:
                 keys_to_delete = [k for k in _cache_store if k.startswith(prefix)]
                 for k in keys_to_delete:
                     del _cache_store[k]
-                logger.debug(f"Cache clear (memory) for namespace: {namespace}, {len(keys_to_delete)} keys")
+                logger.debug("Cache clear (memory) for namespace: %s, %d keys", scrub(namespace), len(keys_to_delete))
             else:
                 count = len(_cache_store)
                 _cache_store.clear()
@@ -658,19 +658,19 @@ async def get_cached_or_fetch(cache_key: str, fetch_func: Callable[[], Any], ttl
     # Try to get from cache first
     cached_data = await cache_manager.get(cache_key)
     if cached_data is not None:
-        logger.debug(f"Cache hit for key: {cache_key}")
+        logger.debug("Cache hit for key: %s", scrub(cache_key))
         return cached_data
 
     # Cache miss - fetch the data
-    logger.debug(f"Cache miss for key: {cache_key}, fetching data")
+    logger.debug("Cache miss for key: %s, fetching data", scrub(cache_key))
     try:
         data = await fetch_func()
 
         # Cache the result
         await cache_manager.set(cache_key, data, ttl)
-        logger.debug(f"Cached data for key: {cache_key}")
+        logger.debug("Cached data for key: %s", scrub(cache_key))
 
         return data
     except Exception as e:
-        logger.error(f"Error fetching data for cache key {cache_key}: {e}")
+        logger.error("Error fetching data for cache key %s: %s", scrub(cache_key), scrub(e))
         raise
