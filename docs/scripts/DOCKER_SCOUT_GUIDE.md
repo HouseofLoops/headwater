@@ -8,12 +8,11 @@ This document provides guidance on addressing the three main issues that affect 
 
 ## 1. No Unapproved Base Images
 
-Docker Hub Scout considers official images from Docker Hub as approved base images. We've updated the Dockerfile to use an official Python image with a specific version:
+Docker Hub Scout considers official images from Docker Hub as approved base images. The Dockerfile uses an official Python image, pinned by tag and digest (the weekly `update-base-image` workflow refreshes the digest):
 
 ```dockerfile
-# Using an official Python image from Docker Hub (approved base image)
-# Pinned to a specific version for reproducibility and security
-FROM python:3.11-slim-bookworm
+# Official Python image from Docker Hub (approved base image), digest-pinned
+FROM python:3.14-slim-trixie@sha256:<digest> AS builder
 ```
 
 ### Best Practices for Base Images

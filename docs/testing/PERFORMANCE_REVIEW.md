@@ -4,6 +4,10 @@
 **API Version:** 1.5.3
 **Reviewer:** Claude Code (Automated Analysis)
 
+> **Note:** this is a point-in-time review and describes the code as of 2025-12-27. Details such as the
+> `python:3.11-slim` base image and the autocomplete function names have since changed (the image is
+> now `python:3.14-slim-trixie`); see the inline status notes and the current source.
+
 ---
 
 ## Executive Summary
@@ -110,6 +114,10 @@ Three implementations of the same functionality:
 - `get_suggestions_for_query()` - 124 lines
 
 **Recommendation:** Extract shared logic to single utility function.
+
+> **Status (2026-09-23):** resolved. None of the three `get_suggestions_for_query*` functions exist any
+> more; the last one (the dead synchronous version) was removed in commit 598a627. The endpoint is
+> served by `get_autocomplete()` alone.
 
 ---
 

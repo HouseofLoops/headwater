@@ -20,7 +20,7 @@ Thank you for your interest in contributing to the Headwater API! This document 
 
 Before you begin, ensure you have the following installed:
 
-- **Python 3.9+**: The project requires Python 3.9 or higher
+- **Python 3.14**: The Docker image (`python:3.14-slim-trixie`), CI and `requirements.lock` all target 3.14, and ruff is configured with `target-version = "py314"`
 - **Git**: For version control
 - **Docker & Docker Compose**: For containerized development
 - **Make**: For running development commands (optional but recommended)
@@ -54,13 +54,7 @@ Before you begin, ensure you have the following installed:
    # Edit .env with your configuration
    ```
 
-5. **Run database migrations (if applicable)**
-   ```bash
-   # If using database migrations
-   python -m alembic upgrade head
-   ```
-
-6. **Start the development server**
+5. **Start the development server**
    ```bash
    # Using Docker Compose (recommended)
    docker-compose up -d
@@ -78,10 +72,10 @@ For a fully containerized development environment:
 docker-compose up --build
 
 # Run tests in container
-docker-compose exec app pytest
+docker-compose exec web pytest
 
 # View logs
-docker-compose logs -f app
+docker-compose logs -f web
 ```
 
 ### Development Tools Setup
@@ -93,11 +87,12 @@ pip install -r requirements-dev.txt
 ```
 
 This includes:
-- `pytest` - Testing framework
-- `black` - Code formatting
-- `flake8` - Linting
+- `pytest`, `pytest-cov`, `pytest-asyncio` - Testing and coverage
+- `ruff` - Linting and formatting (the only linter/formatter; configured in `pyproject.toml`)
 - `mypy` - Type checking
-- `pre-commit` - Git hooks
+- `pip-audit` - Dependency vulnerability audit
+
+`pre-commit` is not pinned in `requirements-dev.txt`; install it separately (see [Pre-commit Hooks](#pre-commit-hooks)).
 
 ## Development Workflow
 
@@ -136,10 +131,8 @@ pytest tests/test_specific_feature.py
 # Run with coverage
 pytest --cov=app --cov-report=html
 
-# Run linting
-flake8 app/
-black --check app/
-mypy app/
+# Run linting (the same blocking rule set CI enforces)
+ruff check --select E9,F63,F7,F82 .
 ```
 
 ### 5. Commit Your Changes
@@ -167,30 +160,49 @@ git push origin feature/your-feature-name
 
 This project follows PEP 8 with some modifications:
 
-- **Line Length**: 88 characters (Black default)
-- **Imports**: Use absolute imports
+- **Line Length**: 120 characters (`line-length` in `[tool.ruff]`)
+- **Imports**: Use absolute imports; ordering is checked by ruff's `I` (isort) rules
 - **Type Hints**: Required for all public functions
 - **Docstrings**: Google-style docstrings for all public functions
 
-### Code Formatting
-
-We use [Black](https://black.readthedocs.io/) for automatic code formatting:
-
-```bash
-# Format code
-black app/
-
-# Check formatting without changes
-black --check app/
-```
+[Ruff](https://docs.astral.sh/ruff/) is the only linter and formatter. Its configuration lives in
+`pyproject.toml` (`[tool.ruff]`, `[tool.ruff.lint]`, `[tool.ruff.format]`); there is no `.flake8`,
+`setup.cfg` or separate isort/black config. Install the version pinned in `requirements-dev.txt`, which
+is kept in step with CI and pre-commit.
 
 ### Linting
 
-We use [Flake8](https://flake8.pycqa.org/) for linting:
+CI (`.github/workflows/_verify.yml`, job "Lint (ruff)") runs ruff in two steps:
 
 ```bash
-# Run linting
-flake8 app/
+# 1. Blocking: real errors only (syntax errors, undefined names, invalid comparisons).
+#    This must pass; the pre-commit ruff hook runs the same selection.
+ruff check --select E9,F63,F7,F82 .
+
+# 2. Advisory: the full rule set from pyproject.toml. CI never fails on this; it
+#    publishes the finding count to the job summary so the trend is visible.
+ruff check --statistics .
+```
+
+`make lint` runs both. The full rule set still has pre-existing findings, so do not run
+`ruff check --fix .` across the whole repository; fix findings in the code you touch:
+
+```bash
+ruff check path/to/changed_file.py
+ruff check --fix path/to/changed_file.py
+```
+
+### Code Formatting
+
+Use `ruff format` on the files you change. CI does not yet enforce formatting, and the repository
+has not been formatted in one pass, so avoid reformatting unrelated files in a feature PR:
+
+```bash
+# Format the files you changed
+ruff format path/to/changed_file.py
+
+# Check without writing
+ruff format --check path/to/changed_file.py
 ```
 
 ### Type Checking
@@ -202,15 +214,22 @@ We use [MyPy](https://mypy.readthedocs.io/) for static type checking:
 mypy app/
 ```
 
+mypy is installed by `requirements-dev.txt` but is not run in CI, so treat its output as advisory.
+
 ### Pre-commit Hooks
 
-Install pre-commit hooks to automatically run checks before commits:
+`.pre-commit-config.yaml` runs the standard file hygiene hooks (trailing whitespace, end-of-file,
+YAML/TOML/JSON validity, merge conflicts, private keys), ruff with the same blocking rule set as CI
+(`--select E9,F63,F7,F82`, no auto-fix), bandit, hadolint (needs Docker) and shellcheck.
 
 ```bash
 pip install pre-commit
 pre-commit install
 
-# Run manually
+# Run on the files you changed
+pre-commit run --files path/to/changed_file.py
+
+# Run everything (the first run is noisy: some hooks report pre-existing findings)
 pre-commit run --all-files
 ```
 
@@ -220,11 +239,13 @@ pre-commit run --all-files
 
 ```
 tests/
+├── conftest.py     # Shared fixtures; pins the settings source so .env does not leak in
+├── test_*.py       # Most tests live at the top level, one file per module
 ├── unit/           # Unit tests
-├── integration/    # Integration tests
-├── e2e/           # End-to-end tests
-└── fixtures/      # Test data and fixtures
+└── integration/    # Integration tests
 ```
+
+CI runs `pytest --cov=app --cov-fail-under=65` (the `coverage-floor` input in `_verify.yml`).
 
 ### Running Tests
 
@@ -346,10 +367,9 @@ test(api): add integration tests for autocomplete
    # Run tests
    pytest
    
-   # Run linting and formatting
-   flake8 app/
-   black --check app/
-   mypy app/
+   # Run linting (blocking rule set, as in CI) and format the files you changed
+   ruff check --select E9,F63,F7,F82 .
+   ruff format path/to/changed_file.py
    
    # Run pre-commit hooks
    pre-commit run --all-files

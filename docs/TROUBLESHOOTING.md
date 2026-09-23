@@ -1196,7 +1196,7 @@ docker-compose exec db psql -U user -d headwater -c "SELECT version();"
 3. **Optimize Container Configuration**
    ```dockerfile
    # Optimized Dockerfile
-   FROM python:3.9-slim
+   FROM python:3.14-slim-trixie
 
    # Install only necessary system dependencies
    RUN apt-get update && apt-get install -y \
