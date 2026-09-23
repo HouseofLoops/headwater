@@ -116,10 +116,6 @@ select = [
 ignore = [
     "E501",  # line length - the formatter owns this
     "B008",  # function call in argument default: this is how FastAPI Depends works
-    # (str, Enum) -> StrEnum changes str()/format() of members from "Cls.NAME"
-    # to the value, and members are interpolated into cache keys and f-strings
-    # (e.g. cache_manager's key builder), so the rewrite is not a no-op here.
-    "UP042",
 ]
 # The EN DASH is deliberate: Google renders opening hours and price ranges as
 # "9 AM–5 PM" / "$10–25", and the scraper regexes, examples and tests must
