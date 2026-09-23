@@ -55,7 +55,7 @@ async def get_optional_api_key(request: Request, x_api_key: str | None = Header(
 
     try:
         return await authenticate_api_key(x_api_key, request)
-    except:
+    except Exception:
         return None
 
 
