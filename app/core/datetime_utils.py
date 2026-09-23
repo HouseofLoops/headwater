@@ -7,17 +7,14 @@ Split out of app.core.utils, which still re-exports every name here.
 import datetime
 
 
-def format_datetime(
-    dt: datetime.datetime | None = None,
-    format_str: str = "%Y-%m-%d %H:%M:%S"
-) -> str:
+def format_datetime(dt: datetime.datetime | None = None, format_str: str = "%Y-%m-%d %H:%M:%S") -> str:
     """
     Format a datetime object as a string.
-    
+
     Args:
         dt: The datetime object to format (default: now)
         format_str: The format string
-        
+
     Returns:
         str: Formatted datetime string
     """
@@ -27,20 +24,17 @@ def format_datetime(
     return dt.strftime(format_str)
 
 
-def parse_datetime(
-    dt_str: str,
-    format_str: str = "%Y-%m-%d %H:%M:%S"
-) -> datetime.datetime:
+def parse_datetime(dt_str: str, format_str: str = "%Y-%m-%d %H:%M:%S") -> datetime.datetime:
     """
     Parse a string into a datetime object.
-    
+
     Args:
         dt_str: The datetime string to parse
         format_str: The format string
-        
+
     Returns:
         datetime.datetime: Parsed datetime object
-        
+
     Raises:
         ValueError: If the string cannot be parsed
     """

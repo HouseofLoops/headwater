@@ -6,6 +6,7 @@ by storing frequently accessed data in memory or Redis.
 
 Uses the shared async Redis manager for Redis operations.
 """
+
 import asyncio
 import functools
 import hashlib
@@ -29,7 +30,7 @@ from app.core.redis_manager import RedisManager
 logger = logging.getLogger(__name__)
 
 # Type variable for generic cache
-T = TypeVar('T')
+T = TypeVar("T")
 
 # In-memory cache storage
 # Format: {key: (value, expiry_timestamp)}
@@ -142,7 +143,7 @@ def _decode_envelope(obj: dict[str, Any]) -> Any:
         if decoder is not None:
             try:
                 return decoder(obj[_VALUE_KEY])
-            except (TypeError, ValueError):
+            except TypeError, ValueError:
                 logger.warning("Could not decode cached %s value", obj[_TYPE_TAG])
     return obj
 
@@ -195,9 +196,7 @@ class CacheManager:
         except CacheSerializationError:
             raise
         except (TypeError, ValueError) as exc:
-            raise CacheSerializationError(
-                f"Value of type {type(value).__name__} cannot be cached: {exc}"
-            ) from exc
+            raise CacheSerializationError(f"Value of type {type(value).__name__} cannot be cached: {exc}") from exc
 
     def _deserialize(self, value: str) -> Any:
         """
@@ -211,7 +210,7 @@ class CacheManager:
         """
         try:
             return json.loads(value, object_hook=_decode_envelope)
-        except (json.JSONDecodeError, TypeError):
+        except json.JSONDecodeError, TypeError:
             # Not JSON at all (e.g. a raw string written by another writer):
             # return it untouched rather than raising.
             return value
@@ -219,11 +218,11 @@ class CacheManager:
     def _generate_key(self, key: str, namespace: str | None = None) -> str:
         """
         Generate a cache key with optional namespace.
-        
+
         Args:
             key: The base key
             namespace: Optional namespace
-            
+
         Returns:
             str: The full cache key
         """
@@ -231,12 +230,7 @@ class CacheManager:
             return f"cache:{namespace}:{key}"
         return f"cache:{key}"
 
-    async def get(
-        self,
-        key: str,
-        namespace: str | None = None,
-        default: Any = None
-    ) -> Any:
+    async def get(self, key: str, namespace: str | None = None, default: Any = None) -> Any:
         """
         Get a value from the cache.
 
@@ -280,13 +274,7 @@ class CacheManager:
         logger.debug(f"Cache miss: {full_key}")
         return default
 
-    async def set(
-        self,
-        key: str,
-        value: Any,
-        ttl: int | None = None,
-        namespace: str | None = None
-    ) -> bool:
+    async def set(self, key: str, value: Any, ttl: int | None = None, namespace: str | None = None) -> bool:
         """
         Set a value in the cache.
 
@@ -312,9 +300,7 @@ class CacheManager:
         try:
             serialized = self._serialize(value)
         except CacheSerializationError as exc:
-            logger.error(
-                "Refusing to cache key %s: %s", scrub(full_key), scrub(exc)
-            )
+            logger.error("Refusing to cache key %s: %s", scrub(full_key), scrub(exc))
             return False
 
         # Try Redis first if available (async)
@@ -339,11 +325,7 @@ class CacheManager:
             logger.debug(f"Cache set (memory): {full_key}, TTL: {ttl}s")
         return True
 
-    async def delete(
-        self,
-        key: str,
-        namespace: str | None = None
-    ) -> bool:
+    async def delete(self, key: str, namespace: str | None = None) -> bool:
         """
         Delete a value from the cache.
 
@@ -425,22 +407,20 @@ class CacheManager:
         return True
 
     def cached(
-        self,
-        ttl: int | None = None,
-        namespace: str | None = None,
-        key_builder: Callable[..., str] | None = None
+        self, ttl: int | None = None, namespace: str | None = None, key_builder: Callable[..., str] | None = None
     ):
         """
         Decorator for caching function results.
-        
+
         Args:
             ttl: Time to live in seconds (None for default)
             namespace: Optional namespace
             key_builder: Optional function to build the cache key
-            
+
         Returns:
             Callable: Decorated function
         """
+
         def decorator(func):
             @functools.wraps(func)
             async def wrapper(*args, **kwargs):
@@ -559,57 +539,45 @@ cache_manager = CacheManager()
 
 
 # Convenience functions
-async def get_from_cache(
-    key: str,
-    namespace: str | None = None,
-    default: Any = None
-) -> Any:
+async def get_from_cache(key: str, namespace: str | None = None, default: Any = None) -> Any:
     """
     Get a value from the cache.
-    
+
     Args:
         key: The cache key
         namespace: Optional namespace
         default: Default value if key not found
-        
+
     Returns:
         Any: The cached value or default
     """
     return await cache_manager.get(key, namespace, default)
 
 
-async def set_in_cache(
-    key: str,
-    value: Any,
-    ttl: int | None = None,
-    namespace: str | None = None
-) -> bool:
+async def set_in_cache(key: str, value: Any, ttl: int | None = None, namespace: str | None = None) -> bool:
     """
     Set a value in the cache.
-    
+
     Args:
         key: The cache key
         value: The value to cache
         ttl: Time to live in seconds (None for default)
         namespace: Optional namespace
-        
+
     Returns:
         bool: True if successful, False otherwise
     """
     return await cache_manager.set(key, value, ttl, namespace)
 
 
-async def delete_from_cache(
-    key: str,
-    namespace: str | None = None
-) -> bool:
+async def delete_from_cache(key: str, namespace: str | None = None) -> bool:
     """
     Delete a value from the cache.
-    
+
     Args:
         key: The cache key
         namespace: Optional namespace
-        
+
     Returns:
         bool: True if successful, False otherwise
     """
@@ -619,29 +587,25 @@ async def delete_from_cache(
 async def clear_cache(namespace: str | None = None) -> bool:
     """
     Clear all values from the cache or a specific namespace.
-    
+
     Args:
         namespace: Optional namespace to clear
-        
+
     Returns:
         bool: True if successful, False otherwise
     """
     return await cache_manager.clear(namespace)
 
 
-def cached(
-    ttl: int | None = None,
-    namespace: str | None = None,
-    key_builder: Callable[..., str] | None = None
-):
+def cached(ttl: int | None = None, namespace: str | None = None, key_builder: Callable[..., str] | None = None):
     """
     Decorator for caching function results.
-    
+
     Args:
         ttl: Time to live in seconds (None for default)
         namespace: Optional namespace
         key_builder: Optional function to build the cache key
-        
+
     Returns:
         Callable: Decorated function
     """
@@ -651,11 +615,11 @@ def cached(
 def generate_cache_key(base_key: str, **kwargs) -> str:
     """
     Generate a consistent cache key from a base key and parameters.
-    
+
     Args:
         base_key: The base cache key (e.g., "trends_interest_over_time")
         **kwargs: Additional parameters to include in the key
-        
+
     Returns:
         str: A consistent cache key
     """
@@ -687,12 +651,12 @@ def generate_cache_key(base_key: str, **kwargs) -> str:
 async def get_cached_or_fetch(cache_key: str, fetch_func: Callable[[], Any], ttl: int | None = None) -> Any:
     """
     Get data from cache or fetch and cache it if not found.
-    
+
     Args:
         cache_key: The cache key to use
         fetch_func: Async function to call if data not in cache
         ttl: Optional TTL override
-        
+
     Returns:
         Any: The cached or freshly fetched data
     """

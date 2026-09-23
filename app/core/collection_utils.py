@@ -8,17 +8,17 @@ from collections.abc import Callable
 from typing import Any, TypeVar, Union
 
 # Type variable for generic functions
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 def merge_dicts(dict1: dict[str, Any], dict2: dict[str, Any]) -> dict[str, Any]:
     """
     Merge two dictionaries recursively.
-    
+
     Args:
         dict1: The first dictionary
         dict2: The second dictionary
-        
+
     Returns:
         Dict[str, Any]: Merged dictionary
     """
@@ -33,19 +33,15 @@ def merge_dicts(dict1: dict[str, Any], dict2: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
-def flatten_dict(
-    d: dict[str, Any],
-    parent_key: str = '',
-    separator: str = '.'
-) -> dict[str, Any]:
+def flatten_dict(d: dict[str, Any], parent_key: str = "", separator: str = ".") -> dict[str, Any]:
     """
     Flatten a nested dictionary.
-    
+
     Args:
         d: The dictionary to flatten
         parent_key: The parent key
         separator: The separator for nested keys
-        
+
     Returns:
         Dict[str, Any]: Flattened dictionary
     """
@@ -62,17 +58,14 @@ def flatten_dict(
     return dict(items)
 
 
-def unflatten_dict(
-    d: dict[str, Any],
-    separator: str = '.'
-) -> dict[str, Any]:
+def unflatten_dict(d: dict[str, Any], separator: str = ".") -> dict[str, Any]:
     """
     Unflatten a flattened dictionary.
-    
+
     Args:
         d: The dictionary to unflatten
         separator: The separator for nested keys
-        
+
     Returns:
         Dict[str, Any]: Unflattened dictionary
     """
@@ -97,21 +90,16 @@ def unflatten_dict(
     return result
 
 
-def deep_get(
-    d: dict[str, Any],
-    keys: Union[str, list[str]],
-    default: Any = None,
-    separator: str = '.'
-) -> Any:
+def deep_get(d: dict[str, Any], keys: Union[str, list[str]], default: Any = None, separator: str = ".") -> Any:
     """
     Get a value from a nested dictionary using a dotted path.
-    
+
     Args:
         d: The dictionary
         keys: The dotted path or list of keys
         default: The default value if the path doesn't exist
         separator: The separator for the dotted path
-        
+
     Returns:
         Any: The value at the path or the default
     """
@@ -128,21 +116,16 @@ def deep_get(
     return current
 
 
-def deep_set(
-    d: dict[str, Any],
-    keys: Union[str, list[str]],
-    value: Any,
-    separator: str = '.'
-) -> dict[str, Any]:
+def deep_set(d: dict[str, Any], keys: Union[str, list[str]], value: Any, separator: str = ".") -> dict[str, Any]:
     """
     Set a value in a nested dictionary using a dotted path.
-    
+
     Args:
         d: The dictionary
         keys: The dotted path or list of keys
         value: The value to set
         separator: The separator for the dotted path
-        
+
     Returns:
         Dict[str, Any]: The modified dictionary
     """
@@ -164,30 +147,26 @@ def deep_set(
 def chunks(lst: list[T], n: int) -> list[list[T]]:
     """
     Split a list into chunks of size n.
-    
+
     Args:
         lst: The list to split
         n: The chunk size
-        
+
     Returns:
         List[List[T]]: List of chunks
     """
-    return [lst[i:i + n] for i in range(0, len(lst), n)]
+    return [lst[i : i + n] for i in range(0, len(lst), n)]
 
 
-def batch_process(
-    items: list[T],
-    process_func: Callable[[list[T]], list[Any]],
-    batch_size: int = 100
-) -> list[Any]:
+def batch_process(items: list[T], process_func: Callable[[list[T]], list[Any]], batch_size: int = 100) -> list[Any]:
     """
     Process a list of items in batches.
-    
+
     Args:
         items: The items to process
         process_func: The function to process each batch
         batch_size: The batch size
-        
+
     Returns:
         List[Any]: List of processed results
     """

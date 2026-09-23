@@ -61,7 +61,7 @@ class RedisManager:
         if self._initialized:
             return
 
-        redis_url = getattr(self.settings, 'REDIS_URL', None)
+        redis_url = getattr(self.settings, "REDIS_URL", None)
         if not redis_url:
             logger.warning("REDIS_URL not configured. Redis features disabled.")
             return
@@ -83,7 +83,7 @@ class RedisManager:
                 socket_connect_timeout=5.0,
                 socket_timeout=5.0,
                 retry_on_timeout=True,
-                health_check_interval=30
+                health_check_interval=30,
             )
 
             # Test connection
@@ -123,29 +123,18 @@ class RedisManager:
             dict: Health check results with status and latency
         """
         if not self._client:
-            return {
-                "status": "unavailable",
-                "latency_ms": None,
-                "error": "Redis client not initialized"
-            }
+            return {"status": "unavailable", "latency_ms": None, "error": "Redis client not initialized"}
 
         try:
             import time
+
             start = time.perf_counter()
             await self._client.ping()
             latency = (time.perf_counter() - start) * 1000
 
-            return {
-                "status": "healthy",
-                "latency_ms": round(latency, 2),
-                "error": None
-            }
+            return {"status": "healthy", "latency_ms": round(latency, 2), "error": None}
         except Exception as e:
-            return {
-                "status": "unhealthy",
-                "latency_ms": None,
-                "error": str(e)
-            }
+            return {"status": "unhealthy", "latency_ms": None, "error": str(e)}
 
     # ==========================================================================
     # Async Redis Operations
@@ -172,12 +161,7 @@ class RedisManager:
             self._handle_connection_error()
             return None
 
-    async def set(
-        self,
-        key: str,
-        value: str,
-        ttl: int | None = None
-    ) -> bool:
+    async def set(self, key: str, value: str, ttl: int | None = None) -> bool:
         """
         Set a value in Redis.
 
@@ -349,12 +333,7 @@ class RedisManager:
     # Rate Limiting Support
     # ==========================================================================
 
-    async def rate_limit_check(
-        self,
-        key: str,
-        limit: int,
-        window: int
-    ) -> tuple[bool, int, int]:
+    async def rate_limit_check(self, key: str, limit: int, window: int) -> tuple[bool, int, int]:
         """
         Atomic rate limit check using Redis.
 
@@ -451,6 +430,7 @@ class RedisManager:
 # =============================================================================
 # Convenience Functions
 # =============================================================================
+
 
 async def get_redis() -> Redis | None:
     """

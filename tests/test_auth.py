@@ -204,9 +204,7 @@ class TestAuthenticationDependencies:
         """Auth enabled but no keys configured must still reject."""
         from fastapi import HTTPException
 
-        app.core.auth._auth_state = app.core.auth._auth_state._replace(
-            keys=frozenset()
-        )
+        app.core.auth._auth_state = app.core.auth._auth_state._replace(keys=frozenset())
         with pytest.raises(HTTPException) as exc_info:
             await authenticate_api_key("anything")
         assert exc_info.value.status_code == 500
@@ -223,7 +221,7 @@ class TestAPIKeyHeader:
     def test_api_key_header_configuration(self):
         """Test that API key header is properly configured."""
         assert api_key_header is not None
-        assert hasattr(api_key_header, 'scheme_name') or hasattr(api_key_header, 'model')
+        assert hasattr(api_key_header, "scheme_name") or hasattr(api_key_header, "model")
 
     def test_api_key_header_does_not_auto_error(self):
         """
@@ -255,9 +253,7 @@ class TestGlobalState:
         """
         state = _auth_snapshot()
         assert state.settings is get_settings()
-        assert state.keys == frozenset(
-            k for k in (list(state.settings.API_KEYS) + [state.settings.API_KEY]) if k
-        )
+        assert state.keys == frozenset(k for k in (list(state.settings.API_KEYS) + [state.settings.API_KEY]) if k)
 
     def test_initialize_api_keys_reads_settings(self, monkeypatch):
         """initialize_api_keys() merges API_KEYS and API_KEY from Settings."""
@@ -307,16 +303,12 @@ class TestGlobalState:
                     return real_lock.__exit__(*exc)
 
             def _slow_refresh():
-                monkeypatch.setattr(
-                    app.core.auth, "_refresh_lock", _GatedLock(), raising=False
-                )
+                monkeypatch.setattr(app.core.auth, "_refresh_lock", _GatedLock(), raising=False)
                 result["keys"] = app.core.auth._auth_snapshot().keys
 
             # Force the snapshot to look stale so _auth_snapshot() takes the
             # rebuild path.
-            app.core.auth._auth_state = app.core.auth._auth_state._replace(
-                settings=None
-            )
+            app.core.auth._auth_state = app.core.auth._auth_state._replace(settings=None)
 
             worker = threading.Thread(target=_slow_refresh)
             worker.start()
@@ -365,9 +357,7 @@ class TestBasicFunctionality:
     def test_validate_api_key_with_empty_set(self):
         """Validation against an empty key set rejects everything."""
         original = app.core.auth._auth_state
-        app.core.auth._auth_state = original._replace(
-            settings=get_settings(), keys=frozenset()
-        )
+        app.core.auth._auth_state = original._replace(settings=get_settings(), keys=frozenset())
         try:
             assert validate_api_key("any_key") is False
         finally:
@@ -376,9 +366,7 @@ class TestBasicFunctionality:
     def test_get_api_key_metadata_with_empty_mapping(self):
         """Metadata lookup against an empty mapping returns None."""
         original = app.core.auth._auth_state
-        app.core.auth._auth_state = original._replace(
-            settings=get_settings(), metadata={}
-        )
+        app.core.auth._auth_state = original._replace(settings=get_settings(), metadata={})
         try:
             assert get_api_key_metadata("any_key") is None
         finally:

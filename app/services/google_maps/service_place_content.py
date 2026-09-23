@@ -4,6 +4,7 @@ Per-place content for GoogleMapsService.
 Reviews, photos, Q&A, autocomplete, review analytics, batch geocoding,
 attributes and history.
 """
+
 import asyncio
 import logging
 from typing import Any
@@ -19,6 +20,7 @@ logger = logging.getLogger("app.services.google_maps_service")
 
 class PlaceContentMixin:
     """Per-place content methods of GoogleMapsService."""
+
     async def get_place_reviews(
         self,
         place_id: str,
@@ -26,7 +28,7 @@ class PlaceContentMixin:
         limit: int = 50,
         offset: int = 0,
         min_rating: int | None = None,
-        include_owner_responses: bool = True
+        include_owner_responses: bool = True,
     ) -> dict[str, Any]:
         """
         Get the sample of reviews rendered on the place panel.
@@ -57,10 +59,7 @@ class PlaceContentMixin:
             sample = place.get("reviews") or []
 
             if min_rating is not None:
-                sample = [
-                    r for r in sample
-                    if isinstance(r, dict) and (r.get("rating") or 0) >= min_rating
-                ]
+                sample = [r for r in sample if isinstance(r, dict) and (r.get("rating") or 0) >= min_rating]
             sample_size_before_paging = len(sample)
             sample = sample[offset : offset + limit]
 
@@ -85,7 +84,8 @@ class PlaceContentMixin:
                 # every review. None where the count is unknown, because then
                 # we genuinely cannot tell.
                 "has_more": (
-                    None if total_reviews is None
+                    None
+                    if total_reviews is None
                     else (offset + len(sample)) < min(total_reviews, sample_size_before_paging)
                     or sample_size_before_paging < total_reviews
                 ),
@@ -102,11 +102,7 @@ class PlaceContentMixin:
             return {"error": True, "message": str(e)}
 
     async def get_place_photos(
-        self,
-        place_id: str,
-        max_photos: int = 20,
-        size: str = "large",
-        category: str | None = None
+        self, place_id: str, max_photos: int = 20, size: str = "large", category: str | None = None
     ) -> dict[str, Any]:
         """
         Get photos for a place.
@@ -126,12 +122,7 @@ class PlaceContentMixin:
             photos = place.get("photos") or []
 
             # Apply size transformation
-            size_map = {
-                "thumbnail": "=w100-h100",
-                "medium": "=w400-h300",
-                "large": "=w800-h600",
-                "original": "=w0"
-            }
+            size_map = {"thumbnail": "=w100-h100", "medium": "=w400-h300", "large": "=w800-h600", "original": "=w0"}
             size_suffix = size_map.get(size, "=w800-h600")
 
             sized_photos = []
@@ -139,15 +130,13 @@ class PlaceContentMixin:
                 if "googleusercontent.com" in photo_url:
                     # Replace size in URL
                     import re
-                    new_url = re.sub(r'=w\d+-h\d+', size_suffix, photo_url)
+
+                    new_url = re.sub(r"=w\d+-h\d+", size_suffix, photo_url)
                     sized_photos.append({"url": new_url})
                 else:
                     sized_photos.append({"url": photo_url})
 
-            return {
-                "total_photos": len(photos),
-                "photos": sized_photos
-            }
+            return {"total_photos": len(photos), "photos": sized_photos}
 
         except Exception as e:
             logger.error(f"Get photos error: {e}")
@@ -168,12 +157,7 @@ class PlaceContentMixin:
         'div[role="listitem"] div[role="listitem"]',
     )
 
-    async def _extract_place_qa(
-        self,
-        page,
-        limit: int,
-        include_answers: bool
-    ) -> list[dict[str, Any]] | None:
+    async def _extract_place_qa(self, page, limit: int, include_answers: bool) -> list[dict[str, Any]] | None:
         """Read the Q&A entries on a place page.
 
         Returns None when no Q&A section was rendered at all, which is
@@ -214,12 +198,7 @@ class PlaceContentMixin:
             questions.append(entry)
         return questions
 
-    async def get_place_qa(
-        self,
-        place_id: str,
-        limit: int = 20,
-        include_answers: bool = True
-    ) -> dict[str, Any]:
+    async def get_place_qa(self, place_id: str, limit: int = 20, include_answers: bool = True) -> dict[str, Any]:
         """
         Get Q&A for a place by scraping the questions rendered on its page.
 
@@ -266,9 +245,11 @@ class PlaceContentMixin:
                 await context.close()
         except Exception as e:
             logger.error(
-                    "Q&A scrape failed for %s: %s", scrub(place_id), scrub(e),
-                    exc_info=True,
-                )
+                "Q&A scrape failed for %s: %s",
+                scrub(place_id),
+                scrub(e),
+                exc_info=True,
+            )
             return {
                 "error": True,
                 "status_code": 502,
@@ -305,7 +286,7 @@ class PlaceContentMixin:
         latitude: float | None = None,
         longitude: float | None = None,
         radius_meters: int | None = None,
-        language: str = "en"
+        language: str = "en",
     ) -> dict[str, Any]:
         """
         Get place autocomplete suggestions.
@@ -322,7 +303,7 @@ class PlaceContentMixin:
                 language=language,
                 max_results=5,
                 geo_coordinates=f"{latitude},{longitude}" if latitude and longitude else None,
-                timeout=30
+                timeout=30,
             )
 
             if result.get("error"):
@@ -330,12 +311,14 @@ class PlaceContentMixin:
 
             predictions = []
             for place in result.get("results", [])[:5]:
-                predictions.append({
-                    "description": f"{place.get('title', '')} - {place.get('address', '')}",
-                    "place_id": place.get("cid"),
-                    "main_text": place.get("title", ""),
-                    "secondary_text": place.get("address", "")
-                })
+                predictions.append(
+                    {
+                        "description": f"{place.get('title', '')} - {place.get('address', '')}",
+                        "place_id": place.get("cid"),
+                        "main_text": place.get("title", ""),
+                        "secondary_text": place.get("address", ""),
+                    }
+                )
 
             return {"predictions": predictions}
 
@@ -349,7 +332,7 @@ class PlaceContentMixin:
         time_period: str = "all",
         include_sentiment: bool = True,
         include_trends: bool = True,
-        include_keywords: bool = True
+        include_keywords: bool = True,
     ) -> dict[str, Any]:
         """
         Get analytics for a place's reviews.
@@ -371,7 +354,7 @@ class PlaceContentMixin:
                 "rating_distribution": place.get("review_summary") or {},
                 "average_rating": place.get("rating"),
                 "total_reviews": place.get("review_count"),
-                "keywords": place.get("review_topics") or []
+                "keywords": place.get("review_topics") or [],
             }
 
             if include_sentiment:
@@ -390,10 +373,7 @@ class PlaceContentMixin:
             logger.error(f"Analytics error: {e}")
             return {"error": True, "message": str(e)}
 
-    async def batch_geocode(
-        self,
-        addresses: list[str]
-    ) -> dict[str, Any]:
+    async def batch_geocode(self, addresses: list[str]) -> dict[str, Any]:
         """
         Geocode multiple addresses.
 
@@ -409,53 +389,36 @@ class PlaceContentMixin:
             for address in addresses:
                 try:
                     # Search for the address
-                    result = await self.search_and_wait(
-                        query=address,
-                        max_results=1,
-                        timeout=30
-                    )
+                    result = await self.search_and_wait(query=address, max_results=1, timeout=30)
 
                     if result.get("error") or not result.get("results"):
                         failed += 1
-                        results.append({
-                            "address": address,
-                            "success": False,
-                            "error": "Address not found"
-                        })
+                        results.append({"address": address, "success": False, "error": "Address not found"})
                     else:
                         successful += 1
                         place = result["results"][0]
-                        results.append({
-                            "address": address,
-                            "success": True,
-                            "latitude": place.get("latitude"),
-                            "longitude": place.get("longitude"),
-                            "formatted_address": place.get("address"),
-                            "place_id": place.get("cid")
-                        })
+                        results.append(
+                            {
+                                "address": address,
+                                "success": True,
+                                "latitude": place.get("latitude"),
+                                "longitude": place.get("longitude"),
+                                "formatted_address": place.get("address"),
+                                "place_id": place.get("cid"),
+                            }
+                        )
 
                 except Exception as e:
                     failed += 1
-                    results.append({
-                        "address": address,
-                        "success": False,
-                        "error": str(e)
-                    })
+                    results.append({"address": address, "success": False, "error": str(e)})
 
-            return {
-                "results": results,
-                "successful": successful,
-                "failed": failed
-            }
+            return {"results": results, "successful": successful, "failed": failed}
 
         except Exception as e:
             logger.error(f"Geocode error: {e}")
             return {"error": True, "message": str(e)}
 
-    async def get_place_attributes(
-        self,
-        place_id: str
-    ) -> dict[str, Any]:
+    async def get_place_attributes(self, place_id: str) -> dict[str, Any]:
         """
         Get detailed attributes for a place.
 
@@ -478,7 +441,7 @@ class PlaceContentMixin:
                 "amenities": place.get("amenities") or [],
                 "highlights": place.get("description"),
                 "price_level": place.get("price_level"),
-                "price_per_person": place.get("price_per_person")
+                "price_per_person": place.get("price_per_person"),
             }
 
             return {"attributes": attributes}
@@ -493,7 +456,7 @@ class PlaceContentMixin:
         field: str | None = None,
         start_date: str | None = None,
         end_date: str | None = None,
-        api_key: str | None = None
+        api_key: str | None = None,
     ) -> dict[str, Any]:
         """
         Get recorded change history for a place.

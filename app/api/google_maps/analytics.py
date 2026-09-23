@@ -3,6 +3,7 @@
 Mounted onto ``google_maps_router`` by this package's ``__init__``; the paths
 declared here are relative to the ``/google-maps`` prefix applied there.
 """
+
 import logging
 from datetime import datetime
 
@@ -27,9 +28,7 @@ router = APIRouter(route_class=SafeUrlValidationRoute)
 
 
 @router.get(
-    "/place/{place_id}/analytics",
-    summary="Get review analytics",
-    response_description="Review analysis and insights"
+    "/place/{place_id}/analytics", summary="Get review analytics", response_description="Review analysis and insights"
 )
 async def get_review_analytics(
     place_id: str = Path(..., description="Place ID"),
@@ -38,7 +37,7 @@ async def get_review_analytics(
     include_trends: bool = Query(True, description="Include rating trends"),
     include_keywords: bool = Query(True, description="Include keyword extraction"),
     api_key: str = Depends(get_api_key),
-    rate_limit_check: None = Depends(rate_limit)
+    rate_limit_check: None = Depends(rate_limit),
 ):
     """
     Get analytics and insights for a place's reviews.
@@ -65,7 +64,7 @@ async def get_review_analytics(
             time_period=time_period,
             include_sentiment=include_sentiment,
             include_trends=include_trends,
-            include_keywords=include_keywords
+            include_keywords=include_keywords,
         )
 
         if result.get("error"):
@@ -76,7 +75,7 @@ async def get_review_analytics(
             "place_id": place_id,
             "time_period": time_period,
             "analytics": result.get("analytics", {}),
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now().isoformat(),
         }
 
     except HTTPException:
@@ -86,15 +85,9 @@ async def get_review_analytics(
         raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL)
 
 
-@router.post(
-    "/competitors",
-    summary="Analyze competitors",
-    response_description="Competitor comparison"
-)
+@router.post("/competitors", summary="Analyze competitors", response_description="Competitor comparison")
 async def analyze_competitors(
-    request: CompetitorRequest,
-    api_key: str = Depends(get_api_key),
-    rate_limit_check: None = Depends(rate_limit)
+    request: CompetitorRequest, api_key: str = Depends(get_api_key), rate_limit_check: None = Depends(rate_limit)
 ):
     """
     Find and analyze competitors in an area.
@@ -128,7 +121,7 @@ async def analyze_competitors(
             longitude=request.longitude,
             category=request.category,
             radius_meters=request.radius_meters,
-            max_competitors=request.max_competitors
+            max_competitors=request.max_competitors,
         )
 
         if result.get("error"):
@@ -136,15 +129,12 @@ async def analyze_competitors(
 
         return {
             "success": True,
-            "center": {
-                "latitude": request.latitude,
-                "longitude": request.longitude
-            },
+            "center": {"latitude": request.latitude, "longitude": request.longitude},
             "category": request.category,
             "radius_meters": request.radius_meters,
             "competitors": result.get("competitors", []),
             "summary": result.get("summary", {}),
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now().isoformat(),
         }
 
     except HTTPException:

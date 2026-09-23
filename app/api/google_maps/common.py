@@ -5,6 +5,7 @@ error bodies, the route class that stops a rejected URL from becoming an
 oracle, and the validator that decides which caller-supplied URLs may be
 fetched at all.
 """
+
 import logging
 from collections.abc import Callable
 from typing import Any
@@ -105,9 +106,7 @@ def places_from_result(result: dict[str, Any], context: str) -> list[dict[str, A
     """
     raw_places = result.get("results") or result.get("data") or result.get("places") or []
     if not isinstance(raw_places, list):
-        logger.error(
-            "%s: expected a list of places, got %s", scrub(context), type(raw_places).__name__
-        )
+        logger.error("%s: expected a list of places, got %s", scrub(context), type(raw_places).__name__)
         raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL)
     return google_maps_service.process_place_data(raw_places)
 
@@ -176,13 +175,8 @@ class SafeUrlValidationRoute(APIRoute):
             try:
                 return await original_route_handler(request)
             except RequestValidationError as exc:
-                if any(
-                    _URL_REJECTED_MARKER in str(error.get("msg", ""))
-                    for error in exc.errors()
-                ):
-                    return JSONResponse(
-                        status_code=400, content={"detail": URL_REJECTED_DETAIL}
-                    )
+                if any(_URL_REJECTED_MARKER in str(error.get("msg", "")) for error in exc.errors()):
+                    return JSONResponse(status_code=400, content={"detail": URL_REJECTED_DETAIL})
                 raise
 
         return safe_route_handler

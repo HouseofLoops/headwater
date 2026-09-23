@@ -11,6 +11,7 @@ Features:
 - Location coordinates and plus codes
 - Category and price level
 """
+
 import asyncio
 import logging
 import uuid
@@ -64,6 +65,7 @@ class GoogleMapsService(
         if not self._initialized:
             # Import here to avoid circular imports and allow lazy loading
             from app.services import google_maps_scraper
+
             self._scraper_module = google_maps_scraper
             self._initialized = True
 
@@ -80,26 +82,19 @@ class GoogleMapsService(
             # For native scraping, we just verify Playwright can be imported
             try:
                 from playwright.async_api import async_playwright  # noqa: F401 - availability probe
+
                 return {
                     "healthy": True,
                     "status_code": 200,
                     "service": "google-maps-native-scraper",
-                    "mode": "native-playwright"
+                    "mode": "native-playwright",
                 }
             except ImportError:
-                return {
-                    "healthy": False,
-                    "error": "Playwright not installed",
-                    "service": "google-maps-native-scraper"
-                }
+                return {"healthy": False, "error": "Playwright not installed", "service": "google-maps-native-scraper"}
 
         except Exception as e:
             logger.error(f"Health check failed: {e}")
-            return {
-                "healthy": False,
-                "error": str(e),
-                "service": "google-maps-native-scraper"
-            }
+            return {"healthy": False, "error": str(e), "service": "google-maps-native-scraper"}
 
     async def create_search_job(
         self,
@@ -110,7 +105,7 @@ class GoogleMapsService(
         depth: int = 1,
         email_extraction: bool = False,
         zoom: int = 15,
-        geo_coordinates: str | None = None
+        geo_coordinates: str | None = None,
     ) -> dict[str, Any]:
         """
         Create a new Google Maps search job.
@@ -160,25 +155,15 @@ class GoogleMapsService(
                     logger.info("Using proxy for Google Maps scraping")
 
             # Start background task
-            asyncio.create_task(
-                self._scraper_module.run_scrape_job(job, proxy=proxy)
-            )
+            asyncio.create_task(self._scraper_module.run_scrape_job(job, proxy=proxy))
 
             logger.info("Created job %s for query: %s", scrub(job_id), scrub(query))
 
-            return {
-                "job_id": job_id,
-                "id": job_id,
-                "status": "pending",
-                "message": "Job created and started"
-            }
+            return {"job_id": job_id, "id": job_id, "status": "pending", "message": "Job created and started"}
 
         except Exception as e:
             logger.error(f"Error creating search job: {e}")
-            return {
-                "error": True,
-                "message": str(e)
-            }
+            return {"error": True, "message": str(e)}
 
     async def get_job_status(self, job_id: str, owner: str) -> dict[str, Any]:
         """
@@ -200,19 +185,10 @@ class GoogleMapsService(
             job = await store.get(owner, job_id)
 
             if not job:
-                return {
-                    "error": True,
-                    "status_code": 404,
-                    "message": "Job not found"
-                }
+                return {"error": True, "status_code": 404, "message": "Job not found"}
 
             # Map internal status to expected format
-            status_map = {
-                "pending": "pending",
-                "running": "working",
-                "completed": "completed",
-                "failed": "failed"
-            }
+            status_map = {"pending": "pending", "running": "working", "completed": "completed", "failed": "failed"}
 
             return {
                 "job_id": job.id,
@@ -221,22 +197,14 @@ class GoogleMapsService(
                 "total": job.total,
                 "error": job.error,
                 "created_at": job.created_at.isoformat(),
-                "completed_at": job.completed_at.isoformat() if job.completed_at else None
+                "completed_at": job.completed_at.isoformat() if job.completed_at else None,
             }
 
         except Exception as e:
             logger.error(f"Error getting job status: {e}")
-            return {
-                "error": True,
-                "message": str(e)
-            }
+            return {"error": True, "message": str(e)}
 
-    async def get_job_results(
-        self,
-        job_id: str,
-        owner: str,
-        format: str = "json"
-    ) -> dict[str, Any]:
+    async def get_job_results(self, job_id: str, owner: str, format: str = "json") -> dict[str, Any]:
         """
         Get the results of a completed job.
 
@@ -254,22 +222,16 @@ class GoogleMapsService(
             job = await store.get(owner, job_id)
 
             if not job:
-                return {
-                    "error": True,
-                    "status_code": 404,
-                    "message": "Job not found"
-                }
+                return {"error": True, "status_code": 404, "message": "Job not found"}
 
             if job.status != self._scraper_module.JobStatus.COMPLETED:
-                return {
-                    "error": True,
-                    "message": f"Job not completed. Current status: {job.status.value}"
-                }
+                return {"error": True, "message": f"Job not completed. Current status: {job.status.value}"}
 
             if format == "csv":
                 # Convert to CSV format
                 import csv
                 import io
+
                 if job.results:
                     output = io.StringIO()
                     writer = csv.DictWriter(output, fieldnames=job.results[0].keys())
@@ -278,26 +240,14 @@ class GoogleMapsService(
                     return {"data": output.getvalue(), "format": "csv"}
                 return {"data": "", "format": "csv"}
 
-            return {
-                "results": job.results,
-                "format": "json",
-                "count": len(job.results),
-                "job_id": job_id
-            }
+            return {"results": job.results, "format": "json", "count": len(job.results), "job_id": job_id}
 
         except Exception as e:
             logger.error(f"Error getting job results: {e}")
-            return {
-                "error": True,
-                "message": str(e)
-            }
+            return {"error": True, "message": str(e)}
 
     async def list_jobs(
-        self,
-        owner: str,
-        status: str | None = None,
-        limit: int = 50,
-        offset: int = 0
+        self, owner: str, status: str | None = None, limit: int = 50, offset: int = 0
     ) -> list[dict[str, Any]]:
         """
         List all jobs with optional filtering.
@@ -317,19 +267,14 @@ class GoogleMapsService(
             # list_all() was deliberately removed from the store: it returned
             # every tenant's jobs regardless of caller, which was the
             # vulnerability. Only an owner-scoped listing exists now.
-            jobs = await store.list_for_owner(
-                owner, status=status, limit=limit, offset=offset
-            )
+            jobs = await store.list_for_owner(owner, status=status, limit=limit, offset=offset)
 
             # Return in gosom-compatible format
             return [job.to_dict() for job in jobs]
 
         except Exception as e:
             logger.error(f"Error listing jobs: {e}")
-            return {
-                "error": True,
-                "message": str(e)
-            }
+            return {"error": True, "message": str(e)}
 
     async def delete_job(self, job_id: str, owner: str) -> dict[str, Any]:
         """
@@ -350,18 +295,11 @@ class GoogleMapsService(
             if deleted:
                 return {"success": True, "job_id": job_id}
             else:
-                return {
-                    "error": True,
-                    "status_code": 404,
-                    "message": "Job not found"
-                }
+                return {"error": True, "status_code": 404, "message": "Job not found"}
 
         except Exception as e:
             logger.error(f"Error deleting job: {e}")
-            return {
-                "error": True,
-                "message": str(e)
-            }
+            return {"error": True, "message": str(e)}
 
     async def search_and_wait(
         self,
@@ -374,7 +312,7 @@ class GoogleMapsService(
         zoom: int = 15,
         geo_coordinates: str | None = None,
         timeout: int = 300,
-        poll_interval: int = 2
+        poll_interval: int = 2,
     ) -> dict[str, Any]:
         """
         Create a search job and wait for results.
@@ -405,7 +343,7 @@ class GoogleMapsService(
             depth=depth,
             email_extraction=email_extraction,
             zoom=zoom,
-            geo_coordinates=geo_coordinates
+            geo_coordinates=geo_coordinates,
         )
 
         if job_response.get("error"):
@@ -413,11 +351,7 @@ class GoogleMapsService(
 
         job_id = job_response.get("job_id") or job_response.get("id")
         if not job_id:
-            return {
-                "error": True,
-                "message": "No job_id in response",
-                "response": job_response
-            }
+            return {"error": True, "message": "No job_id in response", "response": job_response}
 
         # Poll for completion
         elapsed = 0
@@ -435,12 +369,7 @@ class GoogleMapsService(
                 # Get results
                 return await self.get_job_results(job_id, owner=owner)
             elif status == "failed":
-                return {
-                    "error": True,
-                    "status": "failed",
-                    "job_id": job_id,
-                    "details": status_response
-                }
+                return {"error": True, "status": "failed", "job_id": job_id, "details": status_response}
 
             await asyncio.sleep(poll_interval)
             elapsed += poll_interval
@@ -449,7 +378,7 @@ class GoogleMapsService(
             "error": True,
             "status": "timeout",
             "job_id": job_id,
-            "message": f"Job did not complete within {timeout} seconds"
+            "message": f"Job did not complete within {timeout} seconds",
         }
 
     def process_place_data(self, raw_data: list[dict]) -> list[dict[str, Any]]:
@@ -472,50 +401,43 @@ class GoogleMapsService(
                 "address": place.get("address") or place.get("full_address"),
                 "phone": place.get("phone") or place.get("phone_number"),
                 "website": place.get("website") or place.get("web"),
-
                 # Location
                 "latitude": place.get("latitude") or place.get("lat"),
                 "longitude": place.get("longitude") or place.get("lng"),
                 "plus_code": place.get("plus_code"),
-
                 # Business info
                 "category": place.get("category") or place.get("categories"),
                 "rating": place.get("review_rating") or place.get("rating") or place.get("stars"),
                 "review_count": place.get("review_count") or place.get("reviews_count") or place.get("reviews"),
                 "price_level": place.get("price_range") or place.get("price_level") or place.get("price"),
                 "price_per_person": place.get("price_per_person"),
-
                 # Hours
-                "hours": place.get("open_hours") or place.get("hours") or place.get("opening_hours") or place.get("working_hours"),
+                "hours": place.get("open_hours")
+                or place.get("hours")
+                or place.get("opening_hours")
+                or place.get("working_hours"),
                 "is_open_now": place.get("is_open_now") or place.get("open_now"),
-
                 # Additional details
                 "description": place.get("description") or place.get("about"),
                 "photos": place.get("photos") or place.get("images"),
                 "google_maps_url": place.get("link") or place.get("google_maps_url") or place.get("url"),
-
                 # Action links
                 "menu_link": place.get("menu_link"),
                 "order_link": place.get("order_link"),
                 "reserve_link": place.get("reserve_link"),
-
                 # Service options and amenities
                 "service_options": place.get("service_options") or [],
                 "accessibility": place.get("accessibility") or [],
                 "amenities": place.get("amenities") or [],
-
                 # Popular times
                 "popular_times": place.get("popular_times") or {},
-
                 # Review details
                 "reviews": place.get("reviews_data") or place.get("review_list"),
                 "review_summary": place.get("review_summary"),
                 "review_topics": place.get("review_topics") or [],
                 "sample_reviews": place.get("sample_reviews") or [],
-
                 # Related places
                 "related_places": place.get("related_places") or [],
-
                 # Contact info (from email extraction)
                 "emails": place.get("emails") or place.get("email"),
                 "social_media": {
@@ -523,17 +445,22 @@ class GoogleMapsService(
                     "instagram": place.get("instagram"),
                     "twitter": place.get("twitter"),
                     "linkedin": place.get("linkedin"),
-                    "youtube": place.get("youtube")
-                }
+                    "youtube": place.get("youtube"),
+                },
             }
 
             # Clean up None values in social_media
-            processed_place["social_media"] = {
-                k: v for k, v in processed_place["social_media"].items() if v
-            } or None
+            processed_place["social_media"] = {k: v for k, v in processed_place["social_media"].items() if v} or None
 
             # Clean up empty lists/dicts
-            for key in ["service_options", "accessibility", "amenities", "review_topics", "sample_reviews", "related_places"]:
+            for key in [
+                "service_options",
+                "accessibility",
+                "amenities",
+                "review_topics",
+                "sample_reviews",
+                "related_places",
+            ]:
                 if not processed_place.get(key):
                     processed_place[key] = None
             if not processed_place.get("popular_times"):
@@ -542,7 +469,6 @@ class GoogleMapsService(
             processed.append(processed_place)
 
         return processed
-
 
     # =========================================================================
     # Extended Feature Methods
@@ -575,11 +501,7 @@ class GoogleMapsService(
             logger.error(f"Error getting place by ID: {e}")
             return {"error": True, "message": str(e)}
 
-    async def lookup_place(
-        self,
-        url: str | None = None,
-        place_id: str | None = None
-    ) -> dict[str, Any]:
+    async def lookup_place(self, url: str | None = None, place_id: str | None = None) -> dict[str, Any]:
         """
         Look up a place by URL or Place ID.
 
@@ -630,7 +552,6 @@ class GoogleMapsService(
         except Exception as e:
             logger.error(f"Error looking up place: {e}")
             return {"error": True, "message": str(e)}
-
 
 
 # Singleton instance

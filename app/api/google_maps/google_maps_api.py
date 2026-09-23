@@ -10,6 +10,7 @@ Importing this module runs the package ``__init__`` first, which builds the
 router, so the name below is already bound by the time it is read -- there is
 no import cycle.
 """
+
 from app.api.google_maps import google_maps_router
 
 __all__ = ["google_maps_router"]

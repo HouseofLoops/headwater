@@ -129,6 +129,7 @@ app/
 ```python
 # app/services/reddit/rss_collector.py
 
+
 class RedditRSSCollector:
     """
     Collects posts from Reddit RSS feeds.
@@ -139,11 +140,7 @@ class RedditRSSCollector:
 
     FEED_TYPES = ["new", "hot", "rising", "top"]
 
-    async def fetch_subreddit_feed(
-        self,
-        subreddit: str,
-        feed_type: str = "new"
-    ) -> list[RedditPost]:
+    async def fetch_subreddit_feed(self, subreddit: str, feed_type: str = "new") -> list[RedditPost]:
         """Fetch RSS feed for a subreddit."""
         url = f"https://www.reddit.com/r/{subreddit}/{feed_type}.rss"
         # Parse XML, extract posts, authors
@@ -152,10 +149,7 @@ class RedditRSSCollector:
         """Fetch RSS feed for a user's posts."""
         url = f"https://www.reddit.com/user/{username}.rss"
 
-    async def monitor_subreddits(
-        self,
-        subreddits: list[str]
-    ) -> dict[str, list[RedditPost]]:
+    async def monitor_subreddits(self, subreddits: list[str]) -> dict[str, list[RedditPost]]:
         """Batch monitor multiple subreddits via RSS."""
 ```
 
@@ -163,6 +157,7 @@ class RedditRSSCollector:
 
 ```python
 # app/services/reddit/playwright_scraper.py
+
 
 class RedditPlaywrightScraper:
     """
@@ -182,26 +177,14 @@ class RedditPlaywrightScraper:
         Returns: karma breakdown, account age, trophies, bio, links
         """
 
-    async def scrape_user_posts(
-        self,
-        username: str,
-        limit: int = 100
-    ) -> list[RedditPost]:
+    async def scrape_user_posts(self, username: str, limit: int = 100) -> list[RedditPost]:
         """Scrape user's post history with full metadata."""
 
-    async def scrape_user_comments(
-        self,
-        username: str,
-        limit: int = 100
-    ) -> list[RedditComment]:
+    async def scrape_user_comments(self, username: str, limit: int = 100) -> list[RedditComment]:
         """Scrape user's comment history."""
 
     async def scrape_subreddit_posts(
-        self,
-        subreddit: str,
-        sort: str = "hot",
-        time_filter: str = "week",
-        limit: int = 100
+        self, subreddit: str, sort: str = "hot", time_filter: str = "week", limit: int = 100
     ) -> list[RedditPost]:
         """Deep scrape subreddit with all post metadata."""
 
@@ -218,6 +201,7 @@ class RedditPlaywrightScraper:
 
 ```python
 # app/services/reddit/pullpush_client.py
+
 
 class PullPushClient:
     """
@@ -236,24 +220,16 @@ class PullPushClient:
         q: str = None,
         after: int = None,  # Unix timestamp
         before: int = None,
-        size: int = 100
+        size: int = 100,
     ) -> list[RedditPost]:
         """Search historical submissions."""
 
     async def search_comments(
-        self,
-        subreddit: str = None,
-        author: str = None,
-        q: str = None,
-        size: int = 100
+        self, subreddit: str = None, author: str = None, q: str = None, size: int = 100
     ) -> list[RedditComment]:
         """Search historical comments."""
 
-    async def get_user_history(
-        self,
-        username: str,
-        months_back: int = 12
-    ) -> UserHistory:
+    async def get_user_history(self, username: str, months_back: int = 12) -> UserHistory:
         """Get complete user history for scoring."""
 ```
 
@@ -287,11 +263,13 @@ class PullPushClient:
 from dataclasses import dataclass
 from enum import Enum
 
+
 class ValueCategory(Enum):
     ENGAGEMENT = "engagement"
     INFLUENCE = "influence"
     EXPERTISE = "expertise"
     BUSINESS = "business"
+
 
 @dataclass
 class ScoreWeights:
@@ -299,6 +277,7 @@ class ScoreWeights:
     influence: float = 0.25
     expertise: float = 0.25
     business: float = 0.25
+
 
 class RedditUserScorer:
     """
@@ -335,11 +314,7 @@ class RedditUserScorer:
         awards = min(user.award_karma / 1000, 1.0) * 20
         return followers + avg_upvotes + reach + awards
 
-    def calculate_expertise_score(
-        self,
-        user: RedditUser,
-        target_subreddits: list[str]
-    ) -> float:
+    def calculate_expertise_score(self, user: RedditUser, target_subreddits: list[str]) -> float:
         """
         Domain Expertise Score (0-100):
         - Activity concentration in target subs (40%)
@@ -347,9 +322,7 @@ class RedditUserScorer:
         - Helpful awards received (15%)
         - Account age in domain (15%)
         """
-        concentration = self._calc_subreddit_concentration(
-            user, target_subreddits
-        ) * 40
+        concentration = self._calc_subreddit_concentration(user, target_subreddits) * 40
         quality = min(user.upvote_ratio / 0.9, 1.0) * 30
         helpful = min(user.helpful_awards / 10, 1.0) * 15
         tenure = min(user.domain_months / 24, 1.0) * 15
@@ -369,11 +342,7 @@ class RedditUserScorer:
         verified = 20 if user.is_verified or user.is_premium else 0
         return contact + professional + decision_maker + verified
 
-    def calculate_total_score(
-        self,
-        user: RedditUser,
-        target_subreddits: list[str] = None
-    ) -> UserScore:
+    def calculate_total_score(self, user: RedditUser, target_subreddits: list[str] = None) -> UserScore:
         """Calculate weighted total score with breakdown."""
         engagement = self.calculate_engagement_score(user)
         influence = self.calculate_influence_score(user)
@@ -381,10 +350,10 @@ class RedditUserScorer:
         business = self.calculate_business_score(user)
 
         total = (
-            engagement * self.weights.engagement +
-            influence * self.weights.influence +
-            expertise * self.weights.expertise +
-            business * self.weights.business
+            engagement * self.weights.engagement
+            + influence * self.weights.influence
+            + expertise * self.weights.expertise
+            + business * self.weights.business
         )
 
         return UserScore(
@@ -394,7 +363,7 @@ class RedditUserScorer:
             influence_score=influence,
             expertise_score=expertise,
             business_score=business,
-            tier=self._determine_tier(total)
+            tier=self._determine_tier(total),
         )
 
     def _determine_tier(self, score: float) -> str:
@@ -428,10 +397,12 @@ class RedditUserScorer:
 from enum import Enum
 from datetime import timedelta
 
+
 class MonitoringTier(Enum):
-    HOT = "hot"      # Hourly monitoring
-    WARM = "warm"    # Daily monitoring
-    COLD = "cold"    # Weekly monitoring
+    HOT = "hot"  # Hourly monitoring
+    WARM = "warm"  # Daily monitoring
+    COLD = "cold"  # Weekly monitoring
+
 
 @dataclass
 class TierConfig:
@@ -440,26 +411,19 @@ class TierConfig:
     max_subreddits: int
     scrape_depth: str  # "shallow", "medium", "deep"
 
+
 TIER_CONFIGS = {
     MonitoringTier.HOT: TierConfig(
-        tier=MonitoringTier.HOT,
-        interval=timedelta(hours=1),
-        max_subreddits=50,
-        scrape_depth="medium"
+        tier=MonitoringTier.HOT, interval=timedelta(hours=1), max_subreddits=50, scrape_depth="medium"
     ),
     MonitoringTier.WARM: TierConfig(
-        tier=MonitoringTier.WARM,
-        interval=timedelta(days=1),
-        max_subreddits=500,
-        scrape_depth="medium"
+        tier=MonitoringTier.WARM, interval=timedelta(days=1), max_subreddits=500, scrape_depth="medium"
     ),
     MonitoringTier.COLD: TierConfig(
-        tier=MonitoringTier.COLD,
-        interval=timedelta(weeks=1),
-        max_subreddits=5000,
-        scrape_depth="shallow"
+        tier=MonitoringTier.COLD, interval=timedelta(weeks=1), max_subreddits=5000, scrape_depth="shallow"
     ),
 }
+
 
 class TierManager:
     """
@@ -469,11 +433,7 @@ class TierManager:
     def __init__(self, db: Database):
         self.db = db
 
-    async def assign_tier(
-        self,
-        subreddit: str,
-        tier: MonitoringTier
-    ) -> SubredditMonitor:
+    async def assign_tier(self, subreddit: str, tier: MonitoringTier) -> SubredditMonitor:
         """Assign a subreddit to a monitoring tier."""
 
     async def promote_subreddit(self, subreddit: str) -> MonitoringTier:
@@ -495,10 +455,7 @@ class TierManager:
         Demotes: Low activity, few high-value users found
         """
 
-    async def get_due_subreddits(
-        self,
-        tier: MonitoringTier
-    ) -> list[SubredditMonitor]:
+    async def get_due_subreddits(self, tier: MonitoringTier) -> list[SubredditMonitor]:
         """Get subreddits due for monitoring in a tier."""
 
     async def get_tier_stats(self) -> dict[MonitoringTier, TierStats]:
@@ -509,6 +466,7 @@ class TierManager:
 
 ```python
 # app/workers/reddit/monitor_worker.py
+
 
 class RedditMonitorWorker:
     """
@@ -522,7 +480,7 @@ class RedditMonitorWorker:
         rss_collector: RedditRSSCollector,
         scraper: RedditPlaywrightScraper,
         scorer: RedditUserScorer,
-        db: Database
+        db: Database,
     ):
         self.tier_manager = tier_manager
         self.rss_collector = rss_collector
@@ -544,11 +502,7 @@ class RedditMonitorWorker:
         for sub in due:
             await self.monitor_subreddit(sub, depth="medium")
 
-    async def monitor_subreddit(
-        self,
-        sub: SubredditMonitor,
-        depth: str
-    ):
+    async def monitor_subreddit(self, sub: SubredditMonitor, depth: str):
         """
         Full monitoring cycle for a subreddit:
         1. Fetch new posts via RSS
@@ -558,9 +512,7 @@ class RedditMonitorWorker:
         5. Update database
         """
         # Step 1: Get new posts
-        posts = await self.rss_collector.fetch_subreddit_feed(
-            sub.name, "new"
-        )
+        posts = await self.rss_collector.fetch_subreddit_feed(sub.name, "new")
 
         # Step 2: Extract authors
         authors = {post.author for post in posts}
@@ -636,6 +588,7 @@ from app.services.reddit import RedditService
 
 router = APIRouter()
 
+
 @router.get("/users/search", response_model=list[UserResponse])
 async def search_users(
     min_score: float = Query(0, ge=0, le=100),
@@ -645,7 +598,7 @@ async def search_users(
     sort_by: str = Query("total_score"),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
-    service: RedditService = Depends(get_reddit_service)
+    service: RedditService = Depends(get_reddit_service),
 ):
     """
     Search discovered Reddit users with filtering.
@@ -663,30 +616,28 @@ async def search_users(
         has_contact=has_contact,
         sort_by=sort_by,
         limit=limit,
-        offset=offset
+        offset=offset,
     )
+
 
 @router.get("/leads/export")
 async def export_leads(
     format: str = Query("csv", regex="^(csv|json)$"),
     min_score: float = Query(60),
     include_contact: bool = Query(True),
-    service: RedditService = Depends(get_reddit_service)
+    service: RedditService = Depends(get_reddit_service),
 ):
     """
     Export high-value leads for outreach.
     Returns downloadable CSV or JSON file.
     """
-    leads = await service.get_leads(
-        min_score=min_score,
-        include_contact=include_contact
-    )
+    leads = await service.get_leads(min_score=min_score, include_contact=include_contact)
 
     if format == "csv":
         return StreamingResponse(
             generate_csv(leads),
             media_type="text/csv",
-            headers={"Content-Disposition": "attachment; filename=reddit_leads.csv"}
+            headers={"Content-Disposition": "attachment; filename=reddit_leads.csv"},
         )
     return leads
 ```
@@ -850,6 +801,7 @@ CREATE INDEX idx_user_subreddits_subreddit ON reddit_user_subreddits(subreddit_i
 ```python
 # app/core/config.py - Add Reddit configuration
 
+
 class Settings(BaseSettings):
     # ... existing settings ...
 
@@ -880,6 +832,7 @@ class Settings(BaseSettings):
 
 from app.api.reddit.router import reddit_router
 
+
 def register_routers(app: FastAPI):
     # ... existing routers ...
     app.include_router(google_maps_router)
@@ -897,6 +850,7 @@ def register_routers(app: FastAPI):
 ```python
 # Add to existing health check
 
+
 @router.get("/health")
 async def health_check():
     return {
@@ -906,7 +860,7 @@ async def health_check():
             "database": await check_database(),
             "redis": await check_redis(),
             "reddit_monitor": await check_reddit_monitor(),  # New
-        }
+        },
     }
 ```
 

@@ -4,6 +4,7 @@ Google Trends API Router.
 Provides endpoints for Google Trends data including trending topics,
 interest over time, and related queries.
 """
+
 import asyncio
 import json
 import logging
@@ -31,10 +32,12 @@ class DateRangeTimeframeModel(BaseModel):
     start_date: date = Field(..., description="Start date in YYYY-MM-DD format.")
     end_date: date | None = Field(None, description="End date in YYYY-MM-DD format.")
 
+
 # Create the router
 google_trends_router = APIRouter()
 logger = logging.getLogger("uvicorn")
 logging.basicConfig(level=logging.DEBUG)
+
 
 # -------------------------------------------------------------------------
 # Utility Functions
@@ -46,7 +49,8 @@ def df_to_json(df: pd.DataFrame):
     """
     if df.empty:
         return []
-    return df.reset_index(drop=True).to_dict(orient='records')
+    return df.reset_index(drop=True).to_dict(orient="records")
+
 
 def to_jsonable(value):
     """
@@ -70,10 +74,12 @@ def to_jsonable(value):
         return [to_jsonable(x) for x in value]
     return value
 
+
 # -------------------------------------------------------------------------
 # Header Configuration - imported from app.core.constants
 # REFERER_LIST and USER_AGENT_LIST are used for header rotation
 # -------------------------------------------------------------------------
+
 
 def get_random_headers():
     """
@@ -87,9 +93,10 @@ def get_random_headers():
         "User-Agent": user_agent,
         "Accept-Language": "en-US,en;q=0.9",
         "Accept-Encoding": "gzip, deflate, br",
-        "Connection": "keep-alive"
+        "Connection": "keep-alive",
     }
     return headers
+
 
 # -------------------------------------------------------------------------
 # Timeframe mapping
@@ -198,8 +205,7 @@ def fetch_geo_locations(trends_obj, find=None):
     rows = flatten_geo_tree(trends_obj._parse_protected_json(raw))
     if find:
         needle = find.strip().lower()
-        rows = [r for r in rows if needle in (r["name"] or "").lower()
-                or needle in (r["id"] or "").lower()]
+        rows = [r for r in rows if needle in (r["name"] or "").lower() or needle in (r["id"] or "").lower()]
     return rows
 
 
@@ -285,7 +291,9 @@ def encode_trends_payload(operation: str, raw):
     except Exception as exc:
         logger.error(
             "Could not serialise Google Trends %s response: %s",
-            operation, exc, exc_info=True,
+            operation,
+            exc,
+            exc_info=True,
         )
         raise UpstreamUnavailable(operation, UPSTREAM_UNUSABLE_DETAIL) from exc
 
@@ -326,13 +334,17 @@ def normalise_trending_news(raw):
             except json.JSONDecodeError as exc:
                 logger.error(
                     "Google Trends %s row %d has unparseable JSON: %s",
-                    operation, index, exc,
+                    operation,
+                    index,
+                    exc,
                 )
                 raise UpstreamUnavailable(operation, UPSTREAM_UNUSABLE_DETAIL) from exc
         elif not isinstance(news_data, (dict, list)):
             logger.error(
                 "Google Trends %s row %d news payload is %s",
-                operation, index, type(news_data),
+                operation,
+                index,
+                type(news_data),
             )
             raise UpstreamUnavailable(operation, UPSTREAM_UNUSABLE_DETAIL)
 
@@ -362,6 +374,7 @@ async def get_trends_instance():
         logger.debug("TrendSpy is not using any proxy.")
         return Trends(headers=headers)
 
+
 # -------------------------------------------------------------------------
 # 1) Interest Over Time
 # -------------------------------------------------------------------------
@@ -376,7 +389,7 @@ async def interest_over_time(
     cat: str | None = Query(None, description="Category ID (e.g., 13=Computers)"),
     gprop: str | None = Query(None, description="Property: images, youtube, news, froogle"),
     # === AUTH ===
-    rate_limit: None = Depends(rate_limit)
+    rate_limit: None = Depends(rate_limit),
 ):
     """Get search interest over time for keywords."""
     try:
@@ -386,12 +399,7 @@ async def interest_over_time(
 
         # Generate cache key
         cache_key = generate_cache_key(
-            "trends_interest_over_time",
-            keywords=keywords,
-            timeframe=timeframe,
-            geo=geo,
-            cat=cat,
-            gprop=gprop
+            "trends_interest_over_time", keywords=keywords, timeframe=timeframe, geo=geo, cat=cat, gprop=gprop
         )
 
         async def fetch_interest_over_time():
@@ -421,6 +429,7 @@ async def interest_over_time(
         logger.error(f"Error in interest_over_time: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
+
 # -------------------------------------------------------------------------
 # 2) Interest By Region
 # -------------------------------------------------------------------------
@@ -435,18 +444,13 @@ async def interest_by_region(
     # === FILTERS ===
     cat: str | None = Query(None, description="Category ID"),
     # === AUTH ===
-    rate_limit: None = Depends(rate_limit)
+    rate_limit: None = Depends(rate_limit),
 ):
     """Get geographic breakdown of search interest."""
     try:
         # Generate cache key
         cache_key = generate_cache_key(
-            "trends_interest_by_region",
-            keyword=keyword,
-            timeframe=timeframe,
-            geo=geo,
-            cat=cat,
-            resolution=resolution
+            "trends_interest_by_region", keyword=keyword, timeframe=timeframe, geo=geo, cat=cat, resolution=resolution
         )
 
         async def fetch_interest_by_region():
@@ -475,6 +479,7 @@ async def interest_by_region(
         logger.error(f"Error in interest_by_region: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
+
 # -------------------------------------------------------------------------
 # 3) Related Queries (Uses a Custom Referer in the Headers)
 # -------------------------------------------------------------------------
@@ -489,18 +494,13 @@ async def related_queries(
     cat: str | None = Query(None, description="Category ID"),
     gprop: str | None = Query(None, description="Property: images, youtube, news, froogle"),
     # === AUTH ===
-    rate_limit: None = Depends(rate_limit)
+    rate_limit: None = Depends(rate_limit),
 ):
     """Get related search queries (rising and top)."""
     try:
         # Generate cache key
         cache_key = generate_cache_key(
-            "trends_related_queries",
-            keyword=keyword,
-            timeframe=timeframe,
-            geo=geo,
-            cat=cat,
-            gprop=gprop
+            "trends_related_queries", keyword=keyword, timeframe=timeframe, geo=geo, cat=cat, gprop=gprop
         )
 
         async def fetch_related_queries():
@@ -529,6 +529,7 @@ async def related_queries(
         logger.error(f"Error in related_queries: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
+
 # -------------------------------------------------------------------------
 # 4) Related Topics
 # -------------------------------------------------------------------------
@@ -543,18 +544,13 @@ async def related_topics(
     cat: str | None = Query(None, description="Category ID"),
     gprop: str | None = Query(None, description="Property: images, youtube, news, froogle"),
     # === AUTH ===
-    rate_limit: None = Depends(rate_limit)
+    rate_limit: None = Depends(rate_limit),
 ):
     """Get related topics (rising and top)."""
     try:
         # Generate cache key
         cache_key = generate_cache_key(
-            "trends_related_topics",
-            keyword=keyword,
-            timeframe=timeframe,
-            geo=geo,
-            cat=cat,
-            gprop=gprop
+            "trends_related_topics", keyword=keyword, timeframe=timeframe, geo=geo, cat=cat, gprop=gprop
         )
 
         async def fetch_related_topics():
@@ -583,6 +579,7 @@ async def related_topics(
         logger.error(f"Error in related_topics: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
+
 # -------------------------------------------------------------------------
 # 5) Trending Now
 # -------------------------------------------------------------------------
@@ -591,15 +588,12 @@ async def trending_now(
     # === COMMONLY USED ===
     geo: str | None = Query("US", description="Location code (US, GB)", examples=["US"]),
     # === AUTH ===
-    rate_limit: None = Depends(rate_limit)
+    rate_limit: None = Depends(rate_limit),
 ):
     """Get current trending searches."""
     try:
         # Generate cache key
-        cache_key = generate_cache_key(
-            "trends_trending_now",
-            geo=geo
-        )
+        cache_key = generate_cache_key("trends_trending_now", geo=geo)
 
         async def fetch_trending_now():
             trends_obj = await get_trends_instance()
@@ -624,6 +618,7 @@ async def trending_now(
         logger.error(f"Error in trending_now: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
+
 # -------------------------------------------------------------------------
 # 6) Trending Now by RSS
 # -------------------------------------------------------------------------
@@ -632,15 +627,12 @@ async def trending_now_by_rss(
     # === COMMONLY USED ===
     geo: str | None = Query("US", description="Location code (US, GB)", examples=["US"]),
     # === AUTH ===
-    rate_limit: None = Depends(rate_limit)
+    rate_limit: None = Depends(rate_limit),
 ):
     """Get trending searches with related news via RSS."""
     try:
         # Generate cache key
-        cache_key = generate_cache_key(
-            "trends_trending_now_by_rss",
-            geo=geo
-        )
+        cache_key = generate_cache_key("trends_trending_now_by_rss", geo=geo)
 
         async def fetch_trending_now_by_rss():
             trends_obj = await get_trends_instance()
@@ -665,6 +657,7 @@ async def trending_now_by_rss(
         logger.error(f"Error in trending_now_by_rss: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
+
 # -------------------------------------------------------------------------
 # 7) Trending Now News by IDs
 # -------------------------------------------------------------------------
@@ -675,7 +668,7 @@ async def trending_now_news_by_ids(
     # === OPTIONS ===
     max_news: int = Query(3, description="Max articles to retrieve", examples=[3]),
     # === AUTH ===
-    rate_limit: None = Depends(rate_limit)
+    rate_limit: None = Depends(rate_limit),
 ):
     """Get related news articles for news tokens."""
     try:
@@ -689,11 +682,7 @@ async def trending_now_news_by_ids(
             raise HTTPException(status_code=400, detail="No valid news tokens provided.")
 
         # Generate cache key
-        cache_key = generate_cache_key(
-            "trends_trending_now_news_by_ids",
-            news_tokens=news_tokens,
-            max_news=max_news
-        )
+        cache_key = generate_cache_key("trends_trending_now_news_by_ids", news_tokens=news_tokens, max_news=max_news)
 
         async def fetch_trending_now_news_by_ids():
             trends_obj = await get_trends_instance()
@@ -722,6 +711,7 @@ async def trending_now_news_by_ids(
         logger.error(f"Error in trending_now_news_by_ids: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
+
 # -------------------------------------------------------------------------
 # 8) Trending Now Showcase Timeline (Independent Historical Data)
 # -------------------------------------------------------------------------
@@ -731,7 +721,7 @@ async def trending_now_showcase_timeline(
     keywords: str = Query(..., description="Comma-separated keywords", examples=["python,javascript"]),
     timeframe: HumanFriendlyBatchPeriod = Query(..., description="Time range: past_4h, past_24h, past_48h, past_7d"),
     # === AUTH ===
-    rate_limit: None = Depends(rate_limit)
+    rate_limit: None = Depends(rate_limit),
 ):
     """Get trending timeline data for keywords."""
     try:
@@ -748,9 +738,7 @@ async def trending_now_showcase_timeline(
 
         # Generate cache key
         cache_key = generate_cache_key(
-            "trends_trending_now_showcase_timeline",
-            keywords=keywords,
-            timeframe=timeframe.value
+            "trends_trending_now_showcase_timeline", keywords=keywords, timeframe=timeframe.value
         )
 
         async def fetch_trending_now_showcase_timeline():
@@ -768,22 +756,17 @@ async def trending_now_showcase_timeline(
                 logger.info("Google Trends returned no showcase timeline rows")
                 return empty_trends_response("No timeline data was returned.")
 
-            return {
-                "data": encode_trends_payload(
-                    "trending_now_showcase_timeline", raw_results
-                )
-            }
+            return {"data": encode_trends_payload("trending_now_showcase_timeline", raw_results)}
 
         # Get cached result or fetch and cache
-        return await cached_trends_response(
-            cache_key, fetch_trending_now_showcase_timeline
-        )
+        return await cached_trends_response(cache_key, fetch_trending_now_showcase_timeline)
 
     except HTTPException as http_exc:
         raise http_exc
     except Exception as e:
         logger.error(f"Error in trending_now_showcase_timeline: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Internal Server Error")
+
 
 # -------------------------------------------------------------------------
 # 9) Categories
@@ -794,16 +777,12 @@ async def get_categories(
     find: str | None = Query(None, description="Search category names", examples=["tech"]),
     root: str | None = Query(None, description="Root category ID for subcategories"),
     # === AUTH ===
-    rate_limit: None = Depends(rate_limit)
+    rate_limit: None = Depends(rate_limit),
 ):
     """Search or list Google Trends categories."""
     try:
         # Generate cache key
-        cache_key = generate_cache_key(
-            "trends_categories",
-            find=find,
-            root=root
-        )
+        cache_key = generate_cache_key("trends_categories", find=find, root=root)
 
         async def fetch_categories():
             trends_obj = await get_trends_instance()
@@ -828,6 +807,7 @@ async def get_categories(
         logger.error(f"Error in get_categories: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
+
 # -------------------------------------------------------------------------
 # 10) Geo
 # -------------------------------------------------------------------------
@@ -836,7 +816,7 @@ async def get_geo(
     # === SEARCH OPTIONS ===
     find: str | None = Query(None, description="Search location names", examples=["york"]),
     # === AUTH ===
-    rate_limit: None = Depends(rate_limit)
+    rate_limit: None = Depends(rate_limit),
 ):
     """Search available geolocation codes (countries, states, cities)."""
     try:
@@ -862,17 +842,22 @@ async def get_geo(
                 )
                 return {"rows": rows}
 
-            all_rows = (await cached_trends_response(
-                generate_cache_key("trends_geo_all", language=trends_obj.language),
-                fetch_all,
-                ttl=REFERENCE_DATA_TTL_SECONDS,
-            ) or {}).get("rows") or []
+            all_rows = (
+                await cached_trends_response(
+                    generate_cache_key("trends_geo_all", language=trends_obj.language),
+                    fetch_all,
+                    ttl=REFERENCE_DATA_TTL_SECONDS,
+                )
+                or {}
+            ).get("rows") or []
 
             if find:
                 needle = find.strip().lower()
-                raw_results = [r for r in all_rows
-                               if needle in (r.get("name") or "").lower()
-                               or needle in (r.get("id") or "").lower()]
+                raw_results = [
+                    r
+                    for r in all_rows
+                    if needle in (r.get("name") or "").lower() or needle in (r.get("id") or "").lower()
+                ]
             else:
                 raw_results = all_rows
 

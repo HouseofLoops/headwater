@@ -142,9 +142,7 @@ class TestDnsResolution:
 
     def test_public_address_accepted(self):
         with self._with_resolved(["142.250.72.238"]):
-            result = validate_outbound_url(
-                "https://news.google.com/x", allowed_hosts=NEWS
-            )
+            result = validate_outbound_url("https://news.google.com/x", allowed_hosts=NEWS)
         assert result.ip_addresses == ("142.250.72.238",)
 
     @pytest.mark.parametrize(
@@ -199,9 +197,7 @@ class TestDnsResolution:
         # Callers pin to these to close the DNS-rebinding window between
         # validation and the actual connection.
         with self._with_resolved(["142.250.72.238", "142.250.72.239"]):
-            result = validate_outbound_url(
-                "https://news.google.com/x", allowed_hosts=NEWS
-            )
+            result = validate_outbound_url("https://news.google.com/x", allowed_hosts=NEWS)
         assert len(result.ip_addresses) == 2
 
 

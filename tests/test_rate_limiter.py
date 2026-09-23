@@ -13,6 +13,7 @@ These cover the CRT-8 regressions:
   * backend failures fail closed by default (and fail open only when the
     operator explicitly asks for it).
 """
+
 import asyncio
 import contextlib
 import time
@@ -51,6 +52,7 @@ from app.core.rate_limiter import (
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def settings_stub(**overrides):
     """Build a settings-like object for the limiter."""
@@ -103,10 +105,7 @@ class FakePipeline:
         return self
 
     async def execute(self):
-        return [
-            self._client.incr_sync(key) if op == "incr" else self._client.ttl_sync(key)
-            for op, key in self._ops
-        ]
+        return [self._client.incr_sync(key) if op == "incr" else self._client.ttl_sync(key) for op, key in self._ops]
 
 
 class FakeRedisClient:
@@ -166,9 +165,17 @@ def fake_redis_manager(client=None):
 
 
 ISOLATED_ENV_VARS = (
-    "WEB_CONCURRENCY", "UVICORN_WORKERS", "GUNICORN_WORKERS", "WORKERS",
-    "RATE_LIMIT_FAIL_OPEN", "RATE_LIMIT_ENABLED", "RATE_LIMIT_REQUESTS",
-    "RATE_LIMIT_TIMEFRAME", "REDIS_URL", "API_KEYS", "API_KEY",
+    "WEB_CONCURRENCY",
+    "UVICORN_WORKERS",
+    "GUNICORN_WORKERS",
+    "WORKERS",
+    "RATE_LIMIT_FAIL_OPEN",
+    "RATE_LIMIT_ENABLED",
+    "RATE_LIMIT_REQUESTS",
+    "RATE_LIMIT_TIMEFRAME",
+    "REDIS_URL",
+    "API_KEYS",
+    "API_KEY",
 )
 
 
@@ -195,12 +202,12 @@ def _isolate_rate_limiter(monkeypatch):
 # Construction / configuration
 # ---------------------------------------------------------------------------
 
+
 class TestRateLimiter:
     """Test cases for RateLimiter configuration."""
 
     def test_init_with_settings(self):
-        limiter_ = RateLimiter(settings=settings_stub(
-            RATE_LIMIT_REQUESTS=50, RATE_LIMIT_TIMEFRAME=1800))
+        limiter_ = RateLimiter(settings=settings_stub(RATE_LIMIT_REQUESTS=50, RATE_LIMIT_TIMEFRAME=1800))
 
         assert limiter_.enabled is True
         assert limiter_.requests == 50
@@ -219,8 +226,7 @@ class TestRateLimiter:
         assert limiter_.enabled is False
 
     def test_explicit_overrides_win_over_settings(self):
-        limiter_ = RateLimiter(requests=7, timeframe=11,
-                               settings=settings_stub(RATE_LIMIT_REQUESTS=100))
+        limiter_ = RateLimiter(requests=7, timeframe=11, settings=settings_stub(RATE_LIMIT_REQUESTS=100))
         assert limiter_.requests == 7
         assert limiter_.timeframe == 11
 
@@ -237,6 +243,7 @@ class TestRateLimiter:
 # ---------------------------------------------------------------------------
 # Key derivation  (bug #1)
 # ---------------------------------------------------------------------------
+
 
 class TestRateLimitKey:
     """The key must come from the API key header, not from an awaited dependency."""
@@ -287,10 +294,8 @@ class TestRateLimitKey:
     @pytest.mark.asyncio
     async def test_same_api_key_from_different_ips_shares_a_bucket(self):
         limiter_ = RateLimiter(settings=settings_stub(API_KEYS=["key-a"]))
-        key_1 = await limiter_._get_rate_limit_key(
-            make_request(api_key="key-a", host="10.0.0.1"))
-        key_2 = await limiter_._get_rate_limit_key(
-            make_request(api_key="key-a", host="10.0.0.2"))
+        key_1 = await limiter_._get_rate_limit_key(make_request(api_key="key-a", host="10.0.0.1"))
+        key_2 = await limiter_._get_rate_limit_key(make_request(api_key="key-a", host="10.0.0.2"))
 
         assert key_1 == key_2
 
@@ -324,10 +329,8 @@ class TestRateLimitKey:
     async def test_unknown_api_key_cannot_mint_a_fresh_bucket(self):
         """Rotating made-up API keys must not escape the IP bucket."""
         limiter_ = RateLimiter(settings=settings_stub(API_KEYS=["known"]))
-        key_1 = await limiter_._get_rate_limit_key(
-            make_request(api_key="forged-1", host="10.1.1.1"))
-        key_2 = await limiter_._get_rate_limit_key(
-            make_request(api_key="forged-2", host="10.1.1.1"))
+        key_1 = await limiter_._get_rate_limit_key(make_request(api_key="forged-1", host="10.1.1.1"))
+        key_2 = await limiter_._get_rate_limit_key(make_request(api_key="forged-2", host="10.1.1.1"))
 
         assert key_1 == key_2 == f"{IP_KEY_PREFIX}10.1.1.1"
 
@@ -349,11 +352,14 @@ class TestRateLimitKey:
 class TestApiKeyEnvParsing:
     """Both encodings of API_KEYS must yield the same key set."""
 
-    @pytest.mark.parametrize("raw", [
-        '["key-a", "key-b"]',      # JSON array (what pydantic-settings decodes)
-        "key-a,key-b",             # comma separated (what assemble_api_keys expects)
-        " key-a , key-b ",
-    ])
+    @pytest.mark.parametrize(
+        "raw",
+        [
+            '["key-a", "key-b"]',  # JSON array (what pydantic-settings decodes)
+            "key-a,key-b",  # comma separated (what assemble_api_keys expects)
+            " key-a , key-b ",
+        ],
+    )
     def test_both_encodings_parse_identically(self, monkeypatch, raw):
         monkeypatch.setenv("API_KEYS", raw)
         assert parse_api_keys_env() == {"key-a", "key-b"}
@@ -397,6 +403,7 @@ class TestStateReset:
 # ---------------------------------------------------------------------------
 # Counting
 # ---------------------------------------------------------------------------
+
 
 class TestIsRateLimited:
     """Test the counting behaviour of the in-memory backend."""
@@ -494,6 +501,7 @@ class TestIsRateLimited:
 # Responses  (429 + Retry-After)
 # ---------------------------------------------------------------------------
 
+
 class TestLimitResponses:
     """Test the middleware and dependency response paths."""
 
@@ -555,13 +563,13 @@ class TestLimitResponses:
 # Failure policy  (bug #5)
 # ---------------------------------------------------------------------------
 
+
 class TestFailurePolicy:
     """A limiter error must fail closed unless the operator opts out."""
 
     @staticmethod
     def _broken_limiter():
-        limiter_ = RateLimiter(requests=5, timeframe=60, settings=settings_stub(
-            REDIS_URL="redis://localhost:6379/0"))
+        limiter_ = RateLimiter(requests=5, timeframe=60, settings=settings_stub(REDIS_URL="redis://localhost:6379/0"))
         broken = MagicMock()
         broken.is_available = True
         broken.rate_limit_check = AsyncMock(side_effect=RuntimeError("redis down"))
@@ -570,8 +578,7 @@ class TestFailurePolicy:
     @pytest.mark.asyncio
     async def test_backend_error_is_not_swallowed(self):
         limiter_, broken = self._broken_limiter()
-        with patch("app.core.rate_limiter._get_redis_manager",
-                   AsyncMock(return_value=broken)):
+        with patch("app.core.rate_limiter._get_redis_manager", AsyncMock(return_value=broken)):
             with pytest.raises(RateLimiterBackendError):
                 await limiter_.is_rate_limited(make_request())
 
@@ -579,8 +586,7 @@ class TestFailurePolicy:
     async def test_backend_error_fails_closed_as_middleware(self):
         limiter_, broken = self._broken_limiter()
         call_next = AsyncMock()
-        with patch("app.core.rate_limiter._get_redis_manager",
-                   AsyncMock(return_value=broken)):
+        with patch("app.core.rate_limiter._get_redis_manager", AsyncMock(return_value=broken)):
             result = await limiter_.limit(make_request(), call_next)
 
         assert isinstance(result, JSONResponse)
@@ -591,8 +597,7 @@ class TestFailurePolicy:
     @pytest.mark.asyncio
     async def test_backend_error_fails_closed_as_dependency(self):
         limiter_, broken = self._broken_limiter()
-        with patch("app.core.rate_limiter._get_redis_manager",
-                   AsyncMock(return_value=broken)):
+        with patch("app.core.rate_limiter._get_redis_manager", AsyncMock(return_value=broken)):
             with pytest.raises(ServiceUnavailableError):
                 await limiter_.limit(make_request())
 
@@ -602,8 +607,7 @@ class TestFailurePolicy:
         limiter_, broken = self._broken_limiter()
         call_next = AsyncMock(return_value="ok")
 
-        with patch("app.core.rate_limiter._get_redis_manager",
-                   AsyncMock(return_value=broken)):
+        with patch("app.core.rate_limiter._get_redis_manager", AsyncMock(return_value=broken)):
             result = await limiter_.limit(make_request(), call_next)
 
         assert result == "ok"
@@ -614,8 +618,7 @@ class TestFailurePolicy:
         limiter_ = RateLimiter()  # no override -> resolves settings lazily
         call_next = AsyncMock()
 
-        with patch("app.core.rate_limiter.get_settings",
-                   side_effect=RuntimeError("settings exploded")):
+        with patch("app.core.rate_limiter.get_settings", side_effect=RuntimeError("settings exploded")):
             with pytest.raises(RateLimiterConfigurationError):
                 _ = limiter_.enabled
 
@@ -632,26 +635,22 @@ class TestFailurePolicy:
         reach Redis. A request that was never counted must not be reported as
         allowed.
         """
-        limiter_ = RateLimiter(requests=5, timeframe=60, settings=settings_stub(
-            REDIS_URL="redis://localhost:6379/0"))
+        limiter_ = RateLimiter(requests=5, timeframe=60, settings=settings_stub(REDIS_URL="redis://localhost:6379/0"))
         manager = MagicMock()
         manager.is_available = True
         manager.rate_limit_check = AsyncMock(return_value=(True, 0, 0))
 
-        with patch("app.core.rate_limiter._get_redis_manager",
-                   AsyncMock(return_value=manager)):
+        with patch("app.core.rate_limiter._get_redis_manager", AsyncMock(return_value=manager)):
             with pytest.raises(RateLimiterBackendError):
                 await limiter_.is_rate_limited(make_request())
 
     @pytest.mark.asyncio
     async def test_configured_redis_that_is_down_does_not_fall_back_to_memory(self):
-        limiter_ = RateLimiter(requests=1, timeframe=60, settings=settings_stub(
-            REDIS_URL="redis://localhost:6379/0"))
+        limiter_ = RateLimiter(requests=1, timeframe=60, settings=settings_stub(REDIS_URL="redis://localhost:6379/0"))
         manager = MagicMock()
         manager.is_available = False
 
-        with patch("app.core.rate_limiter._get_redis_manager",
-                   AsyncMock(return_value=manager)):
+        with patch("app.core.rate_limiter._get_redis_manager", AsyncMock(return_value=manager)):
             with pytest.raises(RateLimiterBackendError):
                 await limiter_.is_rate_limited(make_request())
 
@@ -662,31 +661,28 @@ class TestFailurePolicy:
 # Redis backend across simulated workers  (bug #2)
 # ---------------------------------------------------------------------------
 
+
 class TestRedisBackend:
     """The Redis path must share one budget across worker processes."""
 
     @pytest.mark.asyncio
     async def test_redis_enforces_across_simulated_workers(self):
         manager = fake_redis_manager()
-        settings = settings_stub(REDIS_URL="redis://localhost:6379/0",
-                                 API_KEYS=["shared-key"])
+        settings = settings_stub(REDIS_URL="redis://localhost:6379/0", API_KEYS=["shared-key"])
 
         # Two RateLimiter instances == two worker processes sharing one store.
         worker_1 = RateLimiter(requests=3, timeframe=60, settings=settings)
         worker_2 = RateLimiter(requests=3, timeframe=60, settings=settings)
 
         results = []
-        with patch("app.core.rate_limiter._get_redis_manager",
-                   AsyncMock(return_value=manager)):
+        with patch("app.core.rate_limiter._get_redis_manager", AsyncMock(return_value=manager)):
             for index in range(4):
                 worker = worker_1 if index % 2 == 0 else worker_2
-                is_limited, _ = await worker.is_rate_limited(
-                    make_request(api_key="shared-key"))
+                is_limited, _ = await worker.is_rate_limited(make_request(api_key="shared-key"))
                 results.append(is_limited)
 
         assert results == [False, False, False, True], (
-            "4 requests against a limit of 3 must be blocked no matter which "
-            "worker served them"
+            "4 requests against a limit of 3 must be blocked no matter which worker served them"
         )
         assert _rate_limit_store == {}, "Redis path must not touch the in-memory store"
 
@@ -694,12 +690,10 @@ class TestRedisBackend:
     async def test_redis_keys_are_per_api_key(self):
         client = FakeRedisClient()
         manager = fake_redis_manager(client)
-        settings = settings_stub(REDIS_URL="redis://localhost:6379/0",
-                                 API_KEYS=["key-a", "key-b"])
+        settings = settings_stub(REDIS_URL="redis://localhost:6379/0", API_KEYS=["key-a", "key-b"])
         limiter_ = RateLimiter(requests=1, timeframe=60, settings=settings)
 
-        with patch("app.core.rate_limiter._get_redis_manager",
-                   AsyncMock(return_value=manager)):
+        with patch("app.core.rate_limiter._get_redis_manager", AsyncMock(return_value=manager)):
             await limiter_.is_rate_limited(make_request(api_key="key-a"))
             limited_b, _ = await limiter_.is_rate_limited(make_request(api_key="key-b"))
 
@@ -714,8 +708,7 @@ class TestRedisBackend:
         settings = settings_stub(REDIS_URL="redis://localhost:6379/0")
         limiter_ = RateLimiter(requests=1, timeframe=60, settings=settings)
 
-        with patch("app.core.rate_limiter._get_redis_manager",
-                   AsyncMock(return_value=manager)):
+        with patch("app.core.rate_limiter._get_redis_manager", AsyncMock(return_value=manager)):
             await limiter_.is_rate_limited(make_request())
             limited, _ = await limiter_.is_rate_limited(make_request())
             assert limited is True
@@ -731,6 +724,7 @@ class TestRedisBackend:
 # Deployment validation  (bug #2)
 # ---------------------------------------------------------------------------
 
+
 class TestDeploymentValidation:
     """Refuse to run multi-worker in production without a shared store."""
 
@@ -745,11 +739,14 @@ class TestDeploymentValidation:
         monkeypatch.setenv("WEB_CONCURRENCY", "not-a-number")
         assert get_worker_count() == 1
 
-    @pytest.mark.parametrize("argv", [
-        ["uvicorn", "main:app", "--workers", "4"],
-        ["uvicorn", "main:app", "--workers=4"],
-        ["gunicorn", "-w", "4", "main:app"],
-    ])
+    @pytest.mark.parametrize(
+        "argv",
+        [
+            ["uvicorn", "main:app", "--workers", "4"],
+            ["uvicorn", "main:app", "--workers=4"],
+            ["gunicorn", "-w", "4", "main:app"],
+        ],
+    )
     def test_worker_count_reads_the_command_line(self, monkeypatch, argv):
         """uvicorn/gunicorn --workers sets no environment variable."""
         monkeypatch.setattr("sys.argv", argv)
@@ -774,8 +771,7 @@ class TestDeploymentValidation:
 
     def test_production_multi_worker_with_redis_is_allowed(self, monkeypatch):
         monkeypatch.setenv("WEB_CONCURRENCY", "4")
-        settings = settings_stub(ENVIRONMENT="production",
-                                 REDIS_URL="redis://localhost:6379/0")
+        settings = settings_stub(ENVIRONMENT="production", REDIS_URL="redis://localhost:6379/0")
 
         assert requires_shared_store(settings) is False
         validate_rate_limit_configuration(settings)  # must not raise
@@ -807,9 +803,7 @@ class TestDeploymentValidation:
         await shutdown_rate_limiting()
 
     @pytest.mark.asyncio
-    async def test_requests_are_rejected_if_startup_validation_was_bypassed(
-        self, monkeypatch
-    ):
+    async def test_requests_are_rejected_if_startup_validation_was_bypassed(self, monkeypatch):
         monkeypatch.setenv("WEB_CONCURRENCY", "4")
         settings = settings_stub(ENVIRONMENT="production", REDIS_URL=None)
         limiter_ = RateLimiter(requests=5, timeframe=60, settings=settings)
@@ -822,6 +816,7 @@ class TestDeploymentValidation:
 # Middleware
 # ---------------------------------------------------------------------------
 
+
 class TestRateLimitMiddleware:
     """Test cases for RateLimitMiddleware class."""
 
@@ -832,8 +827,7 @@ class TestRateLimitMiddleware:
 
     @pytest.mark.asyncio
     async def test_dispatch_not_limited(self):
-        middleware = RateLimitMiddleware(MagicMock(), requests=5, timeframe=60,
-                                         settings=settings_stub())
+        middleware = RateLimitMiddleware(MagicMock(), requests=5, timeframe=60, settings=settings_stub())
         response = MagicMock()
         response.headers = {}
         result = await middleware.dispatch(make_request(), AsyncMock(return_value=response))
@@ -841,8 +835,7 @@ class TestRateLimitMiddleware:
 
     @pytest.mark.asyncio
     async def test_dispatch_rate_limited(self):
-        middleware = RateLimitMiddleware(MagicMock(), requests=1, timeframe=60,
-                                         settings=settings_stub())
+        middleware = RateLimitMiddleware(MagicMock(), requests=1, timeframe=60, settings=settings_stub())
         request = make_request()
 
         await middleware.dispatch(request, AsyncMock(return_value=MagicMock(headers={})))
@@ -855,6 +848,7 @@ class TestRateLimitMiddleware:
 # ---------------------------------------------------------------------------
 # Module-level dependency
 # ---------------------------------------------------------------------------
+
 
 class TestGlobalFunctions:
     """Test cases for global functions and dependencies."""
@@ -891,6 +885,7 @@ class TestGlobalFunctions:
 # ---------------------------------------------------------------------------
 # Cleanup task  (bug #3)
 # ---------------------------------------------------------------------------
+
 
 class TestCleanupTask:
     """The cleanup task must actually purge, and must be cancellable."""
@@ -983,6 +978,7 @@ class TestCleanupTask:
 # ---------------------------------------------------------------------------
 # Store
 # ---------------------------------------------------------------------------
+
 
 class TestRateLimitStore:
     """Test cases for the in-memory rate limit store."""

@@ -10,6 +10,7 @@ cleanup); the previous check imported SQLAlchemy/asyncpg, neither of which
 was ever a declared dependency, and it ``await``-ed an async generator, so
 it could never have succeeded.
 """
+
 import asyncio
 import logging
 import time
@@ -28,20 +29,17 @@ logger = logging.getLogger(__name__)
 async def check_redis_connection() -> dict[str, Any]:
     """
     Check the Redis connection.
-    
+
     Returns:
         Dict[str, Any]: Status information
-        
+
     Raises:
         ServiceUnavailableError: If Redis is unavailable
     """
     settings = get_settings()
 
     if not settings.REDIS_URL:
-        return {
-            "status": "skipped",
-            "message": "Redis URL not configured"
-        }
+        return {"status": "skipped", "message": "Redis URL not configured"}
 
     try:
         # Import here to avoid circular imports
@@ -55,10 +53,7 @@ async def check_redis_connection() -> dict[str, Any]:
         redis_client = await manager.get_client() if manager and manager.is_available else None
 
         if not redis_client:
-            return {
-                "status": "skipped",
-                "message": "Redis client not initialized"
-            }
+            return {"status": "skipped", "message": "Redis client not initialized"}
 
         # Ping Redis
         start_time = time.time()
@@ -70,33 +65,24 @@ async def check_redis_connection() -> dict[str, Any]:
             return {
                 "status": "healthy",
                 "message": "Redis connection successful",
-                "response_time_ms": round(response_time * 1000, 2)
+                "response_time_ms": round(response_time * 1000, 2),
             }
         else:
-            raise ServiceUnavailableError(
-                detail="Redis ping failed",
-                error_type="redis_unavailable"
-            )
+            raise ServiceUnavailableError(detail="Redis ping failed", error_type="redis_unavailable")
     except ImportError:
-        return {
-            "status": "skipped",
-            "message": "Redis module not available"
-        }
+        return {"status": "skipped", "message": "Redis module not available"}
     except Exception as e:
         logger.exception("Redis health check failed")
-        raise ServiceUnavailableError(
-            detail=f"Redis connection failed: {e!s}",
-            error_type="redis_unavailable"
-        )
+        raise ServiceUnavailableError(detail=f"Redis connection failed: {e!s}", error_type="redis_unavailable")
 
 
 async def check_external_apis() -> dict[str, Any]:
     """
     Check external APIs.
-    
+
     Returns:
         Dict[str, Any]: Status information
-        
+
     Raises:
         ServiceUnavailableError: If any external API is unavailable
     """
@@ -124,22 +110,18 @@ async def check_external_apis() -> dict[str, Any]:
                         "status": "healthy",
                         "message": f"{name} API is available",
                         "response_time_ms": round(response_time * 1000, 2),
-                        "status_code": response.status_code
+                        "status_code": response.status_code,
                     }
                 else:
                     results[name] = {
                         "status": "unhealthy",
                         "message": f"{name} API returned error status",
                         "response_time_ms": round(response_time * 1000, 2),
-                        "status_code": response.status_code
+                        "status_code": response.status_code,
                     }
             except Exception as e:
                 logger.warning(f"API health check failed for {name}: {e!s}")
-                results[name] = {
-                    "status": "unhealthy",
-                    "message": f"{name} API is unavailable: {e!s}",
-                    "error": str(e)
-                }
+                results[name] = {"status": "unhealthy", "message": f"{name} API is unavailable: {e!s}", "error": str(e)}
 
     # Check if any API is unhealthy
     unhealthy_apis = [name for name, result in results.items() if result["status"] == "unhealthy"]
@@ -149,15 +131,17 @@ async def check_external_apis() -> dict[str, Any]:
 
     return {
         "status": "healthy" if not unhealthy_apis else "degraded",
-        "message": "All external APIs are available" if not unhealthy_apis else f"Some external APIs are unavailable: {', '.join(unhealthy_apis)}",
-        "apis": results
+        "message": "All external APIs are available"
+        if not unhealthy_apis
+        else f"Some external APIs are unavailable: {', '.join(unhealthy_apis)}",
+        "apis": results,
     }
 
 
 async def check_system_resources() -> dict[str, Any]:
     """
     Check system resources.
-    
+
     Returns:
         Dict[str, Any]: Status information
     """
@@ -178,59 +162,44 @@ async def check_system_resources() -> dict[str, Any]:
         return {
             "status": "healthy",
             "message": "System resources checked",
-            "cpu": {
-                "percent": cpu_percent,
-                "status": "healthy" if cpu_percent < 90 else "warning"
-            },
-            "memory": {
-                "percent": memory_percent,
-                "status": "healthy" if memory_percent < 90 else "warning"
-            },
-            "disk": {
-                "percent": disk_percent,
-                "status": "healthy" if disk_percent < 90 else "warning"
-            }
+            "cpu": {"percent": cpu_percent, "status": "healthy" if cpu_percent < 90 else "warning"},
+            "memory": {"percent": memory_percent, "status": "healthy" if memory_percent < 90 else "warning"},
+            "disk": {"percent": disk_percent, "status": "healthy" if disk_percent < 90 else "warning"},
         }
     except ImportError:
-        return {
-            "status": "skipped",
-            "message": "psutil module not available"
-        }
+        return {"status": "skipped", "message": "psutil module not available"}
     except Exception as e:
         logger.warning(f"System resources check failed: {e!s}")
-        return {
-            "status": "unknown",
-            "message": f"System resources check failed: {e!s}"
-        }
+        return {"status": "unknown", "message": f"System resources check failed: {e!s}"}
 
 
-async def check_health(
-    include_details: bool = False,
-    settings: Settings = Depends(get_settings)
-) -> dict[str, Any]:
+async def check_health(include_details: bool = False, settings: Settings = Depends(get_settings)) -> dict[str, Any]:
     """
     Check the health of all dependencies.
-    
+
     Args:
         include_details: Whether to include detailed information
         settings: Application settings
-        
+
     Returns:
         Dict[str, Any]: Health status information
     """
     # Run all health checks concurrently
     checks = await asyncio.gather(
-        check_redis_connection(),
-        check_external_apis(),
-        check_system_resources(),
-        return_exceptions=True
+        check_redis_connection(), check_external_apis(), check_system_resources(), return_exceptions=True
     )
 
     # Process the results
     results = {
-        "redis": checks[0] if not isinstance(checks[0], Exception) else {"status": "unhealthy", "message": str(checks[0])},
-        "external_apis": checks[1] if not isinstance(checks[1], Exception) else {"status": "unhealthy", "message": str(checks[1])},
-        "system": checks[2] if not isinstance(checks[2], Exception) else {"status": "unhealthy", "message": str(checks[2])}
+        "redis": checks[0]
+        if not isinstance(checks[0], Exception)
+        else {"status": "unhealthy", "message": str(checks[0])},
+        "external_apis": checks[1]
+        if not isinstance(checks[1], Exception)
+        else {"status": "unhealthy", "message": str(checks[1])},
+        "system": checks[2]
+        if not isinstance(checks[2], Exception)
+        else {"status": "unhealthy", "message": str(checks[2])},
     }
 
     # Determine overall status
@@ -250,7 +219,7 @@ async def check_health(
         "status": overall_status,
         "version": settings.VERSION,
         "environment": settings.ENVIRONMENT,
-        "timestamp": time.time()
+        "timestamp": time.time(),
     }
 
     # Include details if requested
@@ -260,17 +229,14 @@ async def check_health(
     return response
 
 
-async def require_healthy_service(
-    service: str,
-    settings: Settings = Depends(get_settings)
-) -> None:
+async def require_healthy_service(service: str, settings: Settings = Depends(get_settings)) -> None:
     """
     Require that a service is healthy.
-    
+
     Args:
         service: The service to check
         settings: Application settings
-        
+
     Raises:
         ServiceUnavailableError: If the service is unhealthy
     """
@@ -278,7 +244,7 @@ async def require_healthy_service(
     health_checks = {
         "redis": check_redis_connection,
         "external_apis": check_external_apis,
-        "system": check_system_resources
+        "system": check_system_resources,
     }
 
     # Check if the service is valid
@@ -292,8 +258,7 @@ async def require_healthy_service(
         # Check the status
         if result["status"] in ["unhealthy", "degraded"]:
             raise ServiceUnavailableError(
-                detail=f"Service {service} is unavailable: {result['message']}",
-                error_type=f"{service}_unavailable"
+                detail=f"Service {service} is unavailable: {result['message']}", error_type=f"{service}_unavailable"
             )
     except Exception as e:
         if isinstance(e, ServiceUnavailableError):
@@ -301,6 +266,5 @@ async def require_healthy_service(
 
         logger.exception(f"Health check failed for {service}")
         raise ServiceUnavailableError(
-            detail=f"Service {service} is unavailable: {e!s}",
-            error_type=f"{service}_unavailable"
+            detail=f"Service {service} is unavailable: {e!s}", error_type=f"{service}_unavailable"
         )

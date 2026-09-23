@@ -10,6 +10,7 @@ limit middleware is attached here, because ``main.py`` does not yet install it
 ``RateLimitMiddleware`` means these tests exercise the production limiter code
 end to end -- key derivation, counting, 429 rendering and headers.
 """
+
 import os
 
 import pytest
@@ -19,8 +20,13 @@ from app.core.config import get_settings
 from app.core.rate_limiter import RateLimitMiddleware, reset_rate_limit_state
 
 ISOLATED_ENV_VARS = (
-    "WEB_CONCURRENCY", "UVICORN_WORKERS", "GUNICORN_WORKERS", "WORKERS",
-    "RATE_LIMIT_FAIL_OPEN", "REDIS_URL", "API_KEY",
+    "WEB_CONCURRENCY",
+    "UVICORN_WORKERS",
+    "GUNICORN_WORKERS",
+    "WORKERS",
+    "RATE_LIMIT_FAIL_OPEN",
+    "REDIS_URL",
+    "API_KEY",
 )
 
 
@@ -56,8 +62,7 @@ def _install_rate_limiting(app):
     a second copy would count every request twice.
     """
     already_installed = any(
-        getattr(middleware, "cls", None) is RateLimitMiddleware
-        for middleware in getattr(app, "user_middleware", [])
+        getattr(middleware, "cls", None) is RateLimitMiddleware for middleware in getattr(app, "user_middleware", [])
     )
     if not already_installed:
         app.add_middleware(RateLimitMiddleware)
@@ -82,13 +87,16 @@ def rate_limited_app():
 
     # Clear cached settings
     from app.core.config import get_settings
+
     get_settings.cache_clear()
 
     # Clear rate limit store
     from app.core.rate_limiter import _rate_limit_store
+
     _rate_limit_store.clear()
 
     from main import create_application
+
     app = _install_rate_limiting(create_application())
 
     yield app
@@ -139,6 +147,7 @@ class TestRateLimitHeaders:
         """Test that rate limit headers are present in responses."""
         # Clear rate limit store before test
         from app.core.rate_limiter import _rate_limit_store
+
         _rate_limit_store.clear()
 
         response = rate_client.get("/api-config")
@@ -152,6 +161,7 @@ class TestRateLimitHeaders:
     def test_rate_limit_remaining_decreases(self, rate_client):
         """Test that remaining count decreases with each request."""
         from app.core.rate_limiter import _rate_limit_store
+
         _rate_limit_store.clear()
 
         remaining1 = rate_client.get("/api-config").headers["x-ratelimit-remaining"]
@@ -166,6 +176,7 @@ class TestRateLimitEnforcement:
     def test_rate_limit_exceeded(self, rate_client):
         """Test that exceeding rate limit returns 429."""
         from app.core.rate_limiter import _rate_limit_store
+
         _rate_limit_store.clear()
 
         # Make requests up to the limit (5) plus one more
@@ -182,6 +193,7 @@ class TestRateLimitEnforcement:
     def test_rate_limit_429_response_format(self, rate_client):
         """Test that 429 response has correct format."""
         from app.core.rate_limiter import _rate_limit_store
+
         _rate_limit_store.clear()
 
         limited = None
@@ -200,6 +212,7 @@ class TestRateLimitEnforcement:
     def test_rate_limit_429_has_retry_after(self, rate_client):
         """A 429 must tell the client when to come back."""
         from app.core.rate_limiter import _rate_limit_store
+
         _rate_limit_store.clear()
 
         limited = None
@@ -218,6 +231,7 @@ class TestRateLimitEnforcement:
     def test_limit_is_per_bucket_not_global(self, rate_client):
         """Exhausting one bucket must not be a shortcut to a global lockout."""
         from app.core.rate_limiter import _rate_limit_store
+
         _rate_limit_store.clear()
 
         for _ in range(7):
@@ -250,12 +264,15 @@ class TestRateLimitByKey:
         os.environ["API_KEYS"] = '["key-user-a", "key-user-b"]'
 
         from app.core.config import get_settings
+
         get_settings.cache_clear()
 
         from app.core.rate_limiter import _rate_limit_store
+
         _rate_limit_store.clear()
 
         from main import create_application
+
         app = _install_rate_limiting(create_application())
 
         yield app
@@ -271,16 +288,14 @@ class TestRateLimitByKey:
     def test_separate_limits_per_api_key(self, rate_auth_app):
         """Test that different API keys have separate rate limits."""
         from app.core.rate_limiter import _rate_limit_store
+
         _rate_limit_store.clear()
 
         client = TestClient(rate_auth_app)
 
         # User A makes requests
         for _ in range(3):
-            response = client.get(
-                "/api-config",
-                headers={"X-API-Key": "key-user-a"}
-            )
+            response = client.get("/api-config", headers={"X-API-Key": "key-user-a"})
 
         # Precondition, so a regression here reports its cause rather than just
         # "B got 429": A's traffic must have landed in a per-API-key bucket. If
@@ -288,21 +303,14 @@ class TestRateLimitByKey:
         # one IP bucket and this test fails for the CRT-8 reason all over again.
         assert len(_rate_limit_store) == 1, _rate_limit_store
         assert next(iter(_rate_limit_store)).startswith("rate_limit:api_key:"), (
-            "API key not recognised; both users would share the IP bucket: "
-            f"{list(_rate_limit_store)}"
+            f"API key not recognised; both users would share the IP bucket: {list(_rate_limit_store)}"
         )
 
         # User A should be rate limited
-        response_a = client.get(
-            "/api-config",
-            headers={"X-API-Key": "key-user-a"}
-        )
+        response_a = client.get("/api-config", headers={"X-API-Key": "key-user-a"})
 
         # User B should still be able to make requests
-        response_b = client.get(
-            "/api-config",
-            headers={"X-API-Key": "key-user-b"}
-        )
+        response_b = client.get("/api-config", headers={"X-API-Key": "key-user-b"})
 
         # User A has spent its budget...
         assert response_a.status_code == 429
@@ -315,6 +323,7 @@ class TestRateLimitByKey:
         API-key bucketing never worked.
         """
         from app.core.rate_limiter import _rate_limit_store
+
         _rate_limit_store.clear()
 
         client = TestClient(rate_auth_app)
@@ -328,6 +337,7 @@ class TestRateLimitByKey:
     def test_two_keys_share_one_ip_but_not_one_budget(self, rate_auth_app):
         """Both users come from the same test client IP; budgets must differ."""
         from app.core.rate_limiter import _rate_limit_store
+
         _rate_limit_store.clear()
 
         client = TestClient(rate_auth_app)
@@ -342,13 +352,11 @@ class TestRateLimitByKey:
     def test_unknown_api_key_cannot_buy_a_fresh_budget(self, rate_auth_app):
         """Made-up keys must fall back to the shared IP bucket."""
         from app.core.rate_limiter import _rate_limit_store
+
         _rate_limit_store.clear()
 
         client = TestClient(rate_auth_app)
-        statuses = [
-            client.get("/api-config", headers={"X-API-Key": f"forged-{i}"}).status_code
-            for i in range(6)
-        ]
+        statuses = [client.get("/api-config", headers={"X-API-Key": f"forged-{i}"}).status_code for i in range(6)]
 
         assert 429 in statuses, statuses
         assert all(k.startswith("rate_limit:ip:") for k in _rate_limit_store)
@@ -364,9 +372,11 @@ class TestRateLimitDisabled:
         os.environ["ENABLE_API_KEY_AUTH"] = "false"
 
         from app.core.config import get_settings
+
         get_settings.cache_clear()
 
         from main import create_application
+
         app = _install_rate_limiting(create_application())
 
         yield app

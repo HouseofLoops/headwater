@@ -5,6 +5,7 @@ This module provides efficient data structures for string searching
 and prefix matching, including a trie implementation for O(m) lookup
 where m is the length of the search string.
 """
+
 import logging
 from collections.abc import Iterator
 from dataclasses import dataclass, field
@@ -16,6 +17,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class TrieNode:
     """A node in the trie data structure."""
+
     children: dict[str, TrieNode] = field(default_factory=dict)
     is_end_of_word: bool = False
     word: str | None = None
@@ -115,11 +117,7 @@ class Trie:
         self._collect_words(node, results, limit)
         return results
 
-    def find_all_with_prefix_and_metadata(
-        self,
-        prefix: str,
-        limit: int = 100
-    ) -> list[dict[str, Any]]:
+    def find_all_with_prefix_and_metadata(self, prefix: str, limit: int = 100) -> list[dict[str, Any]]:
         """
         Find all words with their metadata that start with the given prefix.
 
@@ -198,12 +196,7 @@ class Trie:
 
         return node
 
-    def _collect_words(
-        self,
-        node: TrieNode,
-        results: list[str],
-        limit: int
-    ) -> None:
+    def _collect_words(self, node: TrieNode, results: list[str], limit: int) -> None:
         """
         Recursively collect all words from a node.
 
@@ -223,12 +216,7 @@ class Trie:
                 return
             self._collect_words(child, results, limit)
 
-    def _collect_words_with_metadata(
-        self,
-        node: TrieNode,
-        results: list[dict[str, Any]],
-        limit: int
-    ) -> None:
+    def _collect_words_with_metadata(self, node: TrieNode, results: list[dict[str, Any]], limit: int) -> None:
         """
         Recursively collect all words with metadata from a node.
 
@@ -241,10 +229,7 @@ class Trie:
             return
 
         if node.is_end_of_word and node.word:
-            results.append({
-                "word": node.word,
-                "metadata": node.metadata
-            })
+            results.append({"word": node.word, "metadata": node.metadata})
 
         for child in node.children.values():
             if len(results) >= limit:
@@ -274,10 +259,7 @@ class SuggestionIndex:
         self._categories: dict[str, set[str]] = {}
 
     def add_suggestion(
-        self,
-        suggestion: str,
-        category: str | None = None,
-        metadata: dict[str, Any] | None = None
+        self, suggestion: str, category: str | None = None, metadata: dict[str, Any] | None = None
     ) -> None:
         """
         Add a suggestion to the index.
@@ -298,11 +280,7 @@ class SuggestionIndex:
 
         self._trie.insert(suggestion, meta)
 
-    def add_suggestions_batch(
-        self,
-        suggestions: list[str],
-        category: str | None = None
-    ) -> None:
+    def add_suggestions_batch(self, suggestions: list[str], category: str | None = None) -> None:
         """
         Add multiple suggestions to the index.
 
@@ -326,11 +304,7 @@ class SuggestionIndex:
         """
         return self._trie.find_all_with_prefix(prefix, limit)
 
-    def search_prefix_with_metadata(
-        self,
-        prefix: str,
-        limit: int = 100
-    ) -> list[dict[str, Any]]:
+    def search_prefix_with_metadata(self, prefix: str, limit: int = 100) -> list[dict[str, Any]]:
         """
         Search for suggestions with metadata starting with the given prefix.
 
@@ -358,12 +332,7 @@ class SuggestionIndex:
         """
         return self._trie.find_containing(substring, limit)
 
-    def search_in_category(
-        self,
-        prefix: str,
-        category: str,
-        limit: int = 100
-    ) -> list[str]:
+    def search_in_category(self, prefix: str, category: str, limit: int = 100) -> list[str]:
         """
         Search for suggestions in a specific category.
 
@@ -379,10 +348,7 @@ class SuggestionIndex:
             return []
 
         results = self._trie.find_all_with_prefix_and_metadata(prefix, limit * 2)
-        filtered = [
-            r["word"] for r in results
-            if r.get("metadata", {}).get("category") == category
-        ]
+        filtered = [r["word"] for r in results if r.get("metadata", {}).get("category") == category]
         return filtered[:limit]
 
     def get_categories(self) -> list[str]:

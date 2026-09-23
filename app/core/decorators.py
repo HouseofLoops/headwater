@@ -17,21 +17,22 @@ def retry(
     max_retries: int = 3,
     retry_delay: float = 1.0,
     exceptions: Union[type, tuple[type, ...]] = Exception,
-    logger: logging.Logger | None = None
+    logger: logging.Logger | None = None,
 ):
     """
     Retry a function on failure.
-    
+
     Args:
         func: The function to retry
         max_retries: The maximum number of retries
         retry_delay: The delay between retries in seconds
         exceptions: The exceptions to catch
         logger: Optional logger
-        
+
     Returns:
         Callable: Decorated function
     """
+
     def decorator(*args, **kwargs):
         last_exception = None
 
@@ -43,19 +44,15 @@ def retry(
 
                 if attempt < max_retries:
                     if logger:
-                        logger.warning(
-                            f"Retry {attempt + 1}/{max_retries} for {func.__name__} "
-                            f"after error: {e!s}"
-                        )
+                        logger.warning(f"Retry {attempt + 1}/{max_retries} for {func.__name__} after error: {e!s}")
 
                     # Wait before retrying
                     import time
+
                     time.sleep(retry_delay)
                 else:
                     if logger:
-                        logger.error(
-                            f"Failed all {max_retries} retries for {func.__name__}: {e!s}"
-                        )
+                        logger.error(f"Failed all {max_retries} retries for {func.__name__}: {e!s}")
 
         # If we get here, all retries failed
         raise last_exception
@@ -66,10 +63,10 @@ def retry(
 def memoize(func: Callable):
     """
     Memoize a function's results.
-    
+
     Args:
         func: The function to memoize
-        
+
     Returns:
         Callable: Decorated function
     """
@@ -90,15 +87,17 @@ def memoize(func: Callable):
 def timeit(func: Callable):
     """
     Time a function's execution.
-    
+
     Args:
         func: The function to time
-        
+
     Returns:
         Callable: Decorated function
     """
+
     def wrapper(*args, **kwargs):
         import time
+
         start_time = time.time()
         result = func(*args, **kwargs)
         end_time = time.time()

@@ -71,7 +71,7 @@ class FakeLocator:
         return FakeLocator(self.selector, self._specs[:1], self._page)
 
     def nth(self, index):
-        return FakeLocator(self.selector, self._specs[index:index + 1], self._page)
+        return FakeLocator(self.selector, self._specs[index : index + 1], self._page)
 
     def locator(self, selector):
         specs = []
@@ -169,19 +169,11 @@ def healthy_place_elements():
         "div[role='main']": [{}],
         "h1.DUwDvf": [{"text": "Blue Bottle Coffee"}],
         "div.F7nice span[aria-hidden='true']": [{"text": "4.5"}],
-        "div.F7nice span[aria-label*='review']": [
-            {"attrs": {"aria-label": "1,234 reviews"}}
-        ],
+        "div.F7nice span[aria-label*='review']": [{"attrs": {"aria-label": "1,234 reviews"}}],
         "button[jsaction*='category']": [{"text": "Coffee shop"}],
-        "button[data-item-id*='address']": [
-            {"attrs": {"aria-label": "Address: 1 Market St, San Francisco"}}
-        ],
-        "button[data-item-id*='phone']": [
-            {"attrs": {"aria-label": "Phone: (415) 555-0100"}}
-        ],
-        "a[data-item-id='authority']": [
-            {"attrs": {"href": "https://bluebottlecoffee.com"}}
-        ],
+        "button[data-item-id*='address']": [{"attrs": {"aria-label": "Address: 1 Market St, San Francisco"}}],
+        "button[data-item-id*='phone']": [{"attrs": {"aria-label": "Phone: (415) 555-0100"}}],
+        "a[data-item-id='authority']": [{"attrs": {"href": "https://bluebottlecoffee.com"}}],
     }
 
 
@@ -194,6 +186,7 @@ REAL_SLEEP = asyncio.sleep
 @pytest.fixture(autouse=True)
 def no_sleep():
     """Strip the scraper's fixed waits; they add ~8s per extraction."""
+
     async def instant(_seconds):
         return None
 
@@ -332,9 +325,7 @@ class TestDurability:
 
         with patch.object(RecordStore, "_get_redis", return_value=redis):
             before = JobStore(RecordStore("maps:jobs", ttl_seconds=60))
-            await before.create(
-                job("job-1", owner="alice", results=[{"title": "Blue Bottle"}], total=1)
-            )
+            await before.create(job("job-1", owner="alice", results=[{"title": "Blue Bottle"}], total=1))
 
             # A new process: fresh RecordStore and fresh JobStore, same Redis.
             after = JobStore(RecordStore("maps:jobs", ttl_seconds=60))
@@ -557,10 +548,12 @@ class TestStaleSelectorDetection:
     async def test_dom_change_raises_instead_of_returning_empty_success(self):
         # The feed and its cards still match, but every details-panel selector
         # is dead -- the exact shape of a Google markup rotation.
-        page = FakePage(elements={
-            FEED_SELECTOR: [{}],
-            CARD_SELECTOR: [_card("Blue Bottle Coffee"), _card("Sightglass")],
-        })
+        page = FakePage(
+            elements={
+                FEED_SELECTOR: [{}],
+                CARD_SELECTOR: [_card("Blue Bottle Coffee"), _card("Sightglass")],
+            }
+        )
         scraper = make_scraper(page)
 
         with pytest.raises(SelectorsStaleError) as excinfo:
@@ -586,10 +579,12 @@ class TestStaleSelectorDetection:
         # The feed rendered and the page is full of place links, but the card
         # selector matches none of them -- a card-markup rotation. Counting
         # only cards would have returned a successful empty list here.
-        page = FakePage(elements={
-            FEED_SELECTOR: [{}],
-            LINK_SELECTOR: [{"attrs": {"aria-label": "Blue Bottle"}}] * 12,
-        })
+        page = FakePage(
+            elements={
+                FEED_SELECTOR: [{}],
+                LINK_SELECTOR: [{"attrs": {"aria-label": "Blue Bottle"}}] * 12,
+            }
+        )
         scraper = make_scraper(page)
 
         with pytest.raises(SelectorsStaleError, match="card selector matched none"):
@@ -599,10 +594,12 @@ class TestStaleSelectorDetection:
         # Cards render, but the anchor inside each one no longer matches, so no
         # place is ever even attempted. `attempted` stays 0; only counting
         # visible candidates catches this.
-        page = FakePage(elements={
-            FEED_SELECTOR: [{}],
-            CARD_SELECTOR: [{"children": {}}, {"children": {}}, {"children": {}}],
-        })
+        page = FakePage(
+            elements={
+                FEED_SELECTOR: [{}],
+                CARD_SELECTOR: [{"children": {}}, {"children": {}}, {"children": {}}],
+            }
+        )
         scraper = make_scraper(page)
 
         with pytest.raises(SelectorsStaleError) as excinfo:
@@ -626,12 +623,12 @@ class TestStaleSelectorDetection:
     async def test_cards_that_all_throw_are_not_an_empty_area(self):
         # Every card blows up on interaction. The per-card `except: continue`
         # must not add up to a successful empty result.
-        page = FakePage(elements={
-            FEED_SELECTOR: [{}],
-            CARD_SELECTOR: [
-                {"children": {LINK_SELECTOR: [{"raises": True}]}} for _ in range(3)
-            ],
-        })
+        page = FakePage(
+            elements={
+                FEED_SELECTOR: [{}],
+                CARD_SELECTOR: [{"children": {LINK_SELECTOR: [{"raises": True}]}} for _ in range(3)],
+            }
+        )
         scraper = make_scraper(page)
 
         with pytest.raises(SelectorsStaleError):
@@ -651,10 +648,13 @@ class TestStaleSelectorDetection:
         # `title` is parsed out of the URL, so it survives a total panel
         # failure. A page of title-only records is a broken parse wearing a
         # successful result's clothes.
-        page = FakePage(url=PLACE_URL, elements={
-            FEED_SELECTOR: [{}],
-            CARD_SELECTOR: [_card("Blue Bottle Coffee")],
-        })
+        page = FakePage(
+            url=PLACE_URL,
+            elements={
+                FEED_SELECTOR: [{}],
+                CARD_SELECTOR: [_card("Blue Bottle Coffee")],
+            },
+        )
         page.elements["div[role='main']"] = [{}]
         scraper = make_scraper(page)
 
@@ -695,8 +695,7 @@ class TestStaleSelectorDetection:
     async def test_an_optional_selector_failure_is_recorded_not_hidden(self):
         elements = healthy_place_elements()
         # This selector does not merely match nothing -- it throws.
-        elements["button[jsaction*='heroHeaderImage'] img, "
-                 "div[jsaction*='photo'] img, img.Uf0tqf"] = [{"raises": True}]
+        elements["button[jsaction*='heroHeaderImage'] img, div[jsaction*='photo'] img, img.Uf0tqf"] = [{"raises": True}]
         page = FakePage(url=PLACE_URL, elements=elements)
         scraper = make_scraper(page)
 
@@ -709,10 +708,12 @@ class TestStaleSelectorDetection:
         assert place["partial"] is False
 
     async def test_search_closes_the_context_even_when_selectors_are_stale(self):
-        page = FakePage(elements={
-            FEED_SELECTOR: [{}],
-            CARD_SELECTOR: [_card("Blue Bottle Coffee")],
-        })
+        page = FakePage(
+            elements={
+                FEED_SELECTOR: [{}],
+                CARD_SELECTOR: [_card("Blue Bottle Coffee")],
+            }
+        )
         scraper = make_scraper(page)
 
         with pytest.raises(SelectorsStaleError):
@@ -742,14 +743,17 @@ class TestParseHoursLabel:
         assert hours["Monday"] == ["7 AM–6 PM"]
         assert hours["Friday"] == ["7 AM–7 PM"]
         assert set(hours) == {
-            "Monday", "Tuesday", "Wednesday", "Thursday",
-            "Friday", "Saturday", "Sunday",
+            "Monday",
+            "Tuesday",
+            "Wednesday",
+            "Thursday",
+            "Friday",
+            "Saturday",
+            "Sunday",
         }
 
     def test_parses_a_partial_week_with_a_closed_day(self):
-        hours = self.scraper._parse_hours_label(
-            "Saturday, Closed; Sunday, 9 AM to 3 PM"
-        )
+        hours = self.scraper._parse_hours_label("Saturday, Closed; Sunday, 9 AM to 3 PM")
 
         assert hours == {"Saturday": ["Closed"], "Sunday": ["9 AM–3 PM"]}
 
@@ -782,9 +786,7 @@ class TestExtractExpandedHours:
         assert await GoogleMapsScraper()._extract_expanded_hours(FakePage()) is None
 
     async def test_returns_none_when_rows_carry_no_recognisable_times(self):
-        page = FakePage(elements={
-            "table tr, div[role='listitem']": [{"text": "Monday see website"}]
-        })
+        page = FakePage(elements={"table tr, div[role='listitem']": [{"text": "Monday see website"}]})
 
         assert await GoogleMapsScraper()._extract_expanded_hours(page) is None
 
@@ -801,14 +803,14 @@ class TestRunScrapeJob:
             self._unverified_empty = unverified_empty
             return await search()
 
-        with patch("app.services.google_maps_scraper.get_job_store", return_value=store), \
-             patch.object(GoogleMapsScraper, "search", fake_search), \
-             patch.object(GoogleMapsScraper, "close", lambda self: asyncio.sleep(0)):
+        with (
+            patch("app.services.google_maps_scraper.get_job_store", return_value=store),
+            patch.object(GoogleMapsScraper, "search", fake_search),
+            patch.object(GoogleMapsScraper, "close", lambda self: asyncio.sleep(0)),
+        ):
             await run_scrape_job(target)
 
-    async def test_a_scrape_failure_marks_the_job_failed_with_a_real_error(
-        self, memory_store
-    ):
+    async def test_a_scrape_failure_marks_the_job_failed_with_a_real_error(self, memory_store):
         target = job("job-1", owner="alice")
         await memory_store.create(target)
 
@@ -824,9 +826,7 @@ class TestRunScrapeJob:
         assert "navigation timed out" in stored.error
         assert "TimeoutError" in stored.error
 
-    async def test_an_error_with_no_message_still_records_its_type(
-        self, memory_store
-    ):
+    async def test_an_error_with_no_message_still_records_its_type(self, memory_store):
         target = job("job-1", owner="alice")
         await memory_store.create(target)
 
@@ -844,9 +844,7 @@ class TestRunScrapeJob:
         await memory_store.create(target)
 
         async def stale():
-            raise SelectorsStaleError(
-                "markup changed", attempted=5, extracted=0, missing=["title"]
-            )
+            raise SelectorsStaleError("markup changed", attempted=5, extracted=0, missing=["title"])
 
         await self._run(memory_store, target, stale)
 
@@ -888,9 +886,7 @@ class TestRunScrapeJob:
         assert stored.empty_unverified is False
         assert stored.to_dict()["empty_unverified"] is False
 
-    async def test_an_unverifiable_empty_result_is_labelled_on_the_job(
-        self, memory_store
-    ):
+    async def test_an_unverifiable_empty_result_is_labelled_on_the_job(self, memory_store):
         # Completed, but the caller is told the zero could not be confirmed --
         # so an empty result is never silently authoritative.
         target = job("job-1", owner="alice")
@@ -906,9 +902,7 @@ class TestRunScrapeJob:
         assert stored.empty_unverified is True
         assert stored.to_dict()["empty_unverified"] is True
 
-    async def test_a_non_empty_result_is_never_labelled_unverified(
-        self, memory_store
-    ):
+    async def test_a_non_empty_result_is_never_labelled_unverified(self, memory_store):
         target = job("job-1", owner="alice")
         await memory_store.create(target)
 

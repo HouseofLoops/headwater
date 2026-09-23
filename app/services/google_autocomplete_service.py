@@ -4,6 +4,7 @@ Google Autocomplete Service.
 This module handles all business logic for fetching and processing
 Google Autocomplete suggestions, including keyword variation generation.
 """
+
 import asyncio
 import json
 import logging
@@ -35,7 +36,7 @@ class GoogleAutocompleteService:
         client: str | None = None,
         ds: str | None = None,
         spell: int | None = None,
-        **kwargs
+        **kwargs,
     ) -> dict[str, Any]:
         """
         Build request parameters for Google Autocomplete API.
@@ -115,10 +116,7 @@ class GoogleAutocompleteService:
         return suggestions
 
     def extract_suggestions_from_response(
-        self,
-        response_text: str,
-        output_format: str,
-        client: str | None = None
+        self, response_text: str, output_format: str, client: str | None = None
     ) -> dict[str, Any]:
         """
         Extract suggestions from API response based on format.
@@ -131,30 +129,23 @@ class GoogleAutocompleteService:
         Returns:
             Dictionary with suggestions and metadata
         """
-        result = {
-            "suggestions": [],
-            "metadata": {},
-            "response_type": "unknown"
-        }
+        result = {"suggestions": [], "metadata": {}, "response_type": "unknown"}
 
         # Determine if we should try JSON first
-        should_try_json = (
-            client is not None or
-            output_format.lower() in ["chrome", "firefox", "safari", "opera"]
-        )
+        should_try_json = client is not None or output_format.lower() in ["chrome", "firefox", "safari", "opera"]
 
         response_text = response_text.strip()
-        looks_like_json = response_text.startswith(('[', '{'))
+        looks_like_json = response_text.startswith(("[", "{"))
         looks_like_jsonp = "(" in response_text and response_text.endswith(")")
 
         if should_try_json or looks_like_json or looks_like_jsonp:
             try:
                 if looks_like_jsonp:
                     # Extract JSON from JSONP wrapper
-                    start_idx = response_text.find('(')
-                    end_idx = response_text.rfind(')')
+                    start_idx = response_text.find("(")
+                    end_idx = response_text.rfind(")")
                     if start_idx != -1 and end_idx != -1:
-                        json_str = response_text[start_idx + 1:end_idx]
+                        json_str = response_text[start_idx + 1 : end_idx]
                         data = json.loads(json_str)
                         result["response_type"] = "jsonp"
                 else:
@@ -196,10 +187,7 @@ class GoogleAutocompleteService:
             return f"{prefix} {base_query}"
 
     async def fetch_suggestions_async(
-        self,
-        http_client: httpx.AsyncClient,
-        query: str,
-        params: dict[str, Any]
+        self, http_client: httpx.AsyncClient, query: str, params: dict[str, Any]
     ) -> dict[str, Any]:
         """
         Fetch suggestions asynchronously.
@@ -212,12 +200,7 @@ class GoogleAutocompleteService:
         Returns:
             Dictionary with suggestions and metadata
         """
-        result = {
-            "suggestions": [],
-            "original_query": query,
-            "metadata": {},
-            "response_type": "unknown"
-        }
+        result = {"suggestions": [], "original_query": query, "metadata": {}, "response_type": "unknown"}
 
         try:
             response = await http_client.get(self.GOOGLE_AUTOCOMPLETE_URL, params=params)
@@ -227,9 +210,7 @@ class GoogleAutocompleteService:
                 return result
 
             extracted = self.extract_suggestions_from_response(
-                response.text,
-                params.get("output", "toolbar"),
-                params.get("client")
+                response.text, params.get("output", "toolbar"), params.get("client")
             )
 
             result.update(extracted)
@@ -243,11 +224,7 @@ class GoogleAutocompleteService:
         return result
 
     async def generate_keyword_variations_parallel(
-        self,
-        http_client: httpx.AsyncClient,
-        base_query: str,
-        params: dict[str, Any],
-        max_parallel: int = 10
+        self, http_client: httpx.AsyncClient, base_query: str, params: dict[str, Any], max_parallel: int = 10
     ) -> dict[str, Any]:
         """
         Generate keyword variations using parallel processing.
@@ -276,18 +253,14 @@ class GoogleAutocompleteService:
 
                 task = self.fetch_suggestions_async(http_client, modified_query, task_params)
                 tasks.append(task)
-                task_info.append({
-                    "category": category,
-                    "prefix": prefix,
-                    "query": modified_query
-                })
+                task_info.append({"category": category, "prefix": prefix, "query": modified_query})
 
         logger.info(f"Starting parallel processing of {len(tasks)} variation queries")
 
         # Process in batches
         for i in range(0, len(tasks), max_parallel):
-            batch_tasks = tasks[i:i + max_parallel]
-            batch_info = task_info[i:i + max_parallel]
+            batch_tasks = tasks[i : i + max_parallel]
+            batch_info = task_info[i : i + max_parallel]
 
             try:
                 batch_results = await asyncio.gather(*batch_tasks, return_exceptions=True)
@@ -304,17 +277,14 @@ class GoogleAutocompleteService:
                             metadata_collection[query_key] = {
                                 "query": info["query"],
                                 "metadata": result["metadata"],
-                                "response_type": result["response_type"]
+                                "response_type": result["response_type"],
                             }
             except Exception as e:
                 logger.error(f"Error processing batch: {e}")
 
         logger.info(f"Completed parallel processing of {len(tasks)} variation queries")
 
-        return {
-            "suggestions": categorized_suggestions,
-            "metadata": metadata_collection
-        }
+        return {"suggestions": categorized_suggestions, "metadata": metadata_collection}
 
 
 # Singleton instance for convenience

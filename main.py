@@ -5,6 +5,7 @@ This module initializes the FastAPI application with all necessary middleware,
 exception handlers, and API routers. It serves as the main entry point for the
 Headwater API service.
 """
+
 import logging
 import os
 import time
@@ -187,7 +188,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     # Log rate limiting status
     if settings.RATE_LIMIT_ENABLED:
-        logger.info(f"Rate limiting enabled: {settings.RATE_LIMIT_REQUESTS} requests per {settings.RATE_LIMIT_TIMEFRAME} seconds")
+        logger.info(
+            f"Rate limiting enabled: {settings.RATE_LIMIT_REQUESTS} requests per {settings.RATE_LIMIT_TIMEFRAME} seconds"
+        )
     else:
         logger.info("Rate limiting disabled")
 
@@ -275,6 +278,7 @@ def create_application() -> FastAPI:
     # Add custom OpenAPI documentation endpoints (non-production only, see
     # _docs_enabled: they enumerate the entire authenticated API surface).
     if docs_enabled:
+
         @app.get("/api/docs", include_in_schema=False)
         async def custom_swagger_ui_html():
             """Serve custom Swagger UI."""
@@ -346,7 +350,7 @@ def create_application() -> FastAPI:
             "version": settings.VERSION,
             "environment": settings.ENVIRONMENT,
             "timestamp": time.time(),
-            "uptime": time.time() - app.state.start_time if hasattr(app.state, "start_time") else 0
+            "uptime": time.time() - app.state.start_time if hasattr(app.state, "start_time") else 0,
         }
 
     # Add API configuration endpoints
@@ -365,17 +369,14 @@ def create_application() -> FastAPI:
             "rate_limiting": {
                 "enabled": settings.RATE_LIMIT_ENABLED,
                 "requests": settings.RATE_LIMIT_REQUESTS,
-                "timeframe": settings.RATE_LIMIT_TIMEFRAME
+                "timeframe": settings.RATE_LIMIT_TIMEFRAME,
             },
-            "caching": {
-                "enabled": settings.ENABLE_CACHE,
-                "ttl": settings.CACHE_TTL
-            },
+            "caching": {"enabled": settings.ENABLE_CACHE, "ttl": settings.CACHE_TTL},
             "cors": {
                 "origins": settings.CORS_ORIGINS,
                 "methods": settings.CORS_METHODS,
-                "headers": settings.CORS_HEADERS
-            }
+                "headers": settings.CORS_HEADERS,
+            },
         }
 
     @app.get(
@@ -391,7 +392,7 @@ def create_application() -> FastAPI:
             # model_config["env_file"] may be None, a single path, or a
             # sequence. `".env" in None` raises TypeError, so normalise first.
             "env_file": _env_file_configured(settings),
-            "defaults": True
+            "defaults": True,
         }
 
     # Create v1 router
@@ -399,38 +400,29 @@ def create_application() -> FastAPI:
 
     # Include API routers in v1 router
     v1_router.include_router(
-        gnews_router,
-        prefix="/google-news",
-        tags=["Google News API"],
-        dependencies=[Depends(get_api_key)]
+        gnews_router, prefix="/google-news", tags=["Google News API"], dependencies=[Depends(get_api_key)]
     )
 
     v1_router.include_router(
-        google_trends_router,
-        prefix="/google-trends",
-        tags=["Google Trends API"],
-        dependencies=[Depends(get_api_key)]
+        google_trends_router, prefix="/google-trends", tags=["Google Trends API"], dependencies=[Depends(get_api_key)]
     )
 
     v1_router.include_router(
         google_autocomplete_router,
         prefix="/google-autocomplete",
         tags=["Google Autocomplete API"],
-        dependencies=[Depends(get_api_key)]
+        dependencies=[Depends(get_api_key)],
     )
 
     v1_router.include_router(
         youtube_transcripts_router,
         prefix="/youtube-transcripts",
         tags=["YouTube Transcripts API"],
-        dependencies=[Depends(get_api_key)]
+        dependencies=[Depends(get_api_key)],
     )
 
     v1_router.include_router(
-        google_maps_router,
-        prefix="/google-maps",
-        tags=["Google Maps API"],
-        dependencies=[Depends(get_api_key)]
+        google_maps_router, prefix="/google-maps", tags=["Google Maps API"], dependencies=[Depends(get_api_key)]
     )
 
     # Include v1 router in app
@@ -440,6 +432,7 @@ def create_application() -> FastAPI:
     app.state.start_time = time.time()
 
     return app
+
 
 # Create the application instance
 app = create_application()
@@ -452,10 +445,4 @@ if __name__ == "__main__":
     host = getattr(settings, "HOST", "0.0.0.0")
     port = getattr(settings, "PORT", 8000)
 
-    uvicorn.run(
-        "main:app",
-        host=host,
-        port=port,
-        reload=settings.DEBUG,
-        log_level="info"
-    )
+    uvicorn.run("main:app", host=host, port=port, reload=settings.DEBUG, log_level="info")

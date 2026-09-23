@@ -107,9 +107,7 @@ class TestListing:
     async def test_predicate_filters(self, store):
         await store.put("alice", "a", {"status": "done"})
         await store.put("alice", "b", {"status": "running"})
-        done = await store.list_for_owner(
-            "alice", predicate=lambda r: r.data.get("status") == "done"
-        )
+        done = await store.list_for_owner("alice", predicate=lambda r: r.data.get("status") == "done")
         assert [r.id for r in done] == ["a"]
 
     async def test_limit_and_offset(self, store):

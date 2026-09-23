@@ -136,6 +136,7 @@ class TestJSONUtils:
 
     def test_from_dict_basic(self):
         """Test basic model creation from dict."""
+
         class TestModel:
             def __init__(self, key: str):
                 self.key = key
@@ -147,6 +148,7 @@ class TestJSONUtils:
 
     def test_from_json_basic(self):
         """Test basic model creation from JSON."""
+
         class TestModel:
             def __init__(self, key: str):
                 self.key = key
@@ -158,6 +160,7 @@ class TestJSONUtils:
 
     def test_from_json_invalid(self):
         """Test invalid JSON handling."""
+
         class TestModel:
             def __init__(self, key: str):
                 self.key = key
@@ -270,6 +273,7 @@ class TestInspectionUtils:
 
     def test_get_function_args(self):
         """Test getting function arguments."""
+
         def test_func(arg1: str, arg2: int = 42) -> str:
             return f"{arg1}-{arg2}"
 
@@ -280,6 +284,7 @@ class TestInspectionUtils:
 
     def test_get_function_defaults(self):
         """Test getting function defaults."""
+
         def test_func(arg1: str, arg2: int = 42) -> str:
             return f"{arg1}-{arg2}"
 
@@ -289,6 +294,7 @@ class TestInspectionUtils:
 
     def test_get_class_methods(self):
         """Test getting class methods."""
+
         class TestClass:
             def method1(self):  # Test method 1
                 pass
@@ -307,10 +313,18 @@ class TestInspectionUtils:
 
     def test_get_subclasses(self):
         """Test getting subclasses."""
-        class BaseClass: pass
-        class SubClass1(BaseClass): pass
-        class SubClass2(BaseClass): pass
-        class SubSubClass(SubClass1): pass
+
+        class BaseClass:
+            pass
+
+        class SubClass1(BaseClass):
+            pass
+
+        class SubClass2(BaseClass):
+            pass
+
+        class SubSubClass(SubClass1):
+            pass
 
         result = get_subclasses(BaseClass)
         assert isinstance(result, list)
@@ -415,6 +429,7 @@ class TestListUtils:
 
     def test_batch_process_basic(self):
         """Test basic batch processing."""
+
         def process_func(batch):
             return [x * 2 for x in batch]
 
@@ -448,11 +463,12 @@ class TestDecorators:
 
     def test_timeit_basic(self):
         """Test basic timing decorator."""
+
         @timeit
         def test_func():
             return "result"
 
-        with patch('app.core.decorators.logger') as mock_logger:
+        with patch("app.core.decorators.logger") as mock_logger:
             result = test_func()
             assert result == "result"
             mock_logger.debug.assert_called_once()

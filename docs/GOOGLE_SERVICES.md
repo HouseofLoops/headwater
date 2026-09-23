@@ -38,16 +38,17 @@ from app.core.config import get_settings
 
 settings = get_settings()
 
+
 async def search_google_news(query: str, country: str = "US", language: str = "en", max_results: int = 10):
     """
     Search Google News for articles matching the query.
-    
+
     Args:
         query: The search query
         country: The country code (e.g., US, GB, CA)
         language: The language code (e.g., en, fr, es)
         max_results: Maximum number of results to return
-        
+
     Returns:
         List of news articles
     """
@@ -55,21 +56,16 @@ async def search_google_news(query: str, country: str = "US", language: str = "e
     proxy = None
     if settings.ENABLE_PROXY and settings.PROXY_URL:
         proxy = settings.PROXY_URL
-    
+
     # Set up HTTP client
     async with httpx.AsyncClient(proxies=proxy) as client:
         # Construct the URL
         url = "https://news.google.com/rss/search"
-        params = {
-            "q": query,
-            "hl": language,
-            "gl": country,
-            "ceid": f"{country}:{language}"
-        }
-        
+        params = {"q": query, "hl": language, "gl": country, "ceid": f"{country}:{language}"}
+
         # Make the request
         response = await client.get(url, params=params)
-        
+
         # Parse the response
         if response.status_code == 200:
             # Parse XML response
@@ -87,15 +83,16 @@ from app.core.config import get_settings
 
 settings = get_settings()
 
+
 async def get_autocomplete_suggestions(query: str, country: str = "US", language: str = "en"):
     """
     Get autocomplete suggestions from Google.
-    
+
     Args:
         query: The search query
         country: The country code (e.g., US, GB, CA)
         language: The language code (e.g., en, fr, es)
-        
+
     Returns:
         List of autocomplete suggestions
     """
@@ -103,21 +100,16 @@ async def get_autocomplete_suggestions(query: str, country: str = "US", language
     proxy = None
     if settings.ENABLE_PROXY and settings.PROXY_URL:
         proxy = settings.PROXY_URL
-    
+
     # Set up HTTP client
     async with httpx.AsyncClient(proxies=proxy) as client:
         # Construct the URL
         url = "https://www.google.com/complete/search"
-        params = {
-            "q": query,
-            "client": "chrome",
-            "hl": language,
-            "gl": country
-        }
-        
+        params = {"q": query, "client": "chrome", "hl": language, "gl": country}
+
         # Make the request
         response = await client.get(url, params=params)
-        
+
         # Parse the response
         if response.status_code == 200:
             data = response.json()

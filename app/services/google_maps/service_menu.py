@@ -1,6 +1,7 @@
 """
 Menu extraction for GoogleMapsService.
 """
+
 import asyncio
 import logging
 from typing import Any
@@ -16,6 +17,7 @@ logger = logging.getLogger("app.services.google_maps_service")
 
 class MenuMixin:
     """Menu extraction methods of GoogleMapsService."""
+
     # =========================================================================
     # Menus
     # =========================================================================
@@ -60,11 +62,7 @@ class MenuMixin:
 
         description = None
         if include_descriptions:
-            body = [
-                ln
-                for index, ln in enumerate(lines[1:], start=1)
-                if index != price_line_index and ln != name
-            ]
+            body = [ln for index, ln in enumerate(lines[1:], start=1) if index != price_line_index and ln != name]
             if body:
                 description = " ".join(body)
 
@@ -76,10 +74,7 @@ class MenuMixin:
         return item
 
     async def _extract_menu_items(
-        self,
-        page,
-        include_prices: bool,
-        include_descriptions: bool
+        self, page, include_prices: bool, include_descriptions: bool
     ) -> list[dict[str, Any]] | None:
         """Read Google's inline menu items.
 
@@ -110,11 +105,7 @@ class MenuMixin:
         return items
 
     async def extract_menu(
-        self,
-        place_id: str,
-        include_prices: bool = True,
-        include_descriptions: bool = True,
-        categorize: bool = True
+        self, place_id: str, include_prices: bool = True, include_descriptions: bool = True, categorize: bool = True
     ) -> dict[str, Any]:
         """
         Extract a place's menu by scraping the menu Google renders.
@@ -169,9 +160,11 @@ class MenuMixin:
                 await context.close()
         except Exception as e:
             logger.error(
-                    "Menu scrape failed for %s: %s", scrub(place_id), scrub(e),
-                    exc_info=True,
-                )
+                "Menu scrape failed for %s: %s",
+                scrub(place_id),
+                scrub(e),
+                exc_info=True,
+            )
             return {
                 "error": True,
                 "status_code": 502,

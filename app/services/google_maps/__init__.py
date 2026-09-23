@@ -21,4 +21,3 @@ Service (``google_maps_service``), each a mixin of GoogleMapsService:
     - service_menu: menu extraction
     - service_reservations: reservation availability
 """
-

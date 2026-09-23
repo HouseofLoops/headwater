@@ -273,14 +273,10 @@ class TestWebhookRegistrationRejectsSSRF:
 
     async def test_allow_list_when_configured(self, monkeypatch):
         monkeypatch.setenv(monitors.WEBHOOK_ALLOWED_HOSTS_SETTING, "hooks.example.com")
-        await monitors.register_webhook(
-            owner=ALICE, url="https://hooks.example.com/h", events=["monitor.changed"]
-        )
+        await monitors.register_webhook(owner=ALICE, url="https://hooks.example.com/h", events=["monitor.changed"])
         # A different, equally public host is now refused.
         with pytest.raises(monitors.InvalidWebhookTarget):
-            await monitors.register_webhook(
-                owner=ALICE, url="https://other.example.com/h", events=["monitor.changed"]
-            )
+            await monitors.register_webhook(owner=ALICE, url="https://other.example.com/h", events=["monitor.changed"])
 
 
 @pytest.mark.asyncio
@@ -294,9 +290,7 @@ class TestWebhookOwnerIsolation:
         assert (await monitors.list_webhooks(owner=ALICE))["total"] == 1
 
     async def test_owner_b_listing_is_empty(self):
-        await monitors.register_webhook(
-            owner=ALICE, url="https://hooks.example.com/h", events=["monitor.changed"]
-        )
+        await monitors.register_webhook(owner=ALICE, url="https://hooks.example.com/h", events=["monitor.changed"])
         assert (await monitors.list_webhooks(owner=BOB))["webhooks"] == []
 
     async def test_listing_never_returns_the_secret(self):
@@ -338,8 +332,11 @@ class TestWebhookDelivery:
     async def test_a_wrong_secret_does_not_verify(self, slept):
         hook = await self._register()
         await monitors.deliver_webhook(
-            owner=ALICE, webhook_id=hook["webhook_id"], event="monitor.changed",
-            payload={}, sleep=slept,
+            owner=ALICE,
+            webhook_id=hook["webhook_id"],
+            event="monitor.changed",
+            payload={},
+            sleep=slept,
         )
         call = FakeAsyncClient.calls[0]
         wrong = "sha256=" + hmac.new(b"not-the-secret", call["content"], hashlib.sha256).hexdigest()
@@ -350,8 +347,11 @@ class TestWebhookDelivery:
         hook = await self._register()
 
         result = await monitors.deliver_webhook(
-            owner=ALICE, webhook_id=hook["webhook_id"], event="monitor.changed",
-            payload={}, sleep=slept,
+            owner=ALICE,
+            webhook_id=hook["webhook_id"],
+            event="monitor.changed",
+            payload={},
+            sleep=slept,
         )
 
         assert result["delivered"] is False
@@ -364,8 +364,11 @@ class TestWebhookDelivery:
         FakeAsyncClient.queue = [FakeResponse(503), FakeResponse(200)]
         hook = await self._register()
         result = await monitors.deliver_webhook(
-            owner=ALICE, webhook_id=hook["webhook_id"], event="monitor.changed",
-            payload={}, sleep=slept,
+            owner=ALICE,
+            webhook_id=hook["webhook_id"],
+            event="monitor.changed",
+            payload={},
+            sleep=slept,
         )
         assert result["delivered"] is True
         assert result["attempts"] == 2
@@ -374,8 +377,11 @@ class TestWebhookDelivery:
         FakeAsyncClient.queue = [FakeResponse(404)]
         hook = await self._register()
         result = await monitors.deliver_webhook(
-            owner=ALICE, webhook_id=hook["webhook_id"], event="monitor.changed",
-            payload={}, sleep=slept,
+            owner=ALICE,
+            webhook_id=hook["webhook_id"],
+            event="monitor.changed",
+            payload={},
+            sleep=slept,
         )
         assert result["delivered"] is False
         assert result["attempts"] == 1
@@ -385,8 +391,11 @@ class TestWebhookDelivery:
         FakeAsyncClient.queue = [ConnectionError("refused")]
         hook = await self._register()
         result = await monitors.deliver_webhook(
-            owner=ALICE, webhook_id=hook["webhook_id"], event="monitor.changed",
-            payload={}, sleep=slept,
+            owner=ALICE,
+            webhook_id=hook["webhook_id"],
+            event="monitor.changed",
+            payload={},
+            sleep=slept,
         )
         assert result["delivered"] is False
         assert result["attempts"] == monitors.MAX_DELIVERY_ATTEMPTS
@@ -399,8 +408,11 @@ class TestWebhookDelivery:
         ]
         hook = await self._register()
         result = await monitors.deliver_webhook(
-            owner=ALICE, webhook_id=hook["webhook_id"], event="monitor.changed",
-            payload={}, sleep=slept,
+            owner=ALICE,
+            webhook_id=hook["webhook_id"],
+            event="monitor.changed",
+            payload={},
+            sleep=slept,
         )
         assert result["delivered"] is False
         # Exactly one POST: the redirect target was never requested.
@@ -419,8 +431,11 @@ class TestWebhookDelivery:
         """
         hook = await self._register()
         await monitors.deliver_webhook(
-            owner=ALICE, webhook_id=hook["webhook_id"], event="monitor.changed",
-            payload={}, sleep=slept,
+            owner=ALICE,
+            webhook_id=hook["webhook_id"],
+            event="monitor.changed",
+            payload={},
+            sleep=slept,
         )
         call = FakeAsyncClient.calls[0]
         assert "93.184.216.34" in call["url"]
@@ -435,8 +450,11 @@ class TestWebhookDelivery:
         ]
         hook = await self._register()
         result = await monitors.deliver_webhook(
-            owner=ALICE, webhook_id=hook["webhook_id"], event="monitor.changed",
-            payload={}, sleep=slept,
+            owner=ALICE,
+            webhook_id=hook["webhook_id"],
+            event="monitor.changed",
+            payload={},
+            sleep=slept,
         )
         assert result["delivered"] is True
         assert FakeAsyncClient.calls[1]["headers"]["Host"] == "hooks.example.com"
@@ -446,8 +464,11 @@ class TestWebhookDelivery:
         FakeAsyncClient.queue = [FakeResponse(500)]
         hook = await self._register()
         await monitors.deliver_webhook(
-            owner=ALICE, webhook_id=hook["webhook_id"], event="monitor.changed",
-            payload={}, sleep=slept,
+            owner=ALICE,
+            webhook_id=hook["webhook_id"],
+            event="monitor.changed",
+            payload={},
+            sleep=slept,
         )
         listed = (await monitors.list_webhooks(owner=ALICE))["webhooks"][0]
         assert listed["delivery_count"] == 1
@@ -461,8 +482,11 @@ class TestWebhookDelivery:
         FakeAsyncClient.queue = [FakeResponse(500), FakeResponse(200)]
         hook = await self._register()
         await monitors.deliver_webhook(
-            owner=ALICE, webhook_id=hook["webhook_id"], event="monitor.changed",
-            payload={}, sleep=slept,
+            owner=ALICE,
+            webhook_id=hook["webhook_id"],
+            event="monitor.changed",
+            payload={},
+            sleep=slept,
         )
         listed = (await monitors.list_webhooks(owner=ALICE))["webhooks"][0]
         assert listed["consecutive_failures"] == 0
@@ -482,9 +506,7 @@ class TestMonitorChecks:
         async def fetch(_monitor):
             return place()
 
-        result = await monitors.check_monitor(
-            owner=ALICE, monitor_id=created["monitor_id"], fetch_place=fetch
-        )
+        result = await monitors.check_monitor(owner=ALICE, monitor_id=created["monitor_id"], fetch_place=fetch)
         assert result["changed"] is False
         assert FakeAsyncClient.calls == []
 
@@ -499,9 +521,7 @@ class TestMonitorChecks:
             return place()
 
         await monitors.check_monitor(owner=ALICE, monitor_id=created["monitor_id"], fetch_place=fetch)
-        result = await monitors.check_monitor(
-            owner=ALICE, monitor_id=created["monitor_id"], fetch_place=fetch
-        )
+        result = await monitors.check_monitor(owner=ALICE, monitor_id=created["monitor_id"], fetch_place=fetch)
 
         assert result["changed"] is False
         assert FakeAsyncClient.calls == []
@@ -509,9 +529,7 @@ class TestMonitorChecks:
         assert len(stored["history"]) == 1  # still just the baseline
 
     async def test_a_real_change_is_diffed_recorded_and_fires_a_webhook(self):
-        await monitors.register_webhook(
-            owner=ALICE, url="https://hooks.example.com/hook", events=["monitor.changed"]
-        )
+        await monitors.register_webhook(owner=ALICE, url="https://hooks.example.com/hook", events=["monitor.changed"])
         created = await monitors.create_monitor(owner=ALICE, place_id="p1")
 
         calls = {"n": 0}
@@ -521,9 +539,7 @@ class TestMonitorChecks:
             return place() if calls["n"] == 1 else place(phone="+1 555 9999")
 
         await monitors.check_monitor(owner=ALICE, monitor_id=created["monitor_id"], fetch_place=fetch)
-        result = await monitors.check_monitor(
-            owner=ALICE, monitor_id=created["monitor_id"], fetch_place=fetch
-        )
+        result = await monitors.check_monitor(owner=ALICE, monitor_id=created["monitor_id"], fetch_place=fetch)
 
         assert result["changed"] is True
         assert result["changes"] == {"phone": {"old": "+1 555 0100", "new": "+1 555 9999"}}
@@ -547,9 +563,7 @@ class TestMonitorChecks:
             return place() if calls["n"] == 1 else place(rating=1.0)
 
         await monitors.check_monitor(owner=ALICE, monitor_id=created["monitor_id"], fetch_place=fetch)
-        result = await monitors.check_monitor(
-            owner=ALICE, monitor_id=created["monitor_id"], fetch_place=fetch
-        )
+        result = await monitors.check_monitor(owner=ALICE, monitor_id=created["monitor_id"], fetch_place=fetch)
         assert result["changed"] is False
 
     async def test_a_failed_scrape_is_not_recorded_as_no_change(self):
@@ -559,9 +573,7 @@ class TestMonitorChecks:
         async def fetch(_monitor):
             return {"error": True, "message": "browser crashed"}
 
-        result = await monitors.check_monitor(
-            owner=ALICE, monitor_id=created["monitor_id"], fetch_place=fetch
-        )
+        result = await monitors.check_monitor(owner=ALICE, monitor_id=created["monitor_id"], fetch_place=fetch)
         assert result["checked"] is False
         assert result["error"] == "browser crashed"
 
@@ -577,9 +589,7 @@ class TestMonitorChecks:
         repointed at an internal address in that window -- the URL then goes to
         Playwright inside the container network.
         """
-        created = await monitors.create_monitor(
-            owner=ALICE, url="https://www.google.com/maps/place/x"
-        )
+        created = await monitors.create_monitor(owner=ALICE, url="https://www.google.com/maps/place/x")
 
         looked_up = []
 
@@ -591,11 +601,12 @@ class TestMonitorChecks:
             async def get_place_by_id(self, place_id):
                 return place()
 
-        with patch(
-            "app.services.google_maps_service.google_maps_service", Spy()
-        ), patch(
-            "app.core.url_guard.socket.getaddrinfo",
-            lambda host, port, *a, **k: [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("127.0.0.1", port))],
+        with (
+            patch("app.services.google_maps_service.google_maps_service", Spy()),
+            patch(
+                "app.core.url_guard.socket.getaddrinfo",
+                lambda host, port, *a, **k: [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("127.0.0.1", port))],
+            ),
         ):
             result = await monitors.check_monitor(owner=ALICE, monitor_id=created["monitor_id"])
 
@@ -608,17 +619,13 @@ class TestMonitorChecks:
         async def fetch(_monitor):
             raise RuntimeError("playwright exploded")
 
-        result = await monitors.check_monitor(
-            owner=ALICE, monitor_id=created["monitor_id"], fetch_place=fetch
-        )
+        result = await monitors.check_monitor(owner=ALICE, monitor_id=created["monitor_id"], fetch_place=fetch)
         assert result["checked"] is False
         assert "playwright exploded" in result["error"]
 
     async def test_a_field_that_vanishes_from_the_scrape_is_not_a_change(self):
         """A panel that failed to render must not become 'phone changed to null'."""
-        await monitors.register_webhook(
-            owner=ALICE, url="https://hooks.example.com/hook", events=["monitor.changed"]
-        )
+        await monitors.register_webhook(owner=ALICE, url="https://hooks.example.com/hook", events=["monitor.changed"])
         created = await monitors.create_monitor(owner=ALICE, place_id="p1")
 
         calls = {"n": 0}
@@ -632,9 +639,7 @@ class TestMonitorChecks:
             return partial
 
         await monitors.check_monitor(owner=ALICE, monitor_id=created["monitor_id"], fetch_place=fetch)
-        result = await monitors.check_monitor(
-            owner=ALICE, monitor_id=created["monitor_id"], fetch_place=fetch
-        )
+        result = await monitors.check_monitor(owner=ALICE, monitor_id=created["monitor_id"], fetch_place=fetch)
 
         assert result["changed"] is False
         assert FakeAsyncClient.calls == []
@@ -654,15 +659,11 @@ class TestMonitorChecks:
             return place()
 
         for _ in range(3):
-            result = await monitors.check_monitor(
-                owner=ALICE, monitor_id=created["monitor_id"], fetch_place=fetch
-            )
+            result = await monitors.check_monitor(owner=ALICE, monitor_id=created["monitor_id"], fetch_place=fetch)
         assert result["changed"] is False
 
     async def test_webhook_not_subscribed_to_the_event_is_not_fired(self):
-        await monitors.register_webhook(
-            owner=ALICE, url="https://hooks.example.com/hook", events=["job.completed"]
-        )
+        await monitors.register_webhook(owner=ALICE, url="https://hooks.example.com/hook", events=["job.completed"])
         created = await monitors.create_monitor(owner=ALICE, place_id="p1")
 
         calls = {"n": 0}
@@ -676,9 +677,7 @@ class TestMonitorChecks:
         assert FakeAsyncClient.calls == []
 
     async def test_another_owners_webhook_is_never_fired(self):
-        await monitors.register_webhook(
-            owner=BOB, url="https://hooks.example.com/bob", events=["monitor.changed"]
-        )
+        await monitors.register_webhook(owner=BOB, url="https://hooks.example.com/bob", events=["monitor.changed"])
         created = await monitors.create_monitor(owner=ALICE, place_id="p1")
 
         calls = {"n": 0}
@@ -778,9 +777,7 @@ class TestScheduler:
 
     async def test_running_scheduler_actually_fires_a_change(self):
         """End to end through the real loop: tick -> diff -> signed delivery."""
-        await monitors.register_webhook(
-            owner=ALICE, url="https://hooks.example.com/hook", events=["monitor.changed"]
-        )
+        await monitors.register_webhook(owner=ALICE, url="https://hooks.example.com/hook", events=["monitor.changed"])
         created = await monitors.create_monitor(owner=ALICE, place_id="p1", check_interval_hours=1)
 
         # Make it due immediately.
@@ -873,9 +870,7 @@ class TestPlaceHistory:
 
         await monitors.check_monitor(owner=ALICE, monitor_id=created["monitor_id"], fetch_place=fetch)
 
-        far_future = await monitors.get_place_history(
-            owner=ALICE, place_id="p1", start_date="2999-01-01"
-        )
+        far_future = await monitors.get_place_history(owner=ALICE, place_id="p1", start_date="2999-01-01")
         assert far_future["monitored"] is True
         assert far_future["history"] == []
 

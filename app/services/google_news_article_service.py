@@ -9,6 +9,7 @@ SSRF sink.
 Moved verbatim out of app.api.google_news.google_news_api, which keeps the
 route handler and still re-exports every public name defined here.
 """
+
 import asyncio
 import logging
 import os
@@ -40,6 +41,7 @@ from app.services.google_news_service import get_gnews_http_client, settings
 
 logger = logging.getLogger(__name__)
 
+
 # Initialize NLTK asynchronously at module level
 async def setup_nltk():
     """Setup NLTK resources once at startup, if nltk is installed at all."""
@@ -57,27 +59,29 @@ async def setup_nltk():
 
         # Check if 'punkt_tab' is already downloaded
         try:
-            nltk.data.find('tokenizers/punkt_tab')
+            nltk.data.find("tokenizers/punkt_tab")
             logger.info("NLTK 'punkt_tab' resource already available.")
         except LookupError:
             # 'punkt_tab' not found, so download it
             logger.info("NLTK 'punkt_tab' resource not found. Downloading...")
-            nltk.download('punkt_tab', nltk_data_dir, quiet=True)
+            nltk.download("punkt_tab", nltk_data_dir, quiet=True)
             logger.info("NLTK 'punkt_tab' resource downloaded successfully.")
 
         # Also download 'punkt' as fallback
         try:
-            nltk.data.find('tokenizers/punkt')
+            nltk.data.find("tokenizers/punkt")
         except LookupError:
             logger.info("Downloading fallback 'punkt' resource...")
-            nltk.download('punkt', nltk_data_dir, quiet=True)
+            nltk.download("punkt", nltk_data_dir, quiet=True)
 
     except Exception as e:
         # Handle any other exceptions during NLTK setup
         logger.error(f"An error occurred during NLTK setup: {e}")
 
+
 # Run NLTK setup at import time (this will be awaited in the lifespan event)
 _nltk_setup_task = None
+
 
 async def ensure_nltk_setup():
     """Ensure NLTK is set up, running setup only once."""
@@ -106,15 +110,11 @@ def _configured_article_hosts() -> tuple[str, ...]:
     return tuple(entry.strip().lower() for entry in raw.split(",") if entry.strip())
 
 
-ARTICLE_DETAILS_ALLOWED_HOSTS: tuple[str, ...] = (
-    NEWS_ALLOWED_HOSTS + _configured_article_hosts()
-)
+ARTICLE_DETAILS_ALLOWED_HOSTS: tuple[str, ...] = NEWS_ALLOWED_HOSTS + _configured_article_hosts()
 
 # Plaintext HTTP is off by default: a downgraded fetch is both interceptable
 # and a convenient way to reach internal services that never speak TLS.
-ARTICLE_DETAILS_ALLOW_HTTP: bool = (
-    os.environ.get("NEWS_ARTICLE_ALLOW_HTTP", "").strip().lower() in {"1", "true", "yes"}
-)
+ARTICLE_DETAILS_ALLOW_HTTP: bool = os.environ.get("NEWS_ARTICLE_ALLOW_HTTP", "").strip().lower() in {"1", "true", "yes"}
 
 # Resolve and check every address the host maps to. Only unit tests that must
 # not touch the network set this to False.
@@ -209,9 +209,7 @@ async def fetch_allow_listed_html(validated_url: str) -> tuple[str, str]:
             async for chunk in response.aiter_bytes():
                 total += len(chunk)
                 if total > ARTICLE_MAX_BYTES:
-                    raise UrlNotAllowed(
-                        f"response body exceeded {ARTICLE_MAX_BYTES} bytes"
-                    )
+                    raise UrlNotAllowed(f"response body exceeded {ARTICLE_MAX_BYTES} bytes")
                 chunks.append(chunk)
 
             encoding = response.charset_encoding or "utf-8"

@@ -4,6 +4,7 @@ GoogleMapsScraper: browser lifecycle, search and the results feed.
 Place-panel extraction lives in :mod:`.scraper_place_details` and is mixed
 in via PlaceDetailsMixin.
 """
+
 import asyncio
 import contextlib
 import logging
@@ -22,6 +23,8 @@ from app.services.google_maps.scraper_place_details import PlaceDetailsMixin
 # Logs under the facade module's name so log routing and filters keyed on
 # ``app.services.google_maps_scraper`` are unaffected by the split.
 logger = logging.getLogger("app.services.google_maps_scraper")
+
+
 class GoogleMapsScraper(PlaceDetailsMixin):
     """
     Google Maps scraper using Playwright.
@@ -130,7 +133,7 @@ class GoogleMapsScraper(PlaceDetailsMixin):
                 "--disable-accelerated-2d-canvas",
                 "--disable-gpu",
                 "--window-size=1920,1080",
-            ]
+            ],
         }
 
         # Add proxy if configured
@@ -138,6 +141,7 @@ class GoogleMapsScraper(PlaceDetailsMixin):
             # Parse proxy URL to extract credentials if present
             # Format: http://user:pass@host:port or http://host:port
             from urllib.parse import urlparse
+
             parsed = urlparse(self.proxy)
 
             proxy_config = {"server": f"{parsed.scheme}://{parsed.hostname}:{parsed.port}"}
@@ -178,16 +182,18 @@ class GoogleMapsScraper(PlaceDetailsMixin):
             viewport={"width": 1920, "height": 1080},
             locale=language,
             timezone_id="America/Los_Angeles",
-            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         )
 
         page = await context.new_page()
 
         # Set extra headers to appear more legitimate
-        await page.set_extra_http_headers({
-            "Accept-Language": f"{language},en;q=0.9",
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8"
-        })
+        await page.set_extra_http_headers(
+            {
+                "Accept-Language": f"{language},en;q=0.9",
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+            }
+        )
 
         return page, context
 
@@ -197,7 +203,7 @@ class GoogleMapsScraper(PlaceDetailsMixin):
         language: str = "en",
         max_results: int = 20,
         zoom: int = 15,
-        geo_coordinates: str | None = None
+        geo_coordinates: str | None = None,
     ) -> list[dict[str, Any]]:
         """
         Search Google Maps for businesses.
@@ -254,7 +260,7 @@ class GoogleMapsScraper(PlaceDetailsMixin):
                     "button:has-text('Accept all')",
                     "button:has-text('Accept')",
                     "button:has-text('Alle akzeptieren')",
-                    "[aria-label='Accept all']"
+                    "[aria-label='Accept all']",
                 ]:
                     accept_btn = page.locator(selector)
                     if await accept_btn.count() > 0:
@@ -270,7 +276,7 @@ class GoogleMapsScraper(PlaceDetailsMixin):
             for selector in [
                 "div[role='feed']",
                 "div[role='main'] div[jsaction*='mouseover']",
-                "a[href*='/maps/place/']"
+                "a[href*='/maps/place/']",
             ]:
                 try:
                     await page.wait_for_selector(selector, timeout=10000)

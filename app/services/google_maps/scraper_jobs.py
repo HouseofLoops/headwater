@@ -1,6 +1,7 @@
 """
 Scrape job model and the owner-scoped job store.
 """
+
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from enum import Enum
@@ -11,8 +12,10 @@ from app.services.record_store import RecordStore, get_record_store
 #: Namespace for scrape jobs in the owner-scoped record store.
 JOB_NAMESPACE = "maps:jobs"
 
+
 class JobStatus(str, Enum):
     """Status of a scraping job."""
+
     PENDING = "pending"
     RUNNING = "running"
     COMPLETED = "completed"
@@ -30,6 +33,7 @@ class ScrapeJob:
     to persist a job without one rather than quietly filing it under a shared
     partition.
     """
+
     id: str
     name: str
     query: str
@@ -81,7 +85,7 @@ class ScrapeJob:
                 "keywords": [self.query],
                 "lang": self.language,
                 "zoom": self.zoom,
-            }
+            },
         }
 
     def to_record(self) -> dict[str, Any]:
@@ -95,9 +99,7 @@ class ScrapeJob:
         payload = asdict(self)
         payload["status"] = self.status.value
         payload["created_at"] = self.created_at.isoformat()
-        payload["completed_at"] = (
-            self.completed_at.isoformat() if self.completed_at else None
-        )
+        payload["completed_at"] = self.completed_at.isoformat() if self.completed_at else None
         return payload
 
     @classmethod
@@ -106,13 +108,9 @@ class ScrapeJob:
         data = dict(payload)
         data["status"] = JobStatus(data.get("status", JobStatus.PENDING.value))
         created_at = data.get("created_at")
-        data["created_at"] = (
-            datetime.fromisoformat(created_at) if created_at else datetime.now()
-        )
+        data["created_at"] = datetime.fromisoformat(created_at) if created_at else datetime.now()
         completed_at = data.get("completed_at")
-        data["completed_at"] = (
-            datetime.fromisoformat(completed_at) if completed_at else None
-        )
+        data["completed_at"] = datetime.fromisoformat(completed_at) if completed_at else None
         known = {f for f in cls.__dataclass_fields__}
         return cls(**{k: v for k, v in data.items() if k in known})
 
@@ -139,8 +137,7 @@ class JobStore:
     def _require_owner(job: ScrapeJob) -> str:
         if not job.owner:
             raise ValueError(
-                "ScrapeJob.owner is required; derive it with "
-                "owner_id_for_api_key(api_key) before creating a job"
+                "ScrapeJob.owner is required; derive it with owner_id_for_api_key(api_key) before creating a job"
             )
         return job.owner
 
@@ -186,7 +183,5 @@ class JobStore:
         predicate = None
         if status:
             predicate = lambda record: record.data.get("status") == status
-        records = await self._store.list_for_owner(
-            owner, limit=limit, offset=offset, predicate=predicate
-        )
+        records = await self._store.list_for_owner(owner, limit=limit, offset=offset, predicate=predicate)
         return [ScrapeJob.from_record(r.data) for r in records]

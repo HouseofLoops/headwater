@@ -272,12 +272,13 @@ pytest --cov=app --cov-report=html
 import pytest
 from app.api.google_news import GoogleNewsAPI
 
+
 class TestGoogleNewsAPI:
     def test_search_basic(self):
         """Test basic news search functionality."""
         api = GoogleNewsAPI()
         results = api.search("artificial intelligence")
-        
+
         assert len(results) > 0
         assert "title" in results[0]
         assert "link" in results[0]
@@ -285,13 +286,8 @@ class TestGoogleNewsAPI:
     def test_search_with_filters(self):
         """Test news search with country and language filters."""
         api = GoogleNewsAPI()
-        results = api.search(
-            query="climate change",
-            country="US",
-            language="en",
-            max_results=5
-        )
-        
+        results = api.search(query="climate change", country="US", language="en", max_results=5)
+
         assert len(results) <= 5
         # Add more assertions...
 ```

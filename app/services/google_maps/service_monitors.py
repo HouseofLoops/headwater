@@ -1,6 +1,7 @@
 """
 Monitor and webhook methods for GoogleMapsService.
 """
+
 import logging
 from typing import Any
 
@@ -11,6 +12,7 @@ logger = logging.getLogger("app.services.google_maps_service")
 
 class MonitorsMixin:
     """Monitor and webhook methods of GoogleMapsService."""
+
     # =========================================================================
     # Monitors and webhooks
     #
@@ -34,7 +36,7 @@ class MonitorsMixin:
         webhook_url: str | None = None,
         check_interval_hours: int = 24,
         track_fields: list[str] = None,
-        api_key: str | None = None
+        api_key: str | None = None,
     ) -> dict[str, Any]:
         """
         Create a monitor for a place.
@@ -73,24 +75,15 @@ class MonitorsMixin:
             return {"error": True, "status_code": 400, "message": str(e)}
 
     async def list_monitors(
-        self,
-        status: str | None = None,
-        limit: int = 50,
-        offset: int = 0,
-        api_key: str | None = None
+        self, status: str | None = None, limit: int = 50, offset: int = 0, api_key: str | None = None
     ) -> dict[str, Any]:
         """List this caller's monitors. Never returns another caller's."""
         from app.services import google_maps_monitors as monitors
 
-        return await monitors.list_monitors(
-            owner=self._owner(api_key), status=status, limit=limit, offset=offset
-        )
+        return await monitors.list_monitors(owner=self._owner(api_key), status=status, limit=limit, offset=offset)
 
     async def get_monitor(
-        self,
-        monitor_id: str,
-        include_history: bool = True,
-        api_key: str | None = None
+        self, monitor_id: str, include_history: bool = True, api_key: str | None = None
     ) -> dict[str, Any]:
         """Get one monitor, including its recorded snapshot history."""
         from app.services import google_maps_monitors as monitors
@@ -105,11 +98,7 @@ class MonitorsMixin:
             return {"error": True, "status_code": 404, "message": "Monitor not found"}
         return {"monitor": monitor}
 
-    async def delete_monitor(
-        self,
-        monitor_id: str,
-        api_key: str | None = None
-    ) -> dict[str, Any]:
+    async def delete_monitor(self, monitor_id: str, api_key: str | None = None) -> dict[str, Any]:
         """Delete one of this caller's monitors."""
         from app.services import google_maps_monitors as monitors
 
@@ -119,27 +108,17 @@ class MonitorsMixin:
             return {"error": True, "status_code": 404, "message": "Monitor not found"}
         return {"deleted": True, "monitor_id": monitor_id}
 
-    async def check_monitor_now(
-        self,
-        monitor_id: str,
-        api_key: str | None = None
-    ) -> dict[str, Any]:
+    async def check_monitor_now(self, monitor_id: str, api_key: str | None = None) -> dict[str, Any]:
         """Run one monitor check immediately, outside the schedule."""
         from app.services import google_maps_monitors as monitors
 
         try:
-            return await monitors.check_monitor(
-                owner=self._owner(api_key), monitor_id=monitor_id
-            )
+            return await monitors.check_monitor(owner=self._owner(api_key), monitor_id=monitor_id)
         except monitors.MonitorNotFound:
             return {"error": True, "status_code": 404, "message": "Monitor not found"}
 
     async def register_webhook(
-        self,
-        url: str,
-        events: list[str],
-        secret: str | None = None,
-        api_key: str | None = None
+        self, url: str, events: list[str], secret: str | None = None, api_key: str | None = None
     ) -> dict[str, Any]:
         """
         Register a webhook that is actually delivered to.
@@ -151,33 +130,20 @@ class MonitorsMixin:
         from app.services import google_maps_monitors as monitors
 
         try:
-            return await monitors.register_webhook(
-                owner=self._owner(api_key), url=url, events=events, secret=secret
-            )
+            return await monitors.register_webhook(owner=self._owner(api_key), url=url, events=events, secret=secret)
         except monitors.InvalidWebhookTarget as e:
             logger.warning(f"Webhook target rejected: {e.reason}")
             return {"error": True, "status_code": 400, "message": e.public_message}
         except ValueError as e:
             return {"error": True, "status_code": 400, "message": str(e)}
 
-    async def list_webhooks(
-        self,
-        limit: int = 50,
-        offset: int = 0,
-        api_key: str | None = None
-    ) -> dict[str, Any]:
+    async def list_webhooks(self, limit: int = 50, offset: int = 0, api_key: str | None = None) -> dict[str, Any]:
         """List this caller's webhooks with their real delivery counters."""
         from app.services import google_maps_monitors as monitors
 
-        return await monitors.list_webhooks(
-            owner=self._owner(api_key), limit=limit, offset=offset
-        )
+        return await monitors.list_webhooks(owner=self._owner(api_key), limit=limit, offset=offset)
 
-    async def delete_webhook(
-        self,
-        webhook_id: str,
-        api_key: str | None = None
-    ) -> dict[str, Any]:
+    async def delete_webhook(self, webhook_id: str, api_key: str | None = None) -> dict[str, Any]:
         """Delete one of this caller's webhooks."""
         from app.services import google_maps_monitors as monitors
 

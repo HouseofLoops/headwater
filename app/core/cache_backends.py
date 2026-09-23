@@ -7,6 +7,7 @@ allowing easy switching between different caching strategies.
 
 Uses the shared async RedisManager for Redis operations.
 """
+
 import asyncio
 import json
 import logging
@@ -211,7 +212,7 @@ class MemoryCacheBackend(CacheBackend):
                 "misses": self._misses,
                 "sets": self._sets,
                 "deletes": self._deletes,
-                "hit_rate": f"{hit_rate:.2f}%"
+                "hit_rate": f"{hit_rate:.2f}%",
             }
 
     async def health_check(self) -> bool:
@@ -227,10 +228,7 @@ class MemoryCacheBackend(CacheBackend):
         """
         async with self._lock:
             now = time.time()
-            expired_keys = [
-                key for key, (_, expiry) in self._store.items()
-                if expiry <= now
-            ]
+            expired_keys = [key for key, (_, expiry) in self._store.items() if expiry <= now]
             for key in expired_keys:
                 del self._store[key]
 
@@ -266,6 +264,7 @@ class RedisCacheBackend(CacheBackend):
         """Get the shared Redis manager."""
         if self._manager is None:
             from app.core.redis_manager import RedisManager
+
             self._manager = await RedisManager.get_instance()
         return self._manager
 
@@ -273,14 +272,14 @@ class RedisCacheBackend(CacheBackend):
         """Serialize a value to JSON string."""
         try:
             return json.dumps(value)
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             return str(value)
 
     def _deserialize(self, value: str) -> Any:
         """Deserialize a JSON string to value."""
         try:
             return json.loads(value)
-        except (json.JSONDecodeError, TypeError, AttributeError):
+        except json.JSONDecodeError, TypeError, AttributeError:
             return value
 
     async def get(self, key: str) -> Any | None:
@@ -381,7 +380,7 @@ class RedisCacheBackend(CacheBackend):
             "misses": self._misses,
             "sets": self._sets,
             "deletes": self._deletes,
-            "hit_rate": f"{hit_rate:.2f}%"
+            "hit_rate": f"{hit_rate:.2f}%",
         }
 
         if manager and manager.is_available:
@@ -476,10 +475,7 @@ class TieredCacheBackend(CacheBackend):
     async def get_stats(self) -> dict[str, Any]:
         """Get combined statistics."""
         memory_stats = await self._memory.get_stats()
-        stats = {
-            "backend": "tiered",
-            "l1_memory": memory_stats
-        }
+        stats = {"backend": "tiered", "l1_memory": memory_stats}
         if self._redis:
             stats["l2_redis"] = await self._redis.get_stats()
         return stats
@@ -493,10 +489,7 @@ class TieredCacheBackend(CacheBackend):
         return memory_healthy or redis_healthy
 
 
-def create_cache_backend(
-    backend_type: str = "auto",
-    redis_url: str | None = None
-) -> CacheBackend:
+def create_cache_backend(backend_type: str = "auto", redis_url: str | None = None) -> CacheBackend:
     """
     Factory function to create a cache backend.
 

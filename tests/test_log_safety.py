@@ -67,8 +67,13 @@ class TestLogInjectionFilter:
 
     def _record(self, msg, args=()):
         return logging.LogRecord(
-            name="t", level=logging.INFO, pathname=__file__, lineno=1,
-            msg=msg, args=args, exc_info=None,
+            name="t",
+            level=logging.INFO,
+            pathname=__file__,
+            lineno=1,
+            msg=msg,
+            args=args,
+            exc_info=None,
         )
 
     def test_newline_in_an_unwrapped_message_is_escaped(self):
@@ -98,18 +103,14 @@ class TestInstall:
         logger = logging.getLogger("test-install-lf")
         logger.handlers = [logging.NullHandler()]
         install_log_injection_filter(logger)
-        assert any(
-            isinstance(f, LogInjectionFilter) for f in logger.handlers[0].filters
-        )
+        assert any(isinstance(f, LogInjectionFilter) for f in logger.handlers[0].filters)
 
     def test_installing_twice_does_not_duplicate(self):
         logger = logging.getLogger("test-install-twice")
         logger.handlers = [logging.NullHandler()]
         install_log_injection_filter(logger)
         install_log_injection_filter(logger)
-        count = sum(
-            isinstance(f, LogInjectionFilter) for f in logger.handlers[0].filters
-        )
+        count = sum(isinstance(f, LogInjectionFilter) for f in logger.handlers[0].filters)
         assert count == 1
 
 

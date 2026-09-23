@@ -38,8 +38,10 @@ def api_key_auth_enforced():
         metadata={},
     )
 
-    with patch.object(main, "get_settings", return_value=settings_stub), \
-         patch.object(auth, "_auth_snapshot", return_value=auth_state):
+    with (
+        patch.object(main, "get_settings", return_value=settings_stub),
+        patch.object(auth, "_auth_snapshot", return_value=auth_state),
+    ):
         yield
 
 
@@ -56,6 +58,7 @@ class TestSensitiveEndpointAuthentication:
     @pytest.fixture
     def app(self):
         from main import create_application
+
         return create_application()
 
     @pytest.mark.parametrize("path", SENSITIVE_ENDPOINTS)
@@ -64,9 +67,7 @@ class TestSensitiveEndpointAuthentication:
         with api_key_auth_enforced():
             response = TestClient(app).get(path)
 
-        assert response.status_code == 401, (
-            f"{path} is readable without an API key: {response.text[:200]}"
-        )
+        assert response.status_code == 401, f"{path} is readable without an API key: {response.text[:200]}"
         body = response.text.lower()
         for leak in ("cpu", "memory", "disk", "rate_limiting", "cors", "uptime"):
             assert leak not in body, f"{path} leaked {leak!r} in its 401 body"
@@ -79,7 +80,7 @@ class TestSensitiveEndpointAuthentication:
 
         assert response.status_code == 401
 
-    @patch('main.check_health', new_callable=AsyncMock)
+    @patch("main.check_health", new_callable=AsyncMock)
     def test_sensitive_endpoint_accepts_valid_api_key(self, mock_check_health, app):
         """A valid API key still gets through - the gate is auth, not a block."""
         mock_check_health.return_value = {"status": "healthy", "details": {}}
@@ -115,6 +116,7 @@ class TestDocsExposure:
 
     def _app_for(self, environment):
         import main
+
         stub = MagicMock()
         stub.PROJECT_NAME = "Headwater"
         stub.DESCRIPTION = "desc"
@@ -180,12 +182,14 @@ class TestMainApplication:
 
     def test_create_application_basic(self, mock_settings):
         """Test basic application creation."""
-        with patch('main.settings', mock_settings), \
-             patch('main.configure_exception_handlers') as mock_configure_handlers, \
-             patch('main.setup_middleware') as mock_setup_middleware, \
-             patch('main.METRICS_AVAILABLE', False):
-
+        with (
+            patch("main.settings", mock_settings),
+            patch("main.configure_exception_handlers") as mock_configure_handlers,
+            patch("main.setup_middleware") as mock_setup_middleware,
+            patch("main.METRICS_AVAILABLE", False),
+        ):
             from main import create_application
+
             app = create_application()
 
             assert isinstance(app, FastAPI)
@@ -211,17 +215,17 @@ class TestMainApplication:
         """
         from app.core.rate_limiter import RateLimitMiddleware
 
-        with patch('main.settings', mock_settings), \
-             patch('main.configure_exception_handlers'), \
-             patch('main.METRICS_AVAILABLE', False):
-
+        with (
+            patch("main.settings", mock_settings),
+            patch("main.configure_exception_handlers"),
+            patch("main.METRICS_AVAILABLE", False),
+        ):
             from main import create_application
+
             app = create_application()
 
             installed = [m.cls for m in app.user_middleware]
-            assert RateLimitMiddleware in installed, (
-                f"RateLimitMiddleware not installed; stack was {installed}"
-            )
+            assert RateLimitMiddleware in installed, f"RateLimitMiddleware not installed; stack was {installed}"
 
     def test_no_slowapi_limiter_remains(self):
         """The dead slowapi path must not come back.
@@ -245,13 +249,15 @@ class TestMainApplication:
         # main.py does `from prometheus_fastapi_instrumentator import
         # Instrumentator`, binding the name into main's namespace, so
         # patching the source module would not affect what main uses.
-        with patch('main.settings', mock_settings), \
-             patch('main.configure_exception_handlers'), \
-             patch('main.setup_middleware'), \
-             patch('main.METRICS_AVAILABLE', True), \
-             patch('main.Instrumentator', return_value=mock_instrumentator):
-
+        with (
+            patch("main.settings", mock_settings),
+            patch("main.configure_exception_handlers"),
+            patch("main.setup_middleware"),
+            patch("main.METRICS_AVAILABLE", True),
+            patch("main.Instrumentator", return_value=mock_instrumentator),
+        ):
             from main import create_application
+
             app = create_application()
 
             # Verify expose was called on the instrumented app
@@ -265,6 +271,7 @@ class TestMainApplication:
             # collectors publish process memory, start time, the Python
             # version and a labelled series per instrumented route.
             import main
+
             dependency_calls = kwargs["dependencies"]
             assert [dep.dependency for dep in dependency_calls] == [main.require_api_key]
 
@@ -279,19 +286,19 @@ class TestMainApplication:
         instrumentator_module = pytest.importorskip("prometheus_fastapi_instrumentator")
 
         import inspect
-        signature = inspect.signature(instrumentator_module.Instrumentator.expose)
-        assert any(
-            parameter.kind is inspect.Parameter.VAR_KEYWORD
-            for parameter in signature.parameters.values()
-        ), "Instrumentator.expose no longer forwards **kwargs to the route"
 
-    @patch('main.stop_monitor_scheduler', new_callable=AsyncMock)
-    @patch('main.start_monitor_scheduler')
-    @patch('main.shutdown_rate_limiting', new_callable=AsyncMock)
-    @patch('main.start_rate_limit_cleanup_task')
-    @patch('main.shutdown_http_client_manager', new_callable=AsyncMock)
-    @patch('main.setup_nltk', new_callable=AsyncMock)
-    @patch('main.settings')
+        signature = inspect.signature(instrumentator_module.Instrumentator.expose)
+        assert any(parameter.kind is inspect.Parameter.VAR_KEYWORD for parameter in signature.parameters.values()), (
+            "Instrumentator.expose no longer forwards **kwargs to the route"
+        )
+
+    @patch("main.stop_monitor_scheduler", new_callable=AsyncMock)
+    @patch("main.start_monitor_scheduler")
+    @patch("main.shutdown_rate_limiting", new_callable=AsyncMock)
+    @patch("main.start_rate_limit_cleanup_task")
+    @patch("main.shutdown_http_client_manager", new_callable=AsyncMock)
+    @patch("main.setup_nltk", new_callable=AsyncMock)
+    @patch("main.settings")
     def test_lifespan_startup_and_shutdown(
         self,
         mock_settings_patch,
@@ -315,6 +322,7 @@ class TestMainApplication:
         mock_settings_patch.ENVIRONMENT = mock_settings.ENVIRONMENT
 
         from main import create_application
+
         app = create_application()
 
         # The deprecated event hooks must be gone.
@@ -362,7 +370,7 @@ class TestMainApplication:
         assert main.start_monitor_scheduler is google_maps_monitors.start_monitor_scheduler
         assert main.stop_monitor_scheduler is google_maps_monitors.stop_monitor_scheduler
 
-    @patch('main.settings')
+    @patch("main.settings")
     def test_health_check_endpoints(self, mock_settings_patch, mock_settings):
         """Test health check endpoints."""
         # Configure the mock settings with the fixture values
@@ -371,6 +379,7 @@ class TestMainApplication:
         mock_settings_patch.ENVIRONMENT = mock_settings.ENVIRONMENT
 
         from main import create_application
+
         app = create_application()
         client = TestClient(app)
 
@@ -390,9 +399,7 @@ class TestMainApplication:
         with api_key_auth_enforced():
             assert client.get("/status").status_code == 401
 
-            data = client.get(
-                "/status", headers={"X-API-Key": VALID_TEST_KEY}
-            ).json()
+            data = client.get("/status", headers={"X-API-Key": VALID_TEST_KEY}).json()
         assert data["status"] == "online"
         assert data["version"] == "1.2.0"
         assert data["environment"] == "development"
@@ -400,8 +407,8 @@ class TestMainApplication:
         assert "uptime" in data
 
     @pytest.mark.asyncio
-    @patch('main.check_health', new_callable=AsyncMock)
-    @patch('main.settings')
+    @patch("main.check_health", new_callable=AsyncMock)
+    @patch("main.settings")
     def test_detailed_health_check(self, mock_settings_patch, mock_check_health, mock_settings):
         """Test detailed health check endpoint."""
         mock_check_health.return_value = {"status": "healthy", "details": {}}
@@ -411,13 +418,12 @@ class TestMainApplication:
         mock_settings_patch.ENVIRONMENT = mock_settings.ENVIRONMENT
 
         from main import create_application
+
         app = create_application()
         client = TestClient(app)
 
         with api_key_auth_enforced():
-            response = client.get(
-                "/health/detailed", headers={"X-API-Key": VALID_TEST_KEY}
-            )
+            response = client.get("/health/detailed", headers={"X-API-Key": VALID_TEST_KEY})
         assert response.status_code == 200
 
         # Verify check_health was called with correct parameters
@@ -425,7 +431,7 @@ class TestMainApplication:
         call_args = mock_check_health.call_args
         assert call_args[1]["include_details"] is True
 
-    @patch('main.settings')
+    @patch("main.settings")
     def test_api_config_endpoint(self, mock_settings_patch, mock_settings):
         """Test API configuration endpoint."""
         # Configure the mock settings with the fixture values
@@ -442,13 +448,12 @@ class TestMainApplication:
         mock_settings_patch.CORS_HEADERS = mock_settings.CORS_HEADERS
 
         from main import create_application
+
         app = create_application()
         client = TestClient(app)
 
         with api_key_auth_enforced():
-            response = client.get(
-                "/api-config", headers={"X-API-Key": VALID_TEST_KEY}
-            )
+            response = client.get("/api-config", headers={"X-API-Key": VALID_TEST_KEY})
         assert response.status_code == 200
         data = response.json()
 
@@ -459,7 +464,7 @@ class TestMainApplication:
         assert "caching" in data
         assert "cors" in data
 
-    @patch('main.settings')
+    @patch("main.settings")
     def test_config_sources_endpoint(self, mock_settings_patch, mock_settings):
         """Test configuration sources endpoint."""
         # Configure the mock settings with the fixture values
@@ -468,13 +473,12 @@ class TestMainApplication:
         mock_settings_patch.ENVIRONMENT = mock_settings.ENVIRONMENT
 
         from main import create_application
+
         app = create_application()
         client = TestClient(app)
 
         with api_key_auth_enforced():
-            response = client.get(
-                "/config-sources", headers={"X-API-Key": VALID_TEST_KEY}
-            )
+            response = client.get("/config-sources", headers={"X-API-Key": VALID_TEST_KEY})
         assert response.status_code == 200
         data = response.json()
 
@@ -482,7 +486,7 @@ class TestMainApplication:
         assert "env_file" in data
         assert "defaults" in data
 
-    @patch('main.settings')
+    @patch("main.settings")
     def test_custom_docs_endpoints(self, mock_settings_patch, mock_settings):
         """Test custom documentation endpoints."""
         # Configure the mock settings with the fixture values
@@ -491,6 +495,7 @@ class TestMainApplication:
         mock_settings_patch.ENVIRONMENT = mock_settings.ENVIRONMENT
 
         from main import create_application
+
         app = create_application()
         client = TestClient(app)
 
@@ -504,7 +509,7 @@ class TestMainApplication:
         assert response.status_code == 200
         assert "redoc" in response.text.lower()
 
-    @patch('main.settings')
+    @patch("main.settings")
     def test_router_inclusion(self, mock_settings_patch, mock_settings):
         """
         Test that API routers are properly included.
@@ -522,6 +527,7 @@ class TestMainApplication:
         mock_settings_patch.DESCRIPTION = mock_settings.DESCRIPTION
 
         from main import create_application
+
         app = create_application()
 
         paths = app.openapi()["paths"]
@@ -536,11 +542,9 @@ class TestMainApplication:
             "/api/v1/youtube-transcripts",
             "/api/v1/google-maps",
         ):
-            assert any(path.startswith(prefix) for path in paths), (
-                f"Router {prefix} is not mounted"
-            )
+            assert any(path.startswith(prefix) for path in paths), f"Router {prefix} is not mounted"
 
-    @patch('main.settings')
+    @patch("main.settings")
     def test_app_state_initialization(self, mock_settings_patch, mock_settings):
         """Test that app state is properly initialized."""
         # Configure the mock settings with the fixture values
@@ -549,13 +553,14 @@ class TestMainApplication:
         mock_settings_patch.ENVIRONMENT = mock_settings.ENVIRONMENT
 
         from main import create_application
+
         app = create_application()
 
         # Check that start_time is set
-        assert hasattr(app.state, 'start_time')
+        assert hasattr(app.state, "start_time")
         assert isinstance(app.state.start_time, float)
 
-    @patch('main.settings')
+    @patch("main.settings")
     def test_direct_execution(self, mock_settings_patch, mock_settings):
         """Test that the main module can be imported and has expected attributes."""
         # Configure the mock settings with the fixture values
@@ -567,13 +572,13 @@ class TestMainApplication:
         import main
 
         # Verify that the main module has the expected attributes
-        assert hasattr(main, 'create_application')
-        assert hasattr(main, 'app')
+        assert hasattr(main, "create_application")
+        assert hasattr(main, "app")
 
         # Verify that create_application is callable
         assert callable(main.create_application)
 
-    @patch('main.settings')
+    @patch("main.settings")
     def test_openapi_schema_generation(self, mock_settings_patch, mock_settings):
         """Test OpenAPI schema generation."""
         # Configure the mock settings with the fixture values
@@ -583,6 +588,7 @@ class TestMainApplication:
         mock_settings_patch.DESCRIPTION = mock_settings.DESCRIPTION  # Add missing description
 
         from main import create_application
+
         app = create_application()
 
         # Test that OpenAPI schema can be generated
@@ -591,7 +597,7 @@ class TestMainApplication:
         assert schema["info"]["title"] == "Headwater"
         assert schema["info"]["version"] == "1.2.0"
 
-    @patch('main.settings')
+    @patch("main.settings")
     def test_cors_configuration(self, mock_settings_patch, mock_settings):
         """Test CORS configuration in API config."""
         # Configure the mock settings with the fixture values
@@ -608,13 +614,12 @@ class TestMainApplication:
         mock_settings_patch.CORS_HEADERS = mock_settings.CORS_HEADERS
 
         from main import create_application
+
         app = create_application()
         client = TestClient(app)
 
         with api_key_auth_enforced():
-            response = client.get(
-                "/api-config", headers={"X-API-Key": VALID_TEST_KEY}
-            )
+            response = client.get("/api-config", headers={"X-API-Key": VALID_TEST_KEY})
         assert response.status_code == 200
         data = response.json()
 

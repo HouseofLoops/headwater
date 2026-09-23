@@ -134,16 +134,17 @@ gnews_router = APIRouter()
 logger = logging.getLogger(__name__)
 # logging.basicConfig(level=logging.DEBUG)  # Ensure DEBUG level logs are captured -> This should be handled by the main application entry point
 
+
 # Pydantic Model for Input Validation
 class SourceQuery(BaseModel):
     source: str
 
-    @validator('source')
+    @validator("source")
     def validate_source(cls, v):
         # Optimized regex to validate domain names or full URLs
-        pattern = r'^(https?://)?(www\.)?([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}$'
+        pattern = r"^(https?://)?(www\.)?([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}$"
         if not re.fullmatch(pattern, v):
-            raise ValueError('Invalid source URL or domain.')
+            raise ValueError("Invalid source URL or domain.")
         return v
 
 
@@ -156,6 +157,7 @@ class NewsArticle(BaseModel):
     description: str | None
     url: str
     publisher: str | None
+
 
 class NewsResponse(BaseModel):
     """A list of articles, plus a signal when some were lost.
@@ -170,6 +172,7 @@ class NewsResponse(BaseModel):
     partial: bool | None = None
     dropped: int | None = None
 
+
 class ErrorResponse(BaseModel):
     detail: str
 
@@ -177,6 +180,7 @@ class ErrorResponse(BaseModel):
 # -----------------------------------------------------------------------------
 # Endpoints
 # -----------------------------------------------------------------------------
+
 
 @gnews_router.get("/available-languages/", summary="Available Languages", response_model=dict)
 async def get_languages(
@@ -186,6 +190,7 @@ async def get_languages(
     """Get supported languages for Google News."""
     return {"available_languages": AVAILABLE_LANGUAGES}
 
+
 @gnews_router.get("/available-countries/", summary="Available Countries", response_model=dict)
 async def get_available_countries(
     # === AUTH ===
@@ -193,6 +198,7 @@ async def get_available_countries(
 ):
     """Get supported countries for Google News."""
     return {"available_countries": AVAILABLE_COUNTRIES}
+
 
 @gnews_router.get("/source/", summary="News by Source", response_model=NewsResponse, response_model_exclude_none=True)
 async def get_news_by_source(
@@ -218,7 +224,7 @@ async def get_news_by_source(
         # Normalize the source input by extracting the domain if a URL is provided
         parsed_source = urlparse(validated_query.source)
         domain_source = parsed_source.netloc.lower() if parsed_source.netloc else validated_query.source.lower()
-        domain_source = domain_source.replace('www.', '').strip()
+        domain_source = domain_source.replace("www.", "").strip()
 
         # Parse dates if provided
         start_date_tuple = tuple(map(int, start_date.split("-"))) if start_date else None
@@ -233,7 +239,7 @@ async def get_news_by_source(
             max_results=max_results,
             start_date=start_date,
             end_date=end_date,
-            exclude_duplicates=exclude_duplicates
+            exclude_duplicates=exclude_duplicates,
         )
 
         async def fetch_source_news():
@@ -256,10 +262,7 @@ async def get_news_by_source(
 
             return build_news_response(
                 processed_articles,
-                empty_detail=(
-                    f"No articles found from source '{domain_source}' "
-                    "with the given date range."
-                ),
+                empty_detail=(f"No articles found from source '{domain_source}' with the given date range."),
             )
 
         # Get cached result or fetch and cache (10 minute TTL for source news)
@@ -273,6 +276,7 @@ async def get_news_by_source(
     except Exception as e:
         logger.error(f"Unexpected error fetching Google News for source '{source}': {e!s}")
         raise HTTPException(status_code=500, detail="Internal Server Error")
+
 
 @gnews_router.get("/search/", summary="Search News", response_model=NewsResponse, response_model_exclude_none=True)
 async def search_google_news(
@@ -310,7 +314,7 @@ async def search_google_news(
             end_date=end_date,
             exclude_duplicates=exclude_duplicates,
             exact_match=exact_match,
-            sort_by=sort_by
+            sort_by=sort_by,
         )
 
         async def fetch_search_results():
@@ -348,6 +352,7 @@ async def search_google_news(
         logger.error(f"Error fetching Google News for query '{query}': {e!s}")
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
+
 @gnews_router.get("/top/", summary="Top News", response_model=NewsResponse, response_model_exclude_none=True)
 async def get_top_google_news(
     # === COMMONLY USED ===
@@ -360,12 +365,7 @@ async def get_top_google_news(
     """Get top news articles."""
     try:
         # Generate cache key
-        cache_key = generate_cache_key(
-            "gnews:top",
-            language=language,
-            country=country,
-            max_results=max_results
-        )
+        cache_key = generate_cache_key("gnews:top", language=language, country=country, max_results=max_results)
 
         async def fetch_top_news():
             # Create a new GNews instance
@@ -396,6 +396,7 @@ async def get_top_google_news(
         logger.error(f"Error fetching top Google News: {e!s}")
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
+
 @gnews_router.get("/topic/", summary="News by Topic", response_model=NewsResponse, response_model_exclude_none=True)
 async def get_news_by_topic(
     # === REQUIRED ===
@@ -412,8 +413,7 @@ async def get_news_by_topic(
     """Get news articles by topic."""
     if topic.upper() not in AVAILABLE_TOPICS:
         return JSONResponse(
-            status_code=400,
-            content={"detail": "Invalid topic provided.", "available_topics": AVAILABLE_TOPICS}
+            status_code=400, content={"detail": "Invalid topic provided.", "available_topics": AVAILABLE_TOPICS}
         )
     try:
         # Generate cache key
@@ -423,7 +423,7 @@ async def get_news_by_topic(
             language=language,
             country=country,
             max_results=max_results,
-            exclude_duplicates=exclude_duplicates
+            exclude_duplicates=exclude_duplicates,
         )
 
         async def fetch_topic_news():
@@ -456,7 +456,10 @@ async def get_news_by_topic(
         logger.error(f"Error fetching Google News for topic '{topic}': {e!s}")
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
-@gnews_router.get("/location/", summary="News by Location", response_model=NewsResponse, response_model_exclude_none=True)
+
+@gnews_router.get(
+    "/location/", summary="News by Location", response_model=NewsResponse, response_model_exclude_none=True
+)
 async def get_news_by_location(
     # === REQUIRED ===
     location: str = Query(..., description="Location name", examples=["New York"]),
@@ -487,7 +490,7 @@ async def get_news_by_location(
             max_results=max_results,
             start_date=start_date,
             end_date=end_date,
-            exclude_duplicates=exclude_duplicates
+            exclude_duplicates=exclude_duplicates,
         )
 
         async def fetch_location_news():
@@ -513,10 +516,7 @@ async def get_news_by_location(
 
             return build_news_response(
                 processed_articles,
-                empty_detail=(
-                    f"No processable news found for the location '{location}' "
-                    "after URL decoding."
-                ),
+                empty_detail=(f"No processable news found for the location '{location}' after URL decoding."),
             )
 
         # Get cached result or fetch and cache (10 minute TTL for location news)
@@ -527,7 +527,9 @@ async def get_news_by_location(
         logger.error(f"Error fetching Google News for location '{location}': {e!s}")
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
+
 # The `/source/` endpoint definition is already provided above.
+
 
 @gnews_router.get("/articles/", summary="Bulk Articles", response_model=NewsResponse, response_model_exclude_none=True)
 async def get_google_news_articles(
@@ -545,12 +547,7 @@ async def get_google_news_articles(
     try:
         # Generate cache key
         cache_key = generate_cache_key(
-            "gnews:articles",
-            query=query,
-            language=language,
-            country=country,
-            max_results=max_results,
-            period=period
+            "gnews:articles", query=query, language=language, country=country, max_results=max_results, period=period
         )
 
         async def fetch_articles():
@@ -572,10 +569,7 @@ async def get_google_news_articles(
 
             return build_news_response(
                 processed_articles,
-                empty_detail=(
-                    "No processable articles found for the given parameters "
-                    "after URL decoding."
-                ),
+                empty_detail=("No processable articles found for the given parameters after URL decoding."),
             )
 
         # Get cached result or fetch and cache (10 minute TTL for bulk articles)
@@ -661,7 +655,11 @@ async def get_article_details(
             # Build response (convert publish_date to string for JSON serialization)
             publish_date_str = None
             if article.publish_date:
-                publish_date_str = article.publish_date.isoformat() if hasattr(article.publish_date, 'isoformat') else str(article.publish_date)
+                publish_date_str = (
+                    article.publish_date.isoformat()
+                    if hasattr(article.publish_date, "isoformat")
+                    else str(article.publish_date)
+                )
 
             response_data = {
                 "title": article.title,
@@ -673,23 +671,18 @@ async def get_article_details(
                 "videos": article.movies,
                 "meta_data": article.meta_data,
                 "meta_description": article.meta_description,
-                "meta_keywords": article.meta_keywords
+                "meta_keywords": article.meta_keywords,
             }
 
             if nlp_success:
-                response_data.update({
-                    "summary": article.summary,
-                    "keywords": article.keywords
-                })
+                response_data.update({"summary": article.summary, "keywords": article.keywords})
             else:
                 response_data["summary"] = None
                 response_data["keywords"] = None
                 response_data["nlp_available"] = False
                 if not nlp_permanently_absent:
                     # Transient: keep the key that stops is_cacheable() storing it.
-                    response_data["error"] = (
-                        "Unable to perform NLP analysis due to missing NLTK resource."
-                    )
+                    response_data["error"] = "Unable to perform NLP analysis due to missing NLTK resource."
 
             return response_data
 
@@ -713,6 +706,8 @@ async def get_article_details(
     except Exception as e:
         logger.error(
             "Unexpected error fetching article details for %s: %s",
-            validated.host, e, exc_info=True,
+            validated.host,
+            e,
+            exc_info=True,
         )
         raise HTTPException(status_code=502, detail=ARTICLE_FETCH_FAILED_DETAIL)

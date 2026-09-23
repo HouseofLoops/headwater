@@ -44,9 +44,11 @@ def svc():
     store = get_record_store(scraper.JOB_NAMESPACE)
     store._memory.clear()
 
-    with patch.object(RecordStore, "_get_redis", return_value=None), \
-         patch.object(google_maps_service, "_ensure_initialized", AsyncMock()), \
-         patch.object(google_maps_service, "_scraper_module", scraper):
+    with (
+        patch.object(RecordStore, "_get_redis", return_value=None),
+        patch.object(google_maps_service, "_ensure_initialized", AsyncMock()),
+        patch.object(google_maps_service, "_scraper_module", scraper),
+    ):
         yield google_maps_service
 
     store._memory.clear()

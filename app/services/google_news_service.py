@@ -8,6 +8,7 @@ articles into responses, and the namespaced response cache.
 Moved verbatim out of app.api.google_news.google_news_api, which keeps the
 route handlers and still re-exports every name defined here.
 """
+
 import asyncio
 import datetime
 import hashlib
@@ -186,9 +187,7 @@ def is_google_news_redirect(url: str) -> bool:
         host = (urlparse(url).hostname or "").lower().rstrip(".")
     except ValueError:
         return False
-    return any(
-        host == entry or host.endswith(f".{entry}") for entry in GOOGLE_NEWS_HOSTS
-    )
+    return any(host == entry or host.endswith(f".{entry}") for entry in GOOGLE_NEWS_HOSTS)
 
 
 async def get_base64_str(source_url):
@@ -198,15 +197,12 @@ async def get_base64_str(source_url):
     try:
         url = urlparse(source_url)
         path = url.path.split("/")
-        if (
-            is_google_news_redirect(source_url)
-            and len(path) > 1
-            and path[-2] in ["articles", "read", "rss"]
-        ):
+        if is_google_news_redirect(source_url) and len(path) > 1 and path[-2] in ["articles", "read", "rss"]:
             return {"status": True, "base64_str": path[-1]}
         return {"status": False, "message": "Invalid Google News URL format."}
     except Exception as e:
         return {"status": False, "message": f"Error in get_base64_str: {e!s}"}
+
 
 async def get_decoding_params(base64_str):
     """
@@ -246,12 +242,14 @@ async def get_decoding_params(base64_str):
             "message": f"Unexpected error in get_decoding_params: {e!s}",
         }
 
+
 def validate_date_format(date_str):
     try:
-        datetime.datetime.strptime(date_str, '%Y-%m-%d')
+        datetime.datetime.strptime(date_str, "%Y-%m-%d")
         return True
     except ValueError:
         return False
+
 
 async def decode_url(signature, timestamp, base64_str, start_date=None, end_date=None):
     """
@@ -285,11 +283,7 @@ async def decode_url(signature, timestamp, base64_str, start_date=None, end_date
         proxy_url = await get_proxy()  # Adjust based on your implementation
 
         client = await get_gnews_http_client(proxy_url=proxy_url)
-        response = await client.post(
-            url,
-            headers=headers,
-            data=f"f.req={quote(json.dumps([[payload]]))}"
-        )
+        response = await client.post(url, headers=headers, data=f"f.req={quote(json.dumps([[payload]]))}")
         response.raise_for_status()
 
         parsed_data = json.loads(response.text.split("\n\n")[1])[:-2]
@@ -310,6 +304,7 @@ async def decode_url(signature, timestamp, base64_str, start_date=None, end_date
     except Exception as e:
         logger.error(f"Error in decode_url: {e!s}")
         return {"status": False, "message": f"Error in decode_url: {e!s}"}
+
 
 async def decode_google_news_url(source_url, interval=None):
     """
@@ -361,9 +356,7 @@ async def get_gnews_instance(
     # single URL string, so passing it through raised "proxies must be a mapping"
     # and every search 500'd the moment ENABLE_PROXY was turned on. The httpx
     # paths above are unaffected: httpx does take a bare URL.
-    proxy_map = (
-        {"http": proxy_url_val, "https": proxy_url_val} if proxy_url_val else None
-    )
+    proxy_map = {"http": proxy_url_val, "https": proxy_url_val} if proxy_url_val else None
 
     # Initialize GNews with proxy for its internal feedparser usage
     gnews = GNews(
@@ -374,7 +367,7 @@ async def get_gnews_instance(
         start_date=start_date,
         end_date=end_date,
         # exclude_websites can be set if needed, GNews constructor supports it
-        proxy=proxy_map  # requests-style {scheme: url} mapping, not a bare URL
+        proxy=proxy_map,  # requests-style {scheme: url} mapping, not a bare URL
     )
 
     # Set attributes not available in constructor or that need to be dynamically set
@@ -392,7 +385,7 @@ async def get_gnews_instance(
         }
         gnews.session = httpx.AsyncClient(mounts=mounts)
         logger.debug("GNews instance using proxy for httpx session: %s", mask_proxy(proxy_url_val))
-        if proxy_url_val: # Logging for clarity that proxy is also set for feedparser
+        if proxy_url_val:  # Logging for clarity that proxy is also set for feedparser
             logger.debug(f"GNews instance also configured with proxy for feedparser: {proxy_url_val}")
     else:
         gnews.session = httpx.AsyncClient()
@@ -438,9 +431,7 @@ class ProcessedArticles(list):
 
 
 async def decode_and_process_articles(
-    raw_articles: list[dict],
-    filter_by_domain: str | None = None,
-    max_concurrent: int = 10
+    raw_articles: list[dict], filter_by_domain: str | None = None, max_concurrent: int = 10
 ) -> ProcessedArticles:
     """
     Normalise a batch of gnews articles, decoding Google News redirects.
@@ -502,16 +493,13 @@ async def decode_and_process_articles(
             transformed_article = transform_article(article_data)
 
             if filter_by_domain:
-                article_domain = (
-                    urlparse(transformed_article["url"])
-                    .netloc.lower()
-                    .replace("www.", "")
-                    .strip()
-                )
+                article_domain = urlparse(transformed_article["url"]).netloc.lower().replace("www.", "").strip()
                 if filter_by_domain not in article_domain:
                     logger.debug(
                         "Skipping article %r: domain %r does not match %r",
-                        transformed_article["title"], article_domain, filter_by_domain,
+                        transformed_article["title"],
+                        article_domain,
+                        filter_by_domain,
                     )
                     return FILTERED
 
@@ -537,7 +525,10 @@ async def decode_and_process_articles(
 
     logger.info(
         "Processed %d of %d articles (%d failed, %d filtered out)",
-        len(processed_articles), len(raw_articles), failed, filtered_out,
+        len(processed_articles),
+        len(raw_articles),
+        failed,
+        filtered_out,
     )
     return ProcessedArticles(
         processed_articles,
@@ -549,9 +540,7 @@ async def decode_and_process_articles(
 
 # Identical for every cause: what failed upstream is a log detail, not
 # something to describe to an unauthenticated caller.
-UPSTREAM_NEWS_FAILURE_DETAIL = (
-    "Could not resolve articles from Google News. Please retry."
-)
+UPSTREAM_NEWS_FAILURE_DETAIL = "Could not resolve articles from Google News. Please retry."
 
 
 def build_news_response(processed_articles, *, empty_detail: str) -> dict:
@@ -593,5 +582,5 @@ def transform_article(article: dict) -> dict:
         "description": article.get("description"),
         "published_date": article.get("published date"),
         "url": article.get("url"),
-        "publisher": article.get("publisher", {}).get("title") if article.get("publisher") else None
+        "publisher": article.get("publisher", {}).get("title") if article.get("publisher") else None,
     }

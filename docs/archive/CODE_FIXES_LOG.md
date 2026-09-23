@@ -141,10 +141,7 @@ results = await asyncio.gather(*tasks, return_exceptions=True)
 
 2. **Added timeout wrapper around gather** (lines 220-225):
    ```python
-   results = await asyncio.wait_for(
-       asyncio.gather(*tasks, return_exceptions=True),
-       timeout=batch_timeout
-   )
+   results = await asyncio.wait_for(asyncio.gather(*tasks, return_exceptions=True), timeout=batch_timeout)
    ```
 
 3. **Added timeout exception handling** (lines 226-239):
@@ -384,6 +381,7 @@ HTTP client creation was duplicated in google_news_api.py with its own `get_gnew
    ```python
    _gnews_http_client: Optional[httpx.AsyncClient] = None
 
+
    async def get_gnews_http_client(proxy_url: Optional[str] = None):
        global _gnews_http_client
        if _gnews_http_client is None:
@@ -424,7 +422,7 @@ Services use hardcoded singleton instances:
 ```python
 # Current patterns
 google_autocomplete_service = GoogleAutocompleteService()  # Module-level singleton
-_http_client_manager: Optional[HTTPClientManager] = None   # Global state
+_http_client_manager: Optional[HTTPClientManager] = None  # Global state
 ```
 
 This makes:
@@ -446,6 +444,7 @@ This makes:
    def get_autocomplete_service() -> GoogleAutocompleteService:
        return GoogleAutocompleteService()
 
+
    def get_http_client() -> HTTPClientManager:
        return get_http_client_manager()
    ```
@@ -454,10 +453,7 @@ This makes:
 
    ```python
    @router.get("/suggestions")
-   async def get_suggestions(
-       service: GoogleAutocompleteService = Depends(get_autocomplete_service)
-   ):
-       ...
+   async def get_suggestions(service: GoogleAutocompleteService = Depends(get_autocomplete_service)): ...
    ```
 
 3. Add dependency overrides for testing
@@ -734,6 +730,7 @@ This makes it difficult to:
    ```python
    class CacheBackend(ABC):
        """Abstract base class for cache backends."""
+
        @abstractmethod
        async def get(self, key: str) -> Optional[Any]: ...
        @abstractmethod
@@ -749,14 +746,18 @@ This makes it difficult to:
        @abstractmethod
        async def health_check(self) -> bool: ...
 
+
    class MemoryCacheBackend(CacheBackend):
        """In-memory cache with thread-safe asyncio.Lock."""
+
 
    class RedisCacheBackend(CacheBackend):
        """Redis cache for distributed deployments."""
 
+
    class TieredCacheBackend(CacheBackend):
        """L1 (memory) + L2 (Redis) tiered caching."""
+
 
    def create_cache_backend(backend_type: str, redis_url: Optional[str]) -> CacheBackend:
        """Factory function for backend selection."""

@@ -16,7 +16,7 @@ from app.core.config import Settings, get_settings
 def get_app_settings() -> Settings:
     """
     Get application settings.
-    
+
     Returns:
         Settings: Application settings
     """
@@ -24,34 +24,29 @@ def get_app_settings() -> Settings:
 
 
 # Authentication dependencies
-async def get_api_key_dependency(
-    api_key: str = Depends(authenticate_api_key)
-) -> str:
+async def get_api_key_dependency(api_key: str = Depends(authenticate_api_key)) -> str:
     """
     Get the current API key.
-    
+
     This is an alias for authenticate_api_key for backward compatibility.
-    
+
     Args:
         api_key: The API key from authenticate_api_key
-        
+
     Returns:
         str: The current API key
     """
     return api_key
 
 
-async def get_optional_api_key(
-    request: Request,
-    x_api_key: str | None = Header(None, alias="X-API-Key")
-) -> str | None:
+async def get_optional_api_key(request: Request, x_api_key: str | None = Header(None, alias="X-API-Key")) -> str | None:
     """
     Get the API key if provided, but don't require it.
-    
+
     Args:
         request: The request object
         x_api_key: The API key from the header
-        
+
     Returns:
         Optional[str]: The API key if provided and valid, None otherwise
     """
@@ -103,7 +98,7 @@ class ServiceDependencies:
         self,
         settings: Settings | None = None,
         http_client: HTTPClientManager | None = None,
-        cache: CacheManager | None = None
+        cache: CacheManager | None = None,
     ):
         self._settings = settings
         self._http_client = http_client

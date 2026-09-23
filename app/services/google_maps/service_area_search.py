@@ -4,6 +4,7 @@ Area and multi-query searches for GoogleMapsService.
 Nearby, grid, bounding-box and location searches, bulk search and
 competitor analysis -- everything that fans out over ``search_and_wait``.
 """
+
 import logging
 import math
 from typing import Any
@@ -17,6 +18,7 @@ logger = logging.getLogger("app.services.google_maps_service")
 
 class AreaSearchMixin:
     """Area, grid and multi-query search methods of GoogleMapsService."""
+
     async def nearby_search(
         self,
         latitude: float,
@@ -25,7 +27,7 @@ class AreaSearchMixin:
         query: str | None = None,
         language: str = "en",
         max_results: int = 20,
-        timeout: int | None = None
+        timeout: int | None = None,
     ) -> dict[str, Any]:
         """
         Search for places near a location.
@@ -56,16 +58,13 @@ class AreaSearchMixin:
                 max_results=max_results,
                 geo_coordinates=geo_coords,
                 zoom=self._radius_to_zoom(radius_meters),
-                timeout=timeout or 300
+                timeout=timeout or 300,
             )
 
             if result.get("error"):
                 return result
 
-            return {
-                "places": result.get("results", []),
-                "center": {"latitude": latitude, "longitude": longitude}
-            }
+            return {"places": result.get("results", []), "center": {"latitude": latitude, "longitude": longitude}}
 
         except Exception as e:
             logger.error(f"Nearby search error: {e}")
@@ -91,11 +90,7 @@ class AreaSearchMixin:
             return 10
 
     def _calculate_grid_coordinates(
-        self,
-        center_lat: float,
-        center_lng: float,
-        radius_km: float,
-        grid_size: int = 5
+        self, center_lat: float, center_lng: float, radius_km: float, grid_size: int = 5
     ) -> list[tuple[float, float]]:
         """
         Generate a grid of coordinates around a center point.
@@ -144,7 +139,7 @@ class AreaSearchMixin:
         grid_size: int = 5,
         max_results_per_point: int = 10,
         language: str = "en",
-        timeout: int | None = None
+        timeout: int | None = None,
     ) -> dict[str, Any]:
         """
         Search across a grid of coordinates for comprehensive area coverage.
@@ -171,18 +166,17 @@ class AreaSearchMixin:
             # Validate grid size
             grid_size = min(max(grid_size, 3), 11)  # 3x3 to 11x11
 
-            grid_coords = self._calculate_grid_coordinates(
-                center_lat, center_lng, radius_km, grid_size
-            )
+            grid_coords = self._calculate_grid_coordinates(center_lat, center_lng, radius_km, grid_size)
 
             all_results = {}
             grid_data = []
             failed_points = 0
 
             logger.info(
-                    "Starting grid search: %s with %d grid points",
-                    scrub(query), len(grid_coords),
-                )
+                "Starting grid search: %s with %d grid points",
+                scrub(query),
+                len(grid_coords),
+            )
 
             for idx, (lat, lng) in enumerate(grid_coords):
                 try:
@@ -195,7 +189,7 @@ class AreaSearchMixin:
                         max_results=max_results_per_point,
                         geo_coordinates=f"{lat},{lng}",
                         zoom=zoom,
-                        timeout=timeout or 60
+                        timeout=timeout or 60,
                     )
 
                     results_count = 0
@@ -215,7 +209,10 @@ class AreaSearchMixin:
                         point["error"] = "search failed for this grid point"
                         logger.warning(
                             "Grid point %s (%s, %s) returned an error: %s",
-                            idx, lat, lng, result.get("message", "unknown"),
+                            idx,
+                            lat,
+                            lng,
+                            result.get("message", "unknown"),
                         )
                     else:
                         places = result.get("results", [])
@@ -236,13 +233,7 @@ class AreaSearchMixin:
                 except Exception as e:
                     failed_points += 1
                     logger.warning(f"Grid point {idx} ({lat}, {lng}) failed: {e}")
-                    grid_data.append({
-                        "grid_index": idx,
-                        "lat": lat,
-                        "lng": lng,
-                        "results_count": 0,
-                        "error": str(e)
-                    })
+                    grid_data.append({"grid_index": idx, "lat": lat, "lng": lng, "results_count": 0, "error": str(e)})
 
             # Every point failing is an outage, not an empty neighbourhood.
             # Returning success with places: [] here is the same class of bug
@@ -252,10 +243,7 @@ class AreaSearchMixin:
                 return {
                     "error": True,
                     "status_code": 502,
-                    "message": (
-                        f"All {failed_points} grid points failed; no result is "
-                        "available for this area."
-                    ),
+                    "message": (f"All {failed_points} grid points failed; no result is available for this area."),
                     "grid_metadata": grid_data,
                 }
 
@@ -270,7 +258,7 @@ class AreaSearchMixin:
                 "total_grid_points": len(grid_coords),
                 "unique_places": len(all_results),
                 "grid_metadata": grid_data,
-                "places": list(all_results.values())
+                "places": list(all_results.values()),
             }
 
         except Exception as e:
@@ -287,7 +275,7 @@ class AreaSearchMixin:
         grid_density: int = 5,
         max_results_per_point: int = 10,
         language: str = "en",
-        timeout: int | None = None
+        timeout: int | None = None,
     ) -> dict[str, Any]:
         """
         Search within a bounding box by creating a grid.
@@ -328,7 +316,7 @@ class AreaSearchMixin:
                 grid_size=grid_density,
                 max_results_per_point=max_results_per_point,
                 language=language,
-                timeout=timeout
+                timeout=timeout,
             )
 
         except Exception as e:
@@ -343,7 +331,7 @@ class AreaSearchMixin:
         grid_size: int = 5,
         max_results_per_point: int = 10,
         language: str = "en",
-        timeout: int | None = None
+        timeout: int | None = None,
     ) -> dict[str, Any]:
         """
         Search using a location name instead of coordinates.
@@ -388,7 +376,7 @@ class AreaSearchMixin:
                 grid_size=grid_size,
                 max_results_per_point=max_results_per_point,
                 language=language,
-                timeout=timeout
+                timeout=timeout,
             )
 
             # Add location resolution info to result
@@ -397,7 +385,7 @@ class AreaSearchMixin:
                     "input": location,
                     "resolved_address": geocode_result.get("address"),
                     "latitude": lat,
-                    "longitude": lng
+                    "longitude": lng,
                 }
 
             return result
@@ -407,10 +395,7 @@ class AreaSearchMixin:
             return {"error": True, "message": str(e)}
 
     async def bulk_search(
-        self,
-        queries: list[str],
-        language: str = "en",
-        max_results_per_query: int = 10
+        self, queries: list[str], language: str = "en", max_results_per_query: int = 10
     ) -> dict[str, Any]:
         """
         Execute multiple search queries.
@@ -433,56 +418,36 @@ class AreaSearchMixin:
             for query in queries:
                 try:
                     result = await self.search_and_wait(
-                        query=query,
-                        language=language,
-                        max_results=max_results_per_query,
-                        timeout=120
+                        query=query, language=language, max_results=max_results_per_query, timeout=120
                     )
 
                     if result.get("error"):
                         failed += 1
-                        results.append({
-                            "query": query,
-                            "success": False,
-                            "error": result.get("message"),
-                            "places": []
-                        })
+                        results.append({"query": query, "success": False, "error": result.get("message"), "places": []})
                     else:
                         successful += 1
                         places = result.get("results", [])
-                        results.append({
-                            "query": query,
-                            "success": True,
-                            "count": len(places),
-                            "places": self.process_place_data(places)
-                        })
+                        results.append(
+                            {
+                                "query": query,
+                                "success": True,
+                                "count": len(places),
+                                "places": self.process_place_data(places),
+                            }
+                        )
 
                 except Exception as e:
                     failed += 1
-                    results.append({
-                        "query": query,
-                        "success": False,
-                        "error": str(e),
-                        "places": []
-                    })
+                    results.append({"query": query, "success": False, "error": str(e), "places": []})
 
-            return {
-                "results": results,
-                "successful_queries": successful,
-                "failed_queries": failed
-            }
+            return {"results": results, "successful_queries": successful, "failed_queries": failed}
 
         except Exception as e:
             logger.error(f"Bulk search error: {e}")
             return {"error": True, "message": str(e)}
 
     async def analyze_competitors(
-        self,
-        latitude: float,
-        longitude: float,
-        category: str,
-        radius_meters: int = 2000,
-        max_competitors: int = 10
+        self, latitude: float, longitude: float, category: str, radius_meters: int = 2000, max_competitors: int = 10
     ) -> dict[str, Any]:
         """
         Find and analyze competitors in an area.
@@ -496,7 +461,7 @@ class AreaSearchMixin:
                 longitude=longitude,
                 radius_meters=radius_meters,
                 query=category,
-                max_results=max_competitors
+                max_results=max_competitors,
             )
 
             if result.get("error"):
@@ -513,19 +478,19 @@ class AreaSearchMixin:
                 if rc:
                     try:
                         review_counts.append(int(str(rc).replace(",", "")))
-                    except (ValueError, TypeError):
+                    except ValueError, TypeError:
                         pass
 
             def get_rating(x):
                 try:
                     return float(x.get("rating") or 0)
-                except (ValueError, TypeError):
+                except ValueError, TypeError:
                     return 0
 
             def get_review_count(x):
                 try:
                     return int(str(x.get("review_count") or 0).replace(",", ""))
-                except (ValueError, TypeError):
+                except ValueError, TypeError:
                     return 0
 
             summary = {
@@ -533,13 +498,10 @@ class AreaSearchMixin:
                 "average_rating": sum(ratings) / len(ratings) if ratings else None,
                 "total_reviews": sum(review_counts) if review_counts else 0,
                 "highest_rated": max(processed, key=get_rating).get("name") if processed else None,
-                "most_reviewed": max(processed, key=get_review_count).get("name") if processed else None
+                "most_reviewed": max(processed, key=get_review_count).get("name") if processed else None,
             }
 
-            return {
-                "competitors": processed,
-                "summary": summary
-            }
+            return {"competitors": processed, "summary": summary}
 
         except Exception as e:
             logger.error(f"Competitor analysis error: {e}")

@@ -13,10 +13,7 @@ from app.core.base_router import BaseRouter
 def test_base_router_init():
     """Test BaseRouter initialization."""
     # Test with explicit service_name
-    router = BaseRouter(
-        prefix="/google-ads",
-        service_name="google-ads-service"
-    )
+    router = BaseRouter(prefix="/google-ads", service_name="google-ads-service")
     assert router.service_name == "google-ads-service"
 
     # Test with auto-derived service_name
@@ -28,14 +25,8 @@ def test_base_router_init():
     assert router.service_name == "google-ads"
 
     # Test with responses parameter
-    custom_responses = {
-        200: {"description": "Success"},
-        400: {"description": "Bad Request"}
-    }
-    router = BaseRouter(
-        prefix="/google-ads",
-        responses=custom_responses
-    )
+    custom_responses = {200: {"description": "Success"}, 400: {"description": "Bad Request"}}
+    router = BaseRouter(prefix="/google-ads", responses=custom_responses)
     assert router.router.responses[200] == {"description": "Success"}
     assert router.router.responses[400] == {"description": "Bad Request"}
 
@@ -72,10 +63,7 @@ def test_create_error_detail():
 
     # Test basic error detail
     error = router._create_error_detail(
-        status=400,
-        title="Bad Request",
-        detail="Invalid parameters",
-        type="validation_error"
+        status=400, title="Bad Request", detail="Invalid parameters", type="validation_error"
     )
     assert error["status"] == 400
     assert error["title"] == "Bad Request"
@@ -84,11 +72,7 @@ def test_create_error_detail():
 
     # Test with instance
     error = router._create_error_detail(
-        status=404,
-        title="Not Found",
-        detail="Resource not found",
-        type="not_found",
-        instance="/api/v1/resources/123"
+        status=404, title="Not Found", detail="Resource not found", type="not_found", instance="/api/v1/resources/123"
     )
     assert error["instance"] == "/api/v1/resources/123"
 
@@ -99,17 +83,14 @@ def test_create_error_detail():
         detail="Invalid field value",
         type="validation_error",
         field="name",
-        code="invalid_value"
+        code="invalid_value",
     )
     assert error["field"] == "name"
     assert error["code"] == "invalid_value"
 
     # Test with full URI type
     error = router._create_error_detail(
-        status=500,
-        title="Server Error",
-        detail="Internal error",
-        type="https://example.com/errors/server_error"
+        status=500, title="Server Error", detail="Internal error", type="https://example.com/errors/server_error"
     )
     assert error["type"] == "https://example.com/errors/server_error"
 
@@ -120,10 +101,7 @@ def test_raise_http_exception():
 
     # Test basic exception
     with pytest.raises(HTTPException) as excinfo:
-        router.raise_http_exception(
-            status_code=400,
-            detail="Invalid parameters"
-        )
+        router.raise_http_exception(status_code=400, detail="Invalid parameters")
     assert excinfo.value.status_code == 400
     assert excinfo.value.detail["detail"] == "Invalid parameters"
     assert excinfo.value.detail["title"] == "Bad Request"
@@ -132,21 +110,14 @@ def test_raise_http_exception():
     # Test with custom title and type
     with pytest.raises(HTTPException) as excinfo:
         router.raise_http_exception(
-            status_code=403,
-            detail="Access denied",
-            title="Permission Error",
-            type="permission_error"
+            status_code=403, detail="Access denied", title="Permission Error", type="permission_error"
         )
     assert excinfo.value.detail["title"] == "Permission Error"
     assert excinfo.value.detail["type"] == "https://headwater.com/problems/permission_error"
 
     # Test with headers
     with pytest.raises(HTTPException) as excinfo:
-        router.raise_http_exception(
-            status_code=429,
-            detail="Too many requests",
-            headers={"Retry-After": "60"}
-        )
+        router.raise_http_exception(status_code=429, detail="Too many requests", headers={"Retry-After": "60"})
     assert excinfo.value.headers["Retry-After"] == "60"
     assert excinfo.value.headers["Content-Type"] == "application/problem+json"
 

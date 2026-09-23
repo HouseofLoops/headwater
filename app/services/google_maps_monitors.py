@@ -398,15 +398,11 @@ async def list_monitors(
         wanted = status.lower()
         predicate = lambda r: str(r.data.get("status", "")).lower() == wanted
 
-    records = await _monitor_store().list_for_owner(
-        owner, limit=limit, offset=offset, predicate=predicate
-    )
+    records = await _monitor_store().list_for_owner(owner, limit=limit, offset=offset, predicate=predicate)
     # The total must count what the filter selected, not everything. A total
     # that ignores the filter reports monitors the caller was told they do not
     # have.
-    total = len(
-        await _monitor_store().list_for_owner(owner, limit=10_000, predicate=predicate)
-    )
+    total = len(await _monitor_store().list_for_owner(owner, limit=10_000, predicate=predicate))
     monitors = []
     for record in records:
         view = _monitor_view(record, include_history=False)
@@ -1133,7 +1129,7 @@ async def get_place_history(
         for entry in record.data.get("history") or []:
             try:
                 ts = datetime.fromisoformat(entry["timestamp"]).timestamp()
-            except (KeyError, ValueError):
+            except KeyError, ValueError:
                 continue
             if start_ts is not None and ts < start_ts:
                 continue
@@ -1207,9 +1203,7 @@ def start_monitor_scheduler(
     global _scheduler_task
     if _scheduler_task is not None and not _scheduler_task.done():
         return _scheduler_task
-    _scheduler_task = asyncio.create_task(
-        _scheduler_loop(interval_seconds, fetch_place), name="maps-monitor-scheduler"
-    )
+    _scheduler_task = asyncio.create_task(_scheduler_loop(interval_seconds, fetch_place), name="maps-monitor-scheduler")
     return _scheduler_task
 
 

@@ -6,10 +6,10 @@ def test_config_values():
     settings = Settings()
 
     # Test default values
-    assert hasattr(settings, 'AUTOCOMPLETE_MAX_PARALLEL_REQUESTS')
-    assert hasattr(settings, 'AUTOCOMPLETE_REQUEST_TIMEOUT')
-    assert hasattr(settings, 'AUTOCOMPLETE_MAX_RETRIES')
-    assert hasattr(settings, 'AUTOCOMPLETE_RETRY_DELAY')
+    assert hasattr(settings, "AUTOCOMPLETE_MAX_PARALLEL_REQUESTS")
+    assert hasattr(settings, "AUTOCOMPLETE_REQUEST_TIMEOUT")
+    assert hasattr(settings, "AUTOCOMPLETE_MAX_RETRIES")
+    assert hasattr(settings, "AUTOCOMPLETE_RETRY_DELAY")
 
     # Test that values are reasonable
     assert settings.AUTOCOMPLETE_MAX_PARALLEL_REQUESTS > 0
@@ -23,10 +23,10 @@ def test_env_file_values():
     import os
 
     # Set environment variables
-    os.environ['AUTOCOMPLETE_MAX_PARALLEL_REQUESTS'] = '5'
-    os.environ['AUTOCOMPLETE_REQUEST_TIMEOUT'] = '60'
-    os.environ['AUTOCOMPLETE_MAX_RETRIES'] = '2'
-    os.environ['AUTOCOMPLETE_RETRY_DELAY'] = '2.0'
+    os.environ["AUTOCOMPLETE_MAX_PARALLEL_REQUESTS"] = "5"
+    os.environ["AUTOCOMPLETE_REQUEST_TIMEOUT"] = "60"
+    os.environ["AUTOCOMPLETE_MAX_RETRIES"] = "2"
+    os.environ["AUTOCOMPLETE_RETRY_DELAY"] = "2.0"
 
     try:
         # Create new settings instance to pick up env vars
@@ -41,7 +41,7 @@ def test_env_file_values():
 
     finally:
         # Clean up environment variables
-        del os.environ['AUTOCOMPLETE_MAX_PARALLEL_REQUESTS']
-        del os.environ['AUTOCOMPLETE_REQUEST_TIMEOUT']
-        del os.environ['AUTOCOMPLETE_MAX_RETRIES']
-        del os.environ['AUTOCOMPLETE_RETRY_DELAY']
+        del os.environ["AUTOCOMPLETE_MAX_PARALLEL_REQUESTS"]
+        del os.environ["AUTOCOMPLETE_REQUEST_TIMEOUT"]
+        del os.environ["AUTOCOMPLETE_MAX_RETRIES"]
+        del os.environ["AUTOCOMPLETE_RETRY_DELAY"]

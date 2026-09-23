@@ -43,101 +43,52 @@ from app.schemas.enums import (
 class GoogleAutocompleteParams(BaseModel):
     """
     Pydantic model for Google Autocomplete API parameters.
-    
+
     This model validates and documents all available parameters for the Google
     Autocomplete API based on the comprehensive reference guide.
     """
+
     # Core Parameters
     q: str = Field(..., description="Search query string (URL encoded)")
-    output: OutputFormat = Field(
-        OutputFormat.TOOLBAR,
-        description="Response format (toolbar, firefox, chrome, etc.)"
-    )
-    client: ClientType | None = Field(
-        None,
-        description="Client identifier (firefox, chrome, safari, opera)"
-    )
+    output: OutputFormat = Field(OutputFormat.TOOLBAR, description="Response format (toolbar, firefox, chrome, etc.)")
+    client: ClientType | None = Field(None, description="Client identifier (firefox, chrome, safari, opera)")
 
     # Geographic & Language Parameters
-    gl: str = Field(
-        "US",
-        description="Geographic location (country) using ISO country codes"
-    )
-    hl: str = Field(
-        "en",
-        description="Host language using ISO language codes"
-    )
-    cr: str | None = Field(
-        None,
-        description="Country restrict (e.g., countryUS, countryUK)"
-    )
+    gl: str = Field("US", description="Geographic location (country) using ISO country codes")
+    hl: str = Field("en", description="Host language using ISO language codes")
+    cr: str | None = Field(None, description="Country restrict (e.g., countryUS, countryUK)")
 
     # Data Source Parameters
-    ds: DataSource | None = Field(
-        None,
-        description="Data source for suggestions (yt, i, n, s, v, b, p, etc.)"
-    )
+    ds: DataSource | None = Field(None, description="Data source for suggestions (yt, i, n, s, v, b, p, etc.)")
 
     # Search Enhancement Parameters
-    spell: int | None = Field(
-        1,
-        description="Enable spell correction (0=disabled, 1=enabled)"
-    )
-    cp: int | None = Field(
-        None,
-        description="Cursor position in query (character position)"
-    )
-    gs_rn: int | None = Field(
-        None,
-        description="Request number for sequential numbering"
-    )
-    gs_id: str | None = Field(
-        None,
-        description="Session ID for tracking"
-    )
+    spell: int | None = Field(1, description="Enable spell correction (0=disabled, 1=enabled)")
+    cp: int | None = Field(None, description="Cursor position in query (character position)")
+    gs_rn: int | None = Field(None, description="Request number for sequential numbering")
+    gs_id: str | None = Field(None, description="Session ID for tracking")
 
     # Response Parameters
-    callback: str | None = Field(
-        None,
-        description="JSONP callback function name"
-    )
-    jsonp: str | None = Field(
-        None,
-        description="JSONP wrapper (alternative to callback)"
-    )
+    callback: str | None = Field(None, description="JSONP callback function name")
+    jsonp: str | None = Field(None, description="JSONP wrapper (alternative to callback)")
 
     # Advanced Parameters
-    psi: int | None = Field(
-        None,
-        description="Personalized search (0=disabled, 1=enabled)"
-    )
-    pq: str | None = Field(
-        None,
-        description="Previous query for query refinement"
-    )
-    complete: int | None = Field(
-        None,
-        description="Completion type affecting completion logic"
-    )
-    suggid: str | None = Field(
-        None,
-        description="Suggestion ID for internal tracking"
-    )
-    gs_l: str | None = Field(
-        None,
-        description="Google search location (internal parameter)"
-    )
+    psi: int | None = Field(None, description="Personalized search (0=disabled, 1=enabled)")
+    pq: str | None = Field(None, description="Previous query for query refinement")
+    complete: int | None = Field(None, description="Completion type affecting completion logic")
+    suggid: str | None = Field(None, description="Suggestion ID for internal tracking")
+    gs_l: str | None = Field(None, description="Google search location (internal parameter)")
 
-    @field_validator('q')
+    @field_validator("q")
     @classmethod
     def query_must_not_be_empty(cls, v: str) -> str:
         """Validate that query is not empty or whitespace-only."""
         if not v or not v.strip():
-            raise ValueError('Query cannot be empty')
+            raise ValueError("Query cannot be empty")
         return v.strip()
 
     class Config:
         """Configuration for the Pydantic model."""
+
         json_schema_extra = {
             "example": {
                 "q": "chrome",
@@ -146,9 +97,10 @@ class GoogleAutocompleteParams(BaseModel):
                 "gl": "US",
                 "hl": "en",
                 "ds": "yt",
-                "spell": 1
+                "spell": 1,
             }
         }
+
 
 # Create router with a specific tag to avoid duplication in documentation
 router = APIRouter(tags=["Google Autocomplete API"])
@@ -163,16 +115,20 @@ router = APIRouter(tags=["Google Autocomplete API"])
         400: {"description": "Invalid parameters"},
         401: {"description": "Invalid API key"},
         422: {"description": "Validation error"},
-        500: {"description": "Server error"}
-    }
+        500: {"description": "Server error"},
+    },
 )
 async def get_autocomplete(
     # === ESSENTIAL (Required/Primary) ===
     q: str = Query(..., min_length=1, description="Search query", examples=["python"]),
-    output: OutputFormat = Query(OutputFormat.TOOLBAR, description="Response format (chrome/firefox=JSON with metadata, toolbar/xml=basic XML)"),
+    output: OutputFormat = Query(
+        OutputFormat.TOOLBAR, description="Response format (chrome/firefox=JSON with metadata, toolbar/xml=basic XML)"
+    ),
     gl: str = Query("US", description="Country code (ISO)", examples=["US"]),
     hl: str = Query("en", description="Language code (ISO)", examples=["en"]),
-    ds: DataSource | None = Query(None, description="Data source: yt=YouTube, i=Images, n=News, s=Shopping, b=Books, fin=Finance"),
+    ds: DataSource | None = Query(
+        None, description="Data source: yt=YouTube, i=Images, n=News, s=Shopping, b=Books, fin=Finance"
+    ),
     variations: bool | None = Query(False, description="Return keyword variations instead of raw suggestions"),
     # === COMMONLY USED ===
     client: ClientType | None = Query(None, description="Client type (chrome, firefox, safari, opera)"),
@@ -208,7 +164,7 @@ async def get_autocomplete(
     gs_l: str | None = Query(None, description="Google location codes"),
     # === AUTH ===
     api_key: str = Depends(get_api_key),
-    rate_limit_check: None = Depends(rate_limit)
+    rate_limit_check: None = Depends(rate_limit),
 ):
     """
     Get Google Autocomplete suggestions.
@@ -225,12 +181,14 @@ async def get_autocomplete(
     if not q:
         raise HTTPException(
             status_code=422,
-            detail=[{
-                "type": "value_error",
-                "loc": ["query", "q"],
-                "msg": "Query cannot be empty or contain only whitespace",
-                "input": q
-            }]
+            detail=[
+                {
+                    "type": "value_error",
+                    "loc": ["query", "q"],
+                    "msg": "Query cannot be empty or contain only whitespace",
+                    "input": q,
+                }
+            ],
         )
 
     try:
@@ -247,9 +205,22 @@ async def get_autocomplete(
         # Sanitize and validate all input parameters
         if sanitizer.settings.INPUT_SANITIZATION_ENABLED:
             validation_result = sanitizer.validate_all_params(
-                q=q, gl=gl, hl=hl, cr=cr, ds=ds, spell=spell, cp=cp,
-                gs_rn=gs_rn, gs_id=gs_id, callback=callback, jsonp=jsonp,
-                psi=psi, pq=pq, complete=complete, suggid=suggid, gs_l=gs_l
+                q=q,
+                gl=gl,
+                hl=hl,
+                cr=cr,
+                ds=ds,
+                spell=spell,
+                cp=cp,
+                gs_rn=gs_rn,
+                gs_id=gs_id,
+                callback=callback,
+                jsonp=jsonp,
+                psi=psi,
+                pq=pq,
+                complete=complete,
+                suggid=suggid,
+                gs_l=gs_l,
             )
 
             if not validation_result["valid"]:
@@ -295,16 +266,13 @@ async def get_autocomplete(
                 pq=pq,
                 complete=complete,
                 suggid=suggid,
-                gs_l=gs_l
+                gs_l=gs_l,
             )
 
             # Use HTTP client manager and service for parallel processing
             http_client = await http_manager.get_client(proxy_url)
             keyword_data = await google_autocomplete_service.generate_keyword_variations_parallel(
-                http_client=http_client,
-                base_query=q,
-                params=base_params,
-                max_parallel=max_parallel
+                http_client=http_client, base_query=q, params=base_params, max_parallel=max_parallel
             )
 
             # Calculate response time and add metadata
@@ -319,8 +287,8 @@ async def get_autocomplete(
                     "response_time_seconds": response_time,
                     "timestamp": datetime.now().isoformat(),
                     "request_count": http_manager.get_request_count(),
-                    "connection_pool_stats": http_manager.get_connection_stats()
-                }
+                    "connection_pool_stats": http_manager.get_connection_stats(),
+                },
             }
             return result
 
@@ -345,18 +313,12 @@ async def get_autocomplete(
             pq=pq,
             complete=complete,
             suggid=suggid,
-            gs_l=gs_l
+            gs_l=gs_l,
         )
 
         async def fetch_autocomplete_suggestions():
             # Build URL with all provided parameters
-            params = {
-                "q": q,
-                "output": output.value,
-                "gl": gl,
-                "hl": hl,
-                "spell": spell
-            }
+            params = {"q": q, "output": output.value, "gl": gl, "hl": hl, "spell": spell}
 
             # Add optional parameters if provided
             if client:
@@ -417,10 +379,7 @@ async def get_autocomplete(
 
             # Make request using HTTP client manager
             http_client = await http_manager.get_client(proxy_url)
-            response = await http_client.get(
-                "https://www.google.com/complete/search",
-                params=params
-            )
+            response = await http_client.get("https://www.google.com/complete/search", params=params)
 
             if response.status_code != 200:
                 logger.error(f"Failed to retrieve suggestions. Status Code: {response.status_code}")
@@ -432,7 +391,12 @@ async def get_autocomplete(
 
             # Determine the actual response format based on parameters and content
             # When client parameter is specified, Google usually returns JSON regardless of output parameter
-            should_try_json_first = client is not None or output in [OutputFormat.CHROME, OutputFormat.FIREFOX, OutputFormat.SAFARI, OutputFormat.OPERA]
+            should_try_json_first = client is not None or output in [
+                OutputFormat.CHROME,
+                OutputFormat.FIREFOX,
+                OutputFormat.SAFARI,
+                OutputFormat.OPERA,
+            ]
 
             # Log the first 100 characters of the response for debugging
             response_preview = response.text[:100] if response.text else "Empty response"
@@ -446,15 +410,17 @@ async def get_autocomplete(
             for prefix in xssi_prefixes:
                 if response_text.startswith(prefix):
                     logger.debug(f"Stripping XSSI prefix: {prefix!r}")
-                    response_text = response_text[len(prefix):].strip()
+                    response_text = response_text[len(prefix) :].strip()
                     break
 
             # Handle Google's internal callback format (window.google.ac.h(...))
             # This is triggered by sclient parameter and similar internal params
             google_callback_pattern = response_text.startswith("window.google.ac.h(") and response_text.endswith(")")
 
-            looks_like_json = response_text.startswith(('[', '{'))
-            looks_like_jsonp = ((callback or jsonp) and "(" in response_text and response_text.endswith(")")) or google_callback_pattern
+            looks_like_json = response_text.startswith(("[", "{"))
+            looks_like_jsonp = (
+                (callback or jsonp) and "(" in response_text and response_text.endswith(")")
+            ) or google_callback_pattern
 
             # Smart response parsing - try the most likely format first, then fall back
             if should_try_json_first or looks_like_json or looks_like_jsonp:
@@ -466,12 +432,12 @@ async def get_autocomplete(
                         logger.debug("Detected JSONP/callback response, extracting JSON data")
                         # Extract JSON data from JSONP wrapper
                         # Format is typically: callback_name({"data": "value"}); or window.google.ac.h([[...]])
-                        callback_name = response_text[:response_text.find('(')]
-                        start_idx = response_text.find('(')
-                        end_idx = response_text.rfind(')')
+                        callback_name = response_text[: response_text.find("(")]
+                        start_idx = response_text.find("(")
+                        end_idx = response_text.rfind(")")
 
                         if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
-                            json_str = response_text[start_idx + 1:end_idx]
+                            json_str = response_text[start_idx + 1 : end_idx]
                             data = json.loads(json_str)
 
                             # Parse the Google Autocomplete response structure
@@ -489,14 +455,16 @@ async def get_autocomplete(
                                     "response_time_seconds": response_time,
                                     "timestamp": datetime.now().isoformat(),
                                     "request_count": http_manager.get_request_count(),
-                                    "connection_pool_stats": http_manager.get_connection_stats()
-                                }
+                                    "connection_pool_stats": http_manager.get_connection_stats(),
+                                },
                             }
 
                             # Log detailed information about the response
-                            logger.debug(f"Parsed JSONP response: query='{parsed_response['original_query']}', " +
-                                        f"suggestions_count={len(parsed_response['suggestions'])}, " +
-                                        f"metadata={json.dumps(parsed_response['metadata'])}")
+                            logger.debug(
+                                f"Parsed JSONP response: query='{parsed_response['original_query']}', "
+                                + f"suggestions_count={len(parsed_response['suggestions'])}, "
+                                + f"metadata={json.dumps(parsed_response['metadata'])}"
+                            )
 
                             return parsed_response
                         else:
@@ -520,8 +488,8 @@ async def get_autocomplete(
                                     "response_time_seconds": response_time,
                                     "timestamp": datetime.now().isoformat(),
                                     "request_count": http_manager.get_request_count(),
-                                    "connection_pool_stats": http_manager.get_connection_stats()
-                                }
+                                    "connection_pool_stats": http_manager.get_connection_stats(),
+                                },
                             }
                             return parsed_response
                         else:
@@ -531,11 +499,15 @@ async def get_autocomplete(
                     logger.warning(f"JSON parsing failed, falling back to XML: {e!s}")
                     # If client is specified but JSON parsing failed, log a warning about parameter conflict
                     if client is not None:
-                        logger.warning(f"Parameter conflict: client={client.value} specified but response is not valid JSON")
+                        logger.warning(
+                            f"Parameter conflict: client={client.value} specified but response is not valid JSON"
+                        )
 
                     # If callback or jsonp is specified, the response might be a malformed JSONP
                     if callback or jsonp:
-                        logger.warning(f"JSONP parameters specified but couldn't parse response: callback={callback}, jsonp={jsonp}")
+                        logger.warning(
+                            f"JSONP parameters specified but couldn't parse response: callback={callback}, jsonp={jsonp}"
+                        )
                         # Return the raw response for debugging
                         return {"raw_response": response_text, "response_type": "unparseable_jsonp"}
 
@@ -543,7 +515,7 @@ async def get_autocomplete(
                     if output in [OutputFormat.XML, OutputFormat.TOOLBAR]:
                         try:
                             # Use response_text (with XSSI prefix stripped) instead of raw response.content
-                            root = ET.fromstring(response_text.encode('utf-8'))
+                            root = ET.fromstring(response_text.encode("utf-8"))
                             suggestions = []
                             for complete_suggestion in root.findall("CompleteSuggestion"):
                                 suggestion_element = complete_suggestion.find("suggestion")
@@ -556,7 +528,7 @@ async def get_autocomplete(
                             logger.error(f"Response content: {response_text[:500]}...")
                             raise HTTPException(
                                 status_code=500,
-                                detail=f"Failed to parse response as XML or JSON. Parameter conflict may exist between output={output.value} and client={client.value if client else 'None'}"
+                                detail=f"Failed to parse response as XML or JSON. Parameter conflict may exist between output={output.value} and client={client.value if client else 'None'}",
                             )
                     else:
                         # Both parsers failed: the upstream payload is not
@@ -564,8 +536,8 @@ async def get_autocomplete(
                         # with a raw_response field made an upstream format
                         # change look like a successful call to every client.
                         logger.error(
-                            "Both JSON and XML parsing failed for autocomplete; "
-                            "first 500 chars: %s", response_text[:500]
+                            "Both JSON and XML parsing failed for autocomplete; first 500 chars: %s",
+                            response_text[:500],
                         )
                         raise HTTPException(
                             status_code=502,
@@ -575,7 +547,7 @@ async def get_autocomplete(
                 # Try XML parsing first for toolbar/XML output formats
                 try:
                     # Use response_text (with XSSI prefix stripped) instead of raw response.content
-                    root = ET.fromstring(response_text.encode('utf-8'))
+                    root = ET.fromstring(response_text.encode("utf-8"))
                     suggestions = []
                     for complete_suggestion in root.findall("CompleteSuggestion"):
                         suggestion_element = complete_suggestion.find("suggestion")
@@ -593,10 +565,7 @@ async def get_autocomplete(
                     except ValueError as e2:
                         logger.error(f"Both XML and JSON parsing failed: {e2!s}")
                         logger.error(f"Response content: {response_text[:500]}...")
-                        raise HTTPException(
-                            status_code=500,
-                            detail="Failed to parse response as either XML or JSON"
-                        )
+                        raise HTTPException(status_code=500, detail="Failed to parse response as either XML or JSON")
 
         # Get cached result or fetch and cache
         return await get_cached_or_fetch(cache_key, fetch_autocomplete_suggestions)

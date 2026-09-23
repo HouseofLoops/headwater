@@ -1,4 +1,5 @@
 """Constants shared by the Google Maps service modules."""
+
 # Every request this service makes is a browser navigation to google.com/maps.
 # A plain GET through the datacenter proxy succeeds, but a full Chromium page
 # load times out: Google throttles the subresource fetches, so domcontentloaded

@@ -52,7 +52,7 @@ _proxy_iter_source: tuple[str, ...] = ()
 
 
 def is_valid_url(url: str) -> bool:
-    return re.match(r'^(http|https):\/\/[^\s\/$.?#].[^\s]*$', url) is not None
+    return re.match(r"^(http|https):\/\/[^\s\/$.?#].[^\s]*$", url) is not None
 
 
 def _load_proxy_config() -> tuple[bool, list[str]]:

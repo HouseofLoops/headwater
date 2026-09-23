@@ -1,6 +1,7 @@
 """
 Directions scraping for GoogleMapsService.
 """
+
 import asyncio
 import logging
 from datetime import datetime
@@ -16,6 +17,7 @@ logger = logging.getLogger("app.services.google_maps_service")
 
 class DirectionsMixin:
     """Directions methods of GoogleMapsService."""
+
     # =========================================================================
     # Directions
     # =========================================================================
@@ -190,7 +192,7 @@ class DirectionsMixin:
         destination_lng: float,
         mode: str = "driving",
         alternatives: bool = False,
-        avoid: list[str] | None = None
+        avoid: list[str] | None = None,
     ) -> dict[str, Any]:
         """
         Get directions by scraping the Google Maps directions pane.
@@ -247,9 +249,7 @@ class DirectionsMixin:
                 await page.goto(url, wait_until="domcontentloaded", timeout=60000)
                 await asyncio.sleep(self.DIRECTIONS_SETTLE_SECONDS)
 
-                routes = await self._extract_direction_routes(
-                    page, max_routes=5 if alternatives else 1
-                )
+                routes = await self._extract_direction_routes(page, max_routes=5 if alternatives else 1)
                 if not routes:
                     # No route card was rendered. Could be a consent wall, a
                     # bot check, a layout change, or genuinely no route between

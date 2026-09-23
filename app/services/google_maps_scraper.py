@@ -26,6 +26,7 @@ Three defects this module previously shipped, and how they are addressed here:
    raise :class:`PlaceExtractionError`, and a search that finds candidate
    places but extracts none of them raises :class:`SelectorsStaleError`.
 """
+
 import asyncio
 import logging
 from datetime import datetime
@@ -91,7 +92,6 @@ __all__ = [
 ]
 
 
-
 # Global job store, backed by the owner-scoped record store.
 _job_store = JobStore()
 
@@ -106,10 +106,7 @@ async def get_job_store() -> JobStore:
     return _job_store
 
 
-async def run_scrape_job(
-    job: ScrapeJob,
-    proxy: str | None = None
-):
+async def run_scrape_job(job: ScrapeJob, proxy: str | None = None):
     """
     Run a scrape job in the background.
 
@@ -137,7 +134,7 @@ async def run_scrape_job(
             language=job.language,
             max_results=job.max_results,
             zoom=job.zoom,
-            geo_coordinates=job.geo_coordinates
+            geo_coordinates=job.geo_coordinates,
         )
 
         # Update job with results
@@ -160,9 +157,11 @@ async def run_scrape_job(
         job.completed_at = datetime.now()
         await store.update(job)
         logger.error(
-            "Job %s failed: Google Maps selectors are stale (%d attempted, "
-            "%d extracted): %s",
-            job.id, e.attempted, e.extracted, e,
+            "Job %s failed: Google Maps selectors are stale (%d attempted, %d extracted): %s",
+            job.id,
+            e.attempted,
+            e.extracted,
+            e,
         )
 
     except Exception as e:

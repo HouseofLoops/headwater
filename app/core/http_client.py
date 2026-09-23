@@ -36,7 +36,7 @@ class HTTPClientManager:
             "failed_requests": 0,
             "connection_pool_hits": 0,
             "connection_pool_misses": 0,
-            "average_response_time": 0.0
+            "average_response_time": 0.0,
         }
 
     async def get_client(self, proxy_url: str | None = None) -> httpx.AsyncClient:
@@ -57,23 +57,21 @@ class HTTPClientManager:
                 limits = httpx.Limits(
                     max_keepalive_connections=self.settings.HTTP_MAX_KEEPALIVE_CONNECTIONS,
                     max_connections=self.settings.HTTP_CONNECTION_POOL_SIZE,
-                    keepalive_expiry=30.0
+                    keepalive_expiry=30.0,
                 )
 
                 timeout = httpx.Timeout(
                     connect=self.settings.HTTP_CONNECTION_TIMEOUT,
                     read=self.settings.HTTP_READ_TIMEOUT,
                     write=10.0,
-                    pool=5.0
+                    pool=5.0,
                 )
 
                 client_config = {
                     "limits": limits,
                     "timeout": timeout,
                     "follow_redirects": True,
-                    "headers": {
-                        "User-Agent": DEFAULT_USER_AGENT
-                    }
+                    "headers": {"User-Agent": DEFAULT_USER_AGENT},
                 }
 
                 if proxy_url:
@@ -97,7 +95,7 @@ class HTTPClientManager:
         params: dict[str, Any] | None = None,
         headers: dict[str, str] | None = None,
         proxy_url: str | None = None,
-        **kwargs
+        **kwargs,
     ) -> dict[str, Any]:
         """
         Make an HTTP request with comprehensive error handling and metadata.
@@ -122,19 +120,13 @@ class HTTPClientManager:
             "params": params,
             "headers": headers,
             "proxy_used": proxy_url is not None,
-            "timestamp": start_time
+            "timestamp": start_time,
         }
 
         try:
             self._stats["total_requests"] += 1
 
-            response = await client.request(
-                method=method,
-                url=url,
-                params=params,
-                headers=headers,
-                **kwargs
-            )
+            response = await client.request(method=method, url=url, params=params, headers=headers, **kwargs)
 
             response_time = time.time() - start_time
             self._update_response_time_stats(response_time)
@@ -166,8 +158,8 @@ class HTTPClientManager:
                 "request_metadata": request_metadata,
                 "connection_info": {
                     "pool_size": len(self._clients),
-                    "keepalive_connections": getattr(client, '_pool', {}).get('num_connections', 0)
-                }
+                    "keepalive_connections": getattr(client, "_pool", {}).get("num_connections", 0),
+                },
             }
 
         except (httpx.RequestError, httpx.TimeoutException, httpx.ConnectError) as e:
@@ -180,17 +172,11 @@ class HTTPClientManager:
                 "error": str(e),
                 "response_time": response_time,
                 "request_metadata": request_metadata,
-                "connection_info": {
-                    "pool_size": len(self._clients),
-                    "keepalive_connections": 0
-                }
+                "connection_info": {"pool_size": len(self._clients), "keepalive_connections": 0},
             }
 
     async def batch_requests(
-        self,
-        requests: list[dict[str, Any]],
-        max_concurrent: int | None = None,
-        timeout: float | None = None
+        self, requests: list[dict[str, Any]], max_concurrent: int | None = None, timeout: float | None = None
     ) -> list[dict[str, Any]]:
         """
         Execute multiple HTTP requests in parallel with batch processing.
@@ -224,21 +210,15 @@ class HTTPClientManager:
 
         try:
             # Wrap gather with timeout to prevent indefinite hanging
-            results = await asyncio.wait_for(
-                asyncio.gather(*tasks, return_exceptions=True),
-                timeout=batch_timeout
-            )
+            results = await asyncio.wait_for(asyncio.gather(*tasks, return_exceptions=True), timeout=batch_timeout)
         except asyncio.TimeoutError:
-            logger.error(
-                "Batch request timed out after %.1f seconds with %d requests",
-                batch_timeout, len(requests)
-            )
+            logger.error("Batch request timed out after %.1f seconds with %d requests", batch_timeout, len(requests))
             # Return timeout errors for all requests
             return [
                 {
                     "success": False,
                     "error": f"Batch request timed out after {batch_timeout} seconds",
-                    "request_metadata": req
+                    "request_metadata": req,
                 }
                 for req in requests
             ]
@@ -248,11 +228,13 @@ class HTTPClientManager:
         for i, result in enumerate(results):
             if isinstance(result, Exception):
                 logger.error("Batch request %d failed: %s", i, str(result))
-                processed_results.append({
-                    "success": False,
-                    "error": str(result),
-                    "request_metadata": requests[i] if i < len(requests) else {}
-                })
+                processed_results.append(
+                    {
+                        "success": False,
+                        "error": str(result),
+                        "request_metadata": requests[i] if i < len(requests) else {},
+                    }
+                )
             else:
                 processed_results.append(result)
 
@@ -277,9 +259,10 @@ class HTTPClientManager:
             **self._stats,
             "active_clients": len(self._clients),
             "connection_pool_efficiency": (
-                self._stats["connection_pool_hits"] /
-                max(1, self._stats["connection_pool_hits"] + self._stats["connection_pool_misses"])
-            ) * 100
+                self._stats["connection_pool_hits"]
+                / max(1, self._stats["connection_pool_hits"] + self._stats["connection_pool_misses"])
+            )
+            * 100,
         }
 
     def get_request_count(self) -> int:
@@ -293,9 +276,10 @@ class HTTPClientManager:
             "pool_hits": self._stats["connection_pool_hits"],
             "pool_misses": self._stats["connection_pool_misses"],
             "pool_efficiency": (
-                self._stats["connection_pool_hits"] /
-                max(1, self._stats["connection_pool_hits"] + self._stats["connection_pool_misses"])
-            ) * 100
+                self._stats["connection_pool_hits"]
+                / max(1, self._stats["connection_pool_hits"] + self._stats["connection_pool_misses"])
+            )
+            * 100,
         }
 
     async def close_all_clients(self):

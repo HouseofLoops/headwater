@@ -19,8 +19,8 @@ class TestInputSanitizer:
         """Test InputSanitizer initialization."""
         sanitizer = InputSanitizer()
         assert sanitizer.settings is not None
-        assert hasattr(sanitizer, 'allowed_pattern')
-        assert hasattr(sanitizer, 'suspicious_patterns')
+        assert hasattr(sanitizer, "allowed_pattern")
+        assert hasattr(sanitizer, "suspicious_patterns")
 
     def test_compile_patterns_default(self):
         """Test pattern compilation with default settings."""
@@ -31,22 +31,22 @@ class TestInputSanitizer:
 
     def test_compile_patterns_custom(self):
         """Test pattern compilation with custom settings."""
-        with patch('app.core.input_sanitizer.get_settings') as mock_get_settings:
+        with patch("app.core.input_sanitizer.get_settings") as mock_get_settings:
             mock_settings = MagicMock()
-            mock_settings.ALLOWED_CHARACTERS_PATTERN = r'^[a-z]+$'
-            mock_settings.SUSPICIOUS_PATTERNS = [r'test.*pattern']
+            mock_settings.ALLOWED_CHARACTERS_PATTERN = r"^[a-z]+$"
+            mock_settings.SUSPICIOUS_PATTERNS = [r"test.*pattern"]
             mock_get_settings.return_value = mock_settings
 
             sanitizer = InputSanitizer()
-            assert sanitizer.allowed_pattern.pattern == r'^[a-z]+$'
+            assert sanitizer.allowed_pattern.pattern == r"^[a-z]+$"
             assert len(sanitizer.suspicious_patterns) == 1
 
     def test_compile_patterns_invalid(self):
         """Test pattern compilation with invalid patterns."""
-        with patch('app.core.input_sanitizer.get_settings') as mock_get_settings:
+        with patch("app.core.input_sanitizer.get_settings") as mock_get_settings:
             mock_settings = MagicMock()
-            mock_settings.ALLOWED_CHARACTERS_PATTERN = r'[invalid'
-            mock_settings.SUSPICIOUS_PATTERNS = [r'[also', r'valid']
+            mock_settings.ALLOWED_CHARACTERS_PATTERN = r"[invalid"
+            mock_settings.SUSPICIOUS_PATTERNS = [r"[also", r"valid"]
             mock_get_settings.return_value = mock_settings
 
             sanitizer = InputSanitizer()
@@ -76,7 +76,7 @@ class TestInputSanitizer:
 
     def test_sanitize_query_too_long(self):
         """Test sanitizing query that's too long."""
-        with patch('app.core.input_sanitizer.get_settings') as mock_get_settings:
+        with patch("app.core.input_sanitizer.get_settings") as mock_get_settings:
             mock_settings = MagicMock()
             mock_settings.MAX_QUERY_LENGTH = 10
             mock_settings.ALLOWED_CHARACTERS_PATTERN = r"^[a-zA-Z0-9\s\-\.\,\?\!\(\)\[\]\{\}\'\"]+$"
@@ -107,11 +107,11 @@ class TestInputSanitizer:
 
     def test_sanitize_query_suspicious_pattern(self):
         """Test sanitizing query with suspicious pattern."""
-        with patch('app.core.input_sanitizer.get_settings') as mock_get_settings:
+        with patch("app.core.input_sanitizer.get_settings") as mock_get_settings:
             mock_settings = MagicMock()
             mock_settings.MAX_QUERY_LENGTH = 1000
             mock_settings.ALLOWED_CHARACTERS_PATTERN = r"^[a-zA-Z0-9\s\-\.\,\?\!\(\)\[\]\{\}\'\"]+$"
-            mock_settings.SUSPICIOUS_PATTERNS = [r'<script']
+            mock_settings.SUSPICIOUS_PATTERNS = [r"<script"]
             mock_settings.BLOCK_SUSPICIOUS_PATTERNS = True
             mock_get_settings.return_value = mock_settings
 
@@ -294,13 +294,7 @@ class TestInputSanitizer:
     def test_validate_all_params_valid(self):
         """Test validating valid parameters."""
         sanitizer = InputSanitizer()
-        result = sanitizer.validate_all_params(
-            q="python tutorial",
-            gl="US",
-            hl="en",
-            spell=1,
-            cr="countryUS"
-        )
+        result = sanitizer.validate_all_params(q="python tutorial", gl="US", hl="en", spell=1, cr="countryUS")
 
         assert result["valid"] is True
         assert "query" in result["results"]
@@ -315,7 +309,7 @@ class TestInputSanitizer:
         result = sanitizer.validate_all_params(
             q="",  # Empty query
             gl="INVALID",  # Invalid country
-            spell="not_a_number"  # Invalid integer
+            spell="not_a_number",  # Invalid integer
         )
 
         assert result["valid"] is False
@@ -352,7 +346,7 @@ class TestInputSanitizer:
 
     def test_sanitize_input_function(self):
         """Test the sanitize_input convenience function."""
-        with patch('app.core.input_sanitizer.get_input_sanitizer') as mock_get:
+        with patch("app.core.input_sanitizer.get_input_sanitizer") as mock_get:
             mock_sanitizer = MagicMock()
             mock_sanitizer.validate_all_params.return_value = {"test": "result"}
             mock_get.return_value = mock_sanitizer

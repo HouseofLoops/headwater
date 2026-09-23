@@ -37,16 +37,17 @@ REDIS_POOL_TIMEOUT = 30
 ```python
 # Structured cache keys for efficient retrieval
 CACHE_KEYS = {
-    'news': 'news:{query}:{country}:{language}:{max_results}:{sort_by}:{freshness}',
-    'autocomplete': 'autocomplete:{query}:{output}:{gl}:{variations}',
-    'trends': 'trends:{keywords}:{geo}:{timeframe}',
-    'transcript': 'transcript:{video_id}:{language}'
+    "news": "news:{query}:{country}:{language}:{max_results}:{sort_by}:{freshness}",
+    "autocomplete": "autocomplete:{query}:{output}:{gl}:{variations}",
+    "trends": "trends:{keywords}:{geo}:{timeframe}",
+    "transcript": "transcript:{video_id}:{language}",
 }
+
 
 # Cache key generation
 def generate_cache_key(endpoint: str, **params) -> str:
     """Generate consistent cache keys"""
-    key_template = CACHE_KEYS.get(endpoint, '{endpoint}:{params}')
+    key_template = CACHE_KEYS.get(endpoint, "{endpoint}:{params}")
     return key_template.format(endpoint=endpoint, **params)
 ```
 
@@ -60,15 +61,18 @@ from functools import lru_cache
 # In-memory cache for frequently accessed data
 memory_cache = TTLCache(maxsize=1000, ttl=300)  # 5 minutes
 
+
 @lru_cache(maxsize=500)
-def cached_autocomplete(query: str, gl: str = 'US') -> List[str]:
+def cached_autocomplete(query: str, gl: str = "US") -> List[str]:
     """Cache autocomplete results in memory"""
     # Implementation here
     pass
 
+
 # Redis cache for shared data across instances
 import redis
 from typing import Optional, Any
+
 
 class RedisCache:
     def __init__(self, redis_url: str):
@@ -129,13 +133,10 @@ log_line_prefix = '%t [%p]: [%l-1] user=%u,db=%d,app=%a,client=%h '
 from sqlalchemy import text, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+
 class OptimizedNewsRepository:
     async def search_news_optimized(
-        self,
-        session: AsyncSession,
-        query: str,
-        country: str = "US",
-        limit: int = 10
+        self, session: AsyncSession, query: str, country: str = "US", limit: int = 10
     ) -> List[NewsArticle]:
         """Optimized news search with proper indexing"""
 
@@ -151,19 +152,11 @@ class OptimizedNewsRepository:
             LIMIT :limit
         """)
 
-        result = await session.execute(search_query, {
-            'query': query,
-            'country': country,
-            'limit': limit
-        })
+        result = await session.execute(search_query, {"query": query, "country": country, "limit": limit})
 
         return [NewsArticle(**row) for row in result.mappings()]
 
-    async def get_with_analytics(
-        self,
-        session: AsyncSession,
-        article_id: int
-    ) -> Optional[NewsArticle]:
+    async def get_with_analytics(self, session: AsyncSession, article_id: int) -> Optional[NewsArticle]:
         """Get article with view count update"""
 
         # Single query with update
@@ -176,7 +169,7 @@ class OptimizedNewsRepository:
                       image_url, view_count
         """)
 
-        result = await session.execute(update_query, {'article_id': article_id})
+        result = await session.execute(update_query, {"article_id": article_id})
         row = result.first()
 
         return NewsArticle(**row) if row else None
@@ -192,32 +185,24 @@ import httpx
 import asyncio
 from typing import Dict, Any
 
+
 class OptimizedHTTPClient:
     def __init__(self):
         # Connection pool limits
-        self.limits = httpx.Limits(
-            max_keepalive_connections=20,
-            max_connections=100,
-            keepalive_expiry=30.0
-        )
+        self.limits = httpx.Limits(max_keepalive_connections=20, max_connections=100, keepalive_expiry=30.0)
 
         # Timeout configuration
-        self.timeout = httpx.Timeout(
-            connect=10.0,
-            read=30.0,
-            write=10.0,
-            pool=5.0
-        )
+        self.timeout = httpx.Timeout(connect=10.0, read=30.0, write=10.0, pool=5.0)
 
         # Client configuration
         self.client_config = {
-            'limits': self.limits,
-            'timeout': self.timeout,
-            'follow_redirects': True,
-            'headers': {
-                'User-Agent': 'Headwater-API/1.0',
-                'Accept': 'application/json,text/html,*/*',
-            }
+            "limits": self.limits,
+            "timeout": self.timeout,
+            "follow_redirects": True,
+            "headers": {
+                "User-Agent": "Headwater-API/1.0",
+                "Accept": "application/json,text/html,*/*",
+            },
         }
 
     async def __aenter__(self):
@@ -232,21 +217,14 @@ class OptimizedHTTPClient:
 
         # Build URL with query parameters
         url = "https://www.google.com/complete/search"
-        request_params = {
-            'q': query,
-            'client': 'chrome',
-            'output': 'toolbar',
-            **params
-        }
+        request_params = {"q": query, "client": "chrome", "output": "toolbar", **params}
 
         # Make request with retry logic
         max_retries = 3
         for attempt in range(max_retries):
             try:
                 response = await self.client.get(
-                    url,
-                    params=request_params,
-                    headers={'Accept-Language': 'en-US,en;q=0.9'}
+                    url, params=request_params, headers={"Accept-Language": "en-US,en;q=0.9"}
                 )
                 response.raise_for_status()
                 return response.json()
@@ -254,7 +232,8 @@ class OptimizedHTTPClient:
             except (httpx.HTTPStatusError, httpx.RequestError) as e:
                 if attempt == max_retries - 1:
                     raise e
-                await asyncio.sleep(2 ** attempt)  # Exponential backoff
+                await asyncio.sleep(2**attempt)  # Exponential backoff
+
 
 # Usage
 async def search_with_optimization(query: str) -> Dict[str, Any]:
@@ -483,69 +462,46 @@ http {
 from prometheus_client import Counter, Histogram, Gauge, Summary
 
 # Request metrics
-REQUEST_COUNT = Counter(
-    'http_requests_total',
-    'Total number of HTTP requests',
-    ['method', 'endpoint', 'status']
-)
+REQUEST_COUNT = Counter("http_requests_total", "Total number of HTTP requests", ["method", "endpoint", "status"])
 
 REQUEST_LATENCY = Histogram(
-    'http_request_duration_seconds',
-    'HTTP request duration in seconds',
-    ['method', 'endpoint'],
-    buckets=[0.1, 0.5, 1.0, 2.0, 5.0, 10.0]
+    "http_request_duration_seconds",
+    "HTTP request duration in seconds",
+    ["method", "endpoint"],
+    buckets=[0.1, 0.5, 1.0, 2.0, 5.0, 10.0],
 )
 
 # Cache metrics
-CACHE_HITS = Counter(
-    'cache_hits_total',
-    'Total number of cache hits',
-    ['cache_type']
-)
+CACHE_HITS = Counter("cache_hits_total", "Total number of cache hits", ["cache_type"])
 
-CACHE_MISSES = Counter(
-    'cache_misses_total',
-    'Total number of cache misses',
-    ['cache_type']
-)
+CACHE_MISSES = Counter("cache_misses_total", "Total number of cache misses", ["cache_type"])
 
 # Database metrics
-DB_CONNECTIONS = Gauge(
-    'db_connections_active',
-    'Number of active database connections'
-)
+DB_CONNECTIONS = Gauge("db_connections_active", "Number of active database connections")
 
 DB_QUERY_DURATION = Histogram(
-    'db_query_duration_seconds',
-    'Database query duration in seconds',
-    ['query_type'],
-    buckets=[0.01, 0.05, 0.1, 0.5, 1.0, 5.0]
+    "db_query_duration_seconds",
+    "Database query duration in seconds",
+    ["query_type"],
+    buckets=[0.01, 0.05, 0.1, 0.5, 1.0, 5.0],
 )
 
 # External API metrics
 EXTERNAL_API_REQUESTS = Counter(
-    'external_api_requests_total',
-    'Total requests to external APIs',
-    ['api_name', 'status']
+    "external_api_requests_total", "Total requests to external APIs", ["api_name", "status"]
 )
 
 EXTERNAL_API_LATENCY = Histogram(
-    'external_api_request_duration_seconds',
-    'External API request duration',
-    ['api_name'],
-    buckets=[0.5, 1.0, 2.0, 5.0, 10.0, 30.0]
+    "external_api_request_duration_seconds",
+    "External API request duration",
+    ["api_name"],
+    buckets=[0.5, 1.0, 2.0, 5.0, 10.0, 30.0],
 )
 
 # Resource metrics
-MEMORY_USAGE = Gauge(
-    'memory_usage_bytes',
-    'Current memory usage in bytes'
-)
+MEMORY_USAGE = Gauge("memory_usage_bytes", "Current memory usage in bytes")
 
-CPU_USAGE = Gauge(
-    'cpu_usage_percent',
-    'Current CPU usage percentage'
-)
+CPU_USAGE = Gauge("cpu_usage_percent", "Current CPU usage percentage")
 ```
 
 #### Custom Metrics Implementation
@@ -555,6 +511,7 @@ CPU_USAGE = Gauge(
 import time
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
+
 
 class MetricsMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
@@ -567,21 +524,15 @@ class MetricsMiddleware(BaseHTTPMiddleware):
             response = await call_next(request)
 
             # Record metrics
-            REQUEST_COUNT.labels(
-                method=request.method,
-                endpoint=request.url.path,
-                status=response.status_code
-            ).inc()
+            REQUEST_COUNT.labels(method=request.method, endpoint=request.url.path, status=response.status_code).inc()
 
-            REQUEST_LATENCY.labels(
-                method=request.method,
-                endpoint=request.url.path
-            ).observe(time.time() - start_time)
+            REQUEST_LATENCY.labels(method=request.method, endpoint=request.url.path).observe(time.time() - start_time)
 
             return response
 
         finally:
             active_requests.dec()
+
 
 # Cache metrics decorator
 def cache_metrics(cache_type: str):
@@ -604,7 +555,9 @@ def cache_metrics(cache_type: str):
             await redis_cache.set(cache_key, result, ttl=3600)
 
             return result
+
         return wrapper
+
     return decorator
 ```
 
@@ -758,6 +711,7 @@ import psutil
 import asyncio
 from typing import Dict, Any
 
+
 class ResourceManager:
     def __init__(self):
         self.cpu_threshold = 0.8  # 80% CPU usage
@@ -769,14 +723,14 @@ class ResourceManager:
         """Monitor system resources"""
         cpu_percent = psutil.cpu_percent(interval=1)
         memory = psutil.virtual_memory()
-        disk = psutil.disk_usage('/')
+        disk = psutil.disk_usage("/")
 
         return {
-            'cpu_percent': cpu_percent,
-            'memory_percent': memory.percent,
-            'memory_available': memory.available,
-            'disk_percent': disk.percent,
-            'load_average': psutil.getloadavg()
+            "cpu_percent": cpu_percent,
+            "memory_percent": memory.percent,
+            "memory_available": memory.available,
+            "disk_percent": disk.percent,
+            "load_average": psutil.getloadavg(),
         }
 
     async def should_scale_up(self) -> bool:
@@ -786,8 +740,8 @@ class ResourceManager:
 
         resources = await self.monitor_resources()
 
-        cpu_high = resources['cpu_percent'] > (self.cpu_threshold * 100)
-        memory_high = resources['memory_percent'] > (self.memory_threshold * 100)
+        cpu_high = resources["cpu_percent"] > (self.cpu_threshold * 100)
+        memory_high = resources["memory_percent"] > (self.memory_threshold * 100)
 
         return cpu_high or memory_high
 
@@ -799,12 +753,7 @@ class ResourceManager:
             self.last_scale_up = time.time()
 
             # Example: Increase pod resource limits
-            await self.update_resource_limits(
-                cpu_limit="2",
-                memory_limit="2Gi",
-                cpu_request="1",
-                memory_request="1Gi"
-            )
+            await self.update_resource_limits(cpu_limit="2", memory_limit="2Gi", cpu_request="1", memory_request="1Gi")
 ```
 
 ## Profiling and Optimization
@@ -818,11 +767,13 @@ class ResourceManager:
 from memory_profiler import profile
 import tracemalloc
 
+
 @profile
 def memory_intensive_function():
     """Profile memory usage of this function"""
     # Your code here
     pass
+
 
 # Alternative: tracemalloc for detailed analysis
 def profile_memory_usage():
@@ -835,7 +786,7 @@ def profile_memory_usage():
     snapshot2 = tracemalloc.take_snapshot()
 
     # Compare snapshots
-    stats = snapshot2.compare_to(snapshot1, 'lineno')
+    stats = snapshot2.compare_to(snapshot1, "lineno")
     for stat in stats[:10]:  # Top 10 memory consumers
         print(f"{stat.size_diff} bytes, {stat.count_diff} objects: {stat.traceback.format()[0]}")
 
@@ -851,8 +802,10 @@ import pstats
 from functools import wraps
 from time import time
 
+
 def profile_function(func):
     """Decorator to profile function performance"""
+
     @wraps(func)
     def wrapper(*args, **kwargs):
         profiler = cProfile.Profile()
@@ -866,12 +819,14 @@ def profile_function(func):
 
         # Print profiling results
         stats = pstats.Stats(profiler)
-        stats.sort_stats('cumulative').print_stats(20)
+        stats.sort_stats("cumulative").print_stats(20)
 
         print(f"Function {func.__name__} took {end_time - start_time:.2f} seconds")
 
         return result
+
     return wrapper
+
 
 @profile_function
 def optimize_this_function():
@@ -889,6 +844,7 @@ import aiohttp
 from aiohttp import web
 import time
 
+
 async def profile_async_function():
     """Profile async function performance"""
     start_time = time.monotonic()
@@ -898,23 +854,25 @@ async def profile_async_function():
 
     # Make HTTP request
     async with aiohttp.ClientSession() as session:
-        async with session.get('https://httpbin.org/delay/1') as response:
+        async with session.get("https://httpbin.org/delay/1") as response:
             await response.text()
 
     end_time = time.monotonic()
     print(f"Async function took {end_time - start_time:.2f} seconds")
 
+
 # Profile with asyncio
 async def main():
     # Run with profiling
     import cProfile
+
     profiler = cProfile.Profile()
     profiler.enable()
 
     await profile_async_function()
 
     profiler.disable()
-    profiler.print_stats(sort='cumulative')
+    profiler.print_stats(sort="cumulative")
 ```
 
 ## Benchmarking
@@ -947,6 +905,7 @@ ab -n 500 -c 5 \
 from locust import HttpUser, task, between
 import random
 
+
 class HeadwaterUser(HttpUser):
     wait_time = between(1, 3)
 
@@ -959,9 +918,7 @@ class HeadwaterUser(HttpUser):
         query = random.choice(queries)
 
         self.client.get(
-            f"/api/v1/google-news/search?q={query}&max_results=5",
-            headers={"x-api-key": self.api_key},
-            name="get_news"
+            f"/api/v1/google-news/search?q={query}&max_results=5", headers={"x-api-key": self.api_key}, name="get_news"
         )
 
     @task(2)  # 20% of requests
@@ -972,20 +929,19 @@ class HeadwaterUser(HttpUser):
         self.client.get(
             f"/api/v1/google-autocomplete/autocomplete?q={query}",
             headers={"x-api-key": self.api_key},
-            name="get_autocomplete"
+            name="get_autocomplete",
         )
 
     @task(1)  # 10% of requests
     def get_trends(self):
         self.client.get(
-            "/api/v1/google-trends/trending-now?geo=US&hours=24",
-            headers={"x-api-key": self.api_key},
-            name="get_trends"
+            "/api/v1/google-trends/trending-now?geo=US&hours=24", headers={"x-api-key": self.api_key}, name="get_trends"
         )
 
     @task(1)  # 10% of requests
     def health_check(self):
         self.client.get("/health", name="health_check")
+
 
 # Run with: locust -f locustfile.py --host=http://localhost:8000
 ```
@@ -1001,6 +957,7 @@ import statistics
 from typing import List, Dict, Any
 import json
 
+
 class APIPerformanceBenchmark:
     def __init__(self, base_url: str, api_key: str, num_requests: int = 100):
         self.base_url = base_url
@@ -1013,37 +970,34 @@ class APIPerformanceBenchmark:
         start_time = time.monotonic()
 
         try:
-            async with session.get(
-                f"{self.base_url}{endpoint}",
-                headers={"x-api-key": self.api_key}
-            ) as response:
+            async with session.get(f"{self.base_url}{endpoint}", headers={"x-api-key": self.api_key}) as response:
                 response_time = time.monotonic() - start_time
                 success = response.status == 200
 
                 return {
-                    'endpoint': endpoint,
-                    'response_time': response_time,
-                    'status_code': response.status,
-                    'success': success
+                    "endpoint": endpoint,
+                    "response_time": response_time,
+                    "status_code": response.status,
+                    "success": success,
                 }
 
         except Exception as e:
             response_time = time.monotonic() - start_time
             return {
-                'endpoint': endpoint,
-                'response_time': response_time,
-                'status_code': None,
-                'success': False,
-                'error': str(e)
+                "endpoint": endpoint,
+                "response_time": response_time,
+                "status_code": None,
+                "success": False,
+                "error": str(e),
             }
 
     async def run_benchmark(self) -> Dict[str, Any]:
         """Run the complete benchmark"""
         endpoints = [
-            '/health',
-            '/api/v1/google-news/search?q=test',
-            '/api/v1/google-autocomplete/autocomplete?q=python',
-            '/api/v1/google-trends/trending-now?geo=US&hours=1'
+            "/health",
+            "/api/v1/google-news/search?q=test",
+            "/api/v1/google-autocomplete/autocomplete?q=python",
+            "/api/v1/google-trends/trending-now?geo=US&hours=1",
         ]
 
         async with aiohttp.ClientSession() as session:
@@ -1058,26 +1012,25 @@ class APIPerformanceBenchmark:
             self.results = await asyncio.gather(*tasks, return_exceptions=True)
 
         # Calculate statistics
-        response_times = [r['response_time'] for r in self.results if isinstance(r, dict)]
-        success_rate = len([r for r in self.results if isinstance(r, dict) and r['success']]) / len(self.results)
+        response_times = [r["response_time"] for r in self.results if isinstance(r, dict)]
+        success_rate = len([r for r in self.results if isinstance(r, dict) and r["success"]]) / len(self.results)
 
         return {
-            'total_requests': len(self.results),
-            'successful_requests': int(success_rate * len(self.results)),
-            'success_rate': success_rate,
-            'avg_response_time': statistics.mean(response_times),
-            'median_response_time': statistics.median(response_times),
-            'min_response_time': min(response_times),
-            'max_response_time': max(response_times),
-            '95th_percentile': statistics.quantiles(response_times, n=20)[18],  # 95th percentile
-            'requests_per_second': len(self.results) / sum(response_times)
+            "total_requests": len(self.results),
+            "successful_requests": int(success_rate * len(self.results)),
+            "success_rate": success_rate,
+            "avg_response_time": statistics.mean(response_times),
+            "median_response_time": statistics.median(response_times),
+            "min_response_time": min(response_times),
+            "max_response_time": max(response_times),
+            "95th_percentile": statistics.quantiles(response_times, n=20)[18],  # 95th percentile
+            "requests_per_second": len(self.results) / sum(response_times),
         }
+
 
 async def main():
     benchmark = APIPerformanceBenchmark(
-        base_url="http://localhost:8000",
-        api_key="your_api_key_here",
-        num_requests=1000
+        base_url="http://localhost:8000", api_key="your_api_key_here", num_requests=1000
     )
 
     results = await benchmark.run_benchmark()
@@ -1089,6 +1042,7 @@ async def main():
     print(f"Median Response Time: {results['median_response_time']:.3f}s")
     print(f"95th Percentile: {results['95th_percentile']:.3f}s")
     print(f"Requests/Second: {results['requests_per_second']:.2f}")
+
 
 if __name__ == "__main__":
     asyncio.run(main())
@@ -1112,11 +1066,7 @@ class CacheManager:
         self.memory_cache = TTLCache(maxsize=1000, ttl=300)
 
     async def get_cached_or_fetch(
-        self,
-        cache_key: str,
-        fetch_func: Callable[[], Awaitable[Any]],
-        ttl: int = 3600,
-        namespace: str = "default"
+        self, cache_key: str, fetch_func: Callable[[], Awaitable[Any]], ttl: int = 3600, namespace: str = "default"
     ) -> Any:
         """Get from cache or fetch and cache result"""
         full_key = f"{namespace}:{cache_key}"
@@ -1156,17 +1106,8 @@ def generate_cache_key(endpoint: str, **params) -> str:
 # app/core/http_client.py
 class HTTPClientManager:
     def __init__(self):
-        self.limits = httpx.Limits(
-            max_keepalive_connections=20,
-            max_connections=100,
-            keepalive_expiry=30.0
-        )
-        self.timeout = httpx.Timeout(
-            connect=10.0,
-            read=30.0,
-            write=10.0,
-            pool=5.0
-        )
+        self.limits = httpx.Limits(max_keepalive_connections=20, max_connections=100, keepalive_expiry=30.0)
+        self.timeout = httpx.Timeout(connect=10.0, read=30.0, write=10.0, pool=5.0)
         self._client: Optional[httpx.AsyncClient] = None
 
     async def __aenter__(self):
@@ -1175,10 +1116,7 @@ class HTTPClientManager:
                 limits=self.limits,
                 timeout=self.timeout,
                 follow_redirects=True,
-                headers={
-                    'User-Agent': 'Headwater-API/1.1',
-                    'Accept': 'application/json,text/html,*/*'
-                }
+                headers={"User-Agent": "Headwater-API/1.1", "Accept": "application/json,text/html,*/*"},
             )
         return self._client
 
@@ -1199,6 +1137,7 @@ from slowapi.util import get_remote_address
 from slowapi.middleware import SlowAPIMiddleware
 
 limiter = Limiter(key_func=get_remote_address)
+
 
 # Rate limit dependency for FastAPI endpoints
 def rate_limit():
@@ -1221,15 +1160,22 @@ async def search_news(
     freshness: str = Query(None, description="Time freshness"),
     rate_limit: None = Depends(rate_limit),
     cache_manager: CacheManager = Depends(get_cache_manager),
-    http_client: httpx.AsyncClient = Depends(get_http_client)
+    http_client: httpx.AsyncClient = Depends(get_http_client),
 ):
-    cache_key = generate_cache_key("news_search", q=q, country=country,
-                                 language=language, max_results=max_results,
-                                 sort_by=sort_by, freshness=freshness)
+    cache_key = generate_cache_key(
+        "news_search",
+        q=q,
+        country=country,
+        language=language,
+        max_results=max_results,
+        sort_by=sort_by,
+        freshness=freshness,
+    )
 
     async def fetch_news():
         # Concurrent URL decoding with semaphore
         semaphore = asyncio.Semaphore(10)
+
         async def decode_with_semaphore(url):
             async with semaphore:
                 return await decode_url_with_http_client(url, http_client)
@@ -1262,10 +1208,9 @@ async def get_autocomplete(
     variations: int = Query(5, description="Number of variations"),
     rate_limit: None = Depends(rate_limit),
     cache_manager: CacheManager = Depends(get_cache_manager),
-    http_client: httpx.AsyncClient = Depends(get_http_client)
+    http_client: httpx.AsyncClient = Depends(get_http_client),
 ):
-    cache_key = generate_cache_key("autocomplete", q=q, output=output,
-                                 gl=gl, variations=variations)
+    cache_key = generate_cache_key("autocomplete", q=q, output=output, gl=gl, variations=variations)
 
     async def fetch_autocomplete():
         # Parallel processing of keyword variations
@@ -1299,10 +1244,9 @@ async def get_interest_over_time(
     geo: str = Query("US", description="Geographic region"),
     timeframe: str = Query("today 12-m", description="Time range"),
     rate_limit: None = Depends(rate_limit),
-    cache_manager: CacheManager = Depends(get_cache_manager)
+    cache_manager: CacheManager = Depends(get_cache_manager),
 ):
-    cache_key = generate_cache_key("trends_interest_over_time",
-                                 keywords=keywords, geo=geo, timeframe=timeframe)
+    cache_key = generate_cache_key("trends_interest_over_time", keywords=keywords, geo=geo, timeframe=timeframe)
 
     async def fetch_trends():
         # Optimized TrendSpy usage with shared client
@@ -1330,7 +1274,7 @@ async def get_transcript(
     video_id: str = Query(..., description="YouTube video ID"),
     language: str = Query("en", description="Transcript language"),
     rate_limit: None = Depends(rate_limit),
-    cache_manager: CacheManager = Depends(get_cache_manager)
+    cache_manager: CacheManager = Depends(get_cache_manager),
 ):
     cache_key = generate_cache_key("transcript", video_id=video_id, language=language)
 
@@ -1357,9 +1301,11 @@ async def get_transcript(
 # Controlled concurrency to prevent resource exhaustion
 semaphore = asyncio.Semaphore(10)  # Limit to 10 concurrent requests
 
+
 async def process_with_limit(item):
     async with semaphore:
         return await process_item(item)
+
 
 # Process multiple items concurrently with limits
 tasks = [process_with_limit(item) for item in items]
@@ -1415,15 +1361,15 @@ Current implementation provides:
 ```python
 # Environment variables for performance tuning
 PERFORMANCE_CONFIG = {
-    'CACHE_TTL_NEWS': 1800,        # 30 minutes
-    'CACHE_TTL_AUTOCOMPLETE': 3600, # 1 hour
-    'CACHE_TTL_TRENDS': 3600,      # 1 hour
-    'CACHE_TTL_TRANSCRIPTS': 7200, # 2 hours
-    'HTTP_MAX_CONNECTIONS': 100,
-    'HTTP_MAX_KEEPALIVE': 20,
-    'CONCURRENT_REQUESTS_LIMIT': 10,
-    'RATE_LIMIT_REQUESTS': 100,
-    'RATE_LIMIT_TIMEFRAME': 60,    # per minute
+    "CACHE_TTL_NEWS": 1800,  # 30 minutes
+    "CACHE_TTL_AUTOCOMPLETE": 3600,  # 1 hour
+    "CACHE_TTL_TRENDS": 3600,  # 1 hour
+    "CACHE_TTL_TRANSCRIPTS": 7200,  # 2 hours
+    "HTTP_MAX_CONNECTIONS": 100,
+    "HTTP_MAX_KEEPALIVE": 20,
+    "CONCURRENT_REQUESTS_LIMIT": 10,
+    "RATE_LIMIT_REQUESTS": 100,
+    "RATE_LIMIT_TIMEFRAME": 60,  # per minute
 }
 ```
 
@@ -1433,10 +1379,10 @@ Key metrics to monitor post-implementation:
 
 ```python
 # Prometheus metrics for implemented optimizations
-CACHE_HIT_RATIO = Gauge('cache_hit_ratio', 'Cache hit ratio by endpoint', ['endpoint'])
-HTTP_CONNECTION_POOL_SIZE = Gauge('http_connection_pool_size', 'Active HTTP connections')
-RATE_LIMIT_EXCEEDED = Counter('rate_limit_exceeded_total', 'Rate limit violations')
-CONCURRENT_REQUESTS_ACTIVE = Gauge('concurrent_requests_active', 'Active concurrent requests')
+CACHE_HIT_RATIO = Gauge("cache_hit_ratio", "Cache hit ratio by endpoint", ["endpoint"])
+HTTP_CONNECTION_POOL_SIZE = Gauge("http_connection_pool_size", "Active HTTP connections")
+RATE_LIMIT_EXCEEDED = Counter("rate_limit_exceeded_total", "Rate limit violations")
+CONCURRENT_REQUESTS_ACTIVE = Gauge("concurrent_requests_active", "Active concurrent requests")
 ```
 
 ---

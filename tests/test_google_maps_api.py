@@ -51,7 +51,11 @@ HEADERS_B = {"X-API-Key": API_KEY_B}
 # renamed handler silently breaks them even when the path is untouched.
 EXPECTED_ROUTES = [
     ("/api/v1/google-maps/autocomplete", "GET", "autocomplete_api_v1_google_maps_autocomplete_get"),
-    ("/api/v1/google-maps/bounding-box-search", "POST", "bounding_box_search_api_v1_google_maps_bounding_box_search_post"),
+    (
+        "/api/v1/google-maps/bounding-box-search",
+        "POST",
+        "bounding_box_search_api_v1_google_maps_bounding_box_search_post",
+    ),
     ("/api/v1/google-maps/bulk-search", "POST", "bulk_search_api_v1_google_maps_bulk_search_post"),
     ("/api/v1/google-maps/competitors", "POST", "analyze_competitors_api_v1_google_maps_competitors_post"),
     ("/api/v1/google-maps/directions", "GET", "get_directions_get_api_v1_google_maps_directions_get"),
@@ -64,37 +68,78 @@ EXPECTED_ROUTES = [
     ("/api/v1/google-maps/jobs", "GET", "list_jobs_api_v1_google_maps_jobs_get"),
     ("/api/v1/google-maps/jobs/{job_id}", "DELETE", "delete_job_api_v1_google_maps_jobs__job_id__delete"),
     ("/api/v1/google-maps/jobs/{job_id}", "GET", "get_job_status_api_v1_google_maps_jobs__job_id__get"),
-    ("/api/v1/google-maps/jobs/{job_id}/export", "GET", "export_job_results_api_v1_google_maps_jobs__job_id__export_get"),
-    ("/api/v1/google-maps/jobs/{job_id}/results", "GET", "get_job_results_api_v1_google_maps_jobs__job_id__results_get"),
+    (
+        "/api/v1/google-maps/jobs/{job_id}/export",
+        "GET",
+        "export_job_results_api_v1_google_maps_jobs__job_id__export_get",
+    ),
+    (
+        "/api/v1/google-maps/jobs/{job_id}/results",
+        "GET",
+        "get_job_results_api_v1_google_maps_jobs__job_id__results_get",
+    ),
     ("/api/v1/google-maps/location-search", "GET", "location_search_get_api_v1_google_maps_location_search_get"),
     ("/api/v1/google-maps/location-search", "POST", "location_search_api_v1_google_maps_location_search_post"),
     ("/api/v1/google-maps/monitors", "GET", "list_monitors_api_v1_google_maps_monitors_get"),
     ("/api/v1/google-maps/monitors", "POST", "create_monitor_api_v1_google_maps_monitors_post"),
-    ("/api/v1/google-maps/monitors/{monitor_id}", "DELETE", "delete_monitor_api_v1_google_maps_monitors__monitor_id__delete"),
+    (
+        "/api/v1/google-maps/monitors/{monitor_id}",
+        "DELETE",
+        "delete_monitor_api_v1_google_maps_monitors__monitor_id__delete",
+    ),
     ("/api/v1/google-maps/monitors/{monitor_id}", "GET", "get_monitor_api_v1_google_maps_monitors__monitor_id__get"),
     ("/api/v1/google-maps/nearby", "GET", "nearby_search_get_api_v1_google_maps_nearby_get"),
     ("/api/v1/google-maps/nearby", "POST", "nearby_search_api_v1_google_maps_nearby_post"),
     ("/api/v1/google-maps/place/lookup", "POST", "lookup_place_api_v1_google_maps_place_lookup_post"),
     ("/api/v1/google-maps/place/{place_id}", "GET", "get_place_by_id_api_v1_google_maps_place__place_id__get"),
-    ("/api/v1/google-maps/place/{place_id}/analytics", "GET", "get_review_analytics_api_v1_google_maps_place__place_id__analytics_get"),
-    ("/api/v1/google-maps/place/{place_id}/attributes", "GET", "get_place_attributes_api_v1_google_maps_place__place_id__attributes_get"),
-    ("/api/v1/google-maps/place/{place_id}/availability", "GET", "check_availability_api_v1_google_maps_place__place_id__availability_get"),
-    ("/api/v1/google-maps/place/{place_id}/history", "GET", "get_place_history_api_v1_google_maps_place__place_id__history_get"),
+    (
+        "/api/v1/google-maps/place/{place_id}/analytics",
+        "GET",
+        "get_review_analytics_api_v1_google_maps_place__place_id__analytics_get",
+    ),
+    (
+        "/api/v1/google-maps/place/{place_id}/attributes",
+        "GET",
+        "get_place_attributes_api_v1_google_maps_place__place_id__attributes_get",
+    ),
+    (
+        "/api/v1/google-maps/place/{place_id}/availability",
+        "GET",
+        "check_availability_api_v1_google_maps_place__place_id__availability_get",
+    ),
+    (
+        "/api/v1/google-maps/place/{place_id}/history",
+        "GET",
+        "get_place_history_api_v1_google_maps_place__place_id__history_get",
+    ),
     ("/api/v1/google-maps/place/{place_id}/menu", "GET", "extract_menu_api_v1_google_maps_place__place_id__menu_get"),
-    ("/api/v1/google-maps/place/{place_id}/photos", "GET", "get_place_photos_api_v1_google_maps_place__place_id__photos_get"),
+    (
+        "/api/v1/google-maps/place/{place_id}/photos",
+        "GET",
+        "get_place_photos_api_v1_google_maps_place__place_id__photos_get",
+    ),
     ("/api/v1/google-maps/place/{place_id}/qa", "GET", "get_place_qa_api_v1_google_maps_place__place_id__qa_get"),
-    ("/api/v1/google-maps/place/{place_id}/reviews", "GET", "get_place_reviews_api_v1_google_maps_place__place_id__reviews_get"),
+    (
+        "/api/v1/google-maps/place/{place_id}/reviews",
+        "GET",
+        "get_place_reviews_api_v1_google_maps_place__place_id__reviews_get",
+    ),
     ("/api/v1/google-maps/search", "GET", "search_places_get_api_v1_google_maps_search_get"),
     ("/api/v1/google-maps/search", "POST", "search_places_api_v1_google_maps_search_post"),
     ("/api/v1/google-maps/webhooks", "GET", "list_webhooks_api_v1_google_maps_webhooks_get"),
     ("/api/v1/google-maps/webhooks", "POST", "register_webhook_api_v1_google_maps_webhooks_post"),
-    ("/api/v1/google-maps/webhooks/{webhook_id}", "DELETE", "delete_webhook_api_v1_google_maps_webhooks__webhook_id__delete"),
+    (
+        "/api/v1/google-maps/webhooks/{webhook_id}",
+        "DELETE",
+        "delete_webhook_api_v1_google_maps_webhooks__webhook_id__delete",
+    ),
 ]
 
 
 # ---------------------------------------------------------------------------
 # App / client fixtures
 # ---------------------------------------------------------------------------
+
 
 def build_app() -> FastAPI:
     """Mount the router exactly as ``main.create_application`` does.
@@ -200,9 +245,7 @@ HOSTILE_URLS = [
 @pytest.mark.parametrize("hostile_url", HOSTILE_URLS)
 def test_lookup_place_rejects_hostile_url(client, stub_dns, hostile_url):
     """A URL outside the Maps allow-list is refused before the service runs."""
-    with mock.patch.object(
-        google_maps_service, "lookup_place", new=AsyncMock()
-    ) as lookup:
+    with mock.patch.object(google_maps_service, "lookup_place", new=AsyncMock()) as lookup:
         response = client.post(
             "/api/v1/google-maps/place/lookup",
             json={"url": hostile_url},
@@ -305,9 +348,7 @@ def test_lookup_place_still_accepts_a_place_id(client, stub_dns):
 
 
 def test_lookup_place_without_url_or_place_id_is_400(client, stub_dns):
-    response = client.post(
-        "/api/v1/google-maps/place/lookup", json={}, headers=HEADERS_A
-    )
+    response = client.post("/api/v1/google-maps/place/lookup", json={}, headers=HEADERS_A)
     assert response.status_code == 400
 
 
@@ -323,9 +364,7 @@ def test_unrelated_validation_errors_keep_their_422(client, stub_dns):
 
 def test_monitor_url_is_guarded_too(client, stub_dns):
     """``MonitorRequest.url`` feeds the same sink, on a repeating schedule."""
-    with mock.patch.object(
-        google_maps_service, "create_monitor", new=AsyncMock()
-    ) as create:
+    with mock.patch.object(google_maps_service, "create_monitor", new=AsyncMock()) as create:
         response = client.post(
             "/api/v1/google-maps/monitors",
             json={"url": "http://169.254.169.254/latest/meta-data/"},
@@ -373,9 +412,7 @@ def owner_scoped_service():
             return dict(_NOT_FOUND)
         return {"status": "completed", "progress": 100}
 
-    async def get_job_results(
-        job_id: str, owner: str | None = None, format: str = "json"
-    ):
+    async def get_job_results(job_id: str, owner: str | None = None, format: str = "json"):
         if jobs.get(job_id) != owner:
             return dict(_NOT_FOUND)
         return {"results": [{"name": "A place"}]}
@@ -442,36 +479,24 @@ def test_owner_can_read_their_own_job(client, owner_scoped_service, path):
     assert response.status_code == 200
 
 
-def test_cross_owner_delete_is_404_and_does_not_delete(
-    client, owner_scoped_service
-):
-    response = client.delete(
-        f"/api/v1/google-maps/jobs/{JOB_OF_B}", headers=HEADERS_A
-    )
+def test_cross_owner_delete_is_404_and_does_not_delete(client, owner_scoped_service):
+    response = client.delete(f"/api/v1/google-maps/jobs/{JOB_OF_B}", headers=HEADERS_A)
 
     assert response.status_code == 404
     assert JOB_OF_B in owner_scoped_service, "B's job was deleted by A"
 
 
 def test_owner_can_delete_their_own_job(client, owner_scoped_service):
-    response = client.delete(
-        f"/api/v1/google-maps/jobs/{JOB_OF_A}", headers=HEADERS_A
-    )
+    response = client.delete(f"/api/v1/google-maps/jobs/{JOB_OF_A}", headers=HEADERS_A)
 
     assert response.status_code == 200
     assert JOB_OF_A not in owner_scoped_service
 
 
-def test_a_missing_job_and_another_owners_job_are_indistinguishable(
-    client, owner_scoped_service
-):
+def test_a_missing_job_and_another_owners_job_are_indistinguishable(client, owner_scoped_service):
     """Otherwise the 404/other split is itself an id-enumeration oracle."""
-    other = client.get(
-        f"/api/v1/google-maps/jobs/{JOB_OF_B}", headers=HEADERS_A
-    )
-    absent = client.get(
-        "/api/v1/google-maps/jobs/no-such-job-at-all", headers=HEADERS_A
-    )
+    other = client.get(f"/api/v1/google-maps/jobs/{JOB_OF_B}", headers=HEADERS_A)
+    absent = client.get("/api/v1/google-maps/jobs/no-such-job-at-all", headers=HEADERS_A)
 
     assert other.status_code == absent.status_code == 404
     assert other.content == absent.content
@@ -560,9 +585,7 @@ def test_every_route_requires_an_api_key(app, known_api_keys):
             concrete = concrete[:start] + "x" + concrete[end + 1 :]
 
         response = client.request(method, concrete, json={})
-        assert response.status_code in (401, 403), (
-            f"{method} {path} answered {response.status_code} with no API key"
-        )
+        assert response.status_code in (401, 403), f"{method} {path} answered {response.status_code} with no API key"
         checked += 1
 
     assert checked == len(EXPECTED_ROUTES)
@@ -585,9 +608,7 @@ def _dependency_calls(route) -> set:
 def test_every_route_has_rate_limiting(app):
     """The job, monitor and webhook routes previously had none at all."""
     missing = [
-        f"{method} {path}"
-        for route, path, method in _mounted_routes(app)
-        if rate_limit not in _dependency_calls(route)
+        f"{method} {path}" for route, path, method in _mounted_routes(app) if rate_limit not in _dependency_calls(route)
     ]
     assert missing == []
 
@@ -604,6 +625,7 @@ def test_every_route_has_the_api_key_dependency(app):
 # ---------------------------------------------------------------------------
 # OpenAPI surface
 # ---------------------------------------------------------------------------
+
 
 def _route_inventory(app: FastAPI):
     paths = app.openapi()["paths"]
@@ -622,15 +644,11 @@ def test_openapi_surface_is_unchanged_except_for_street_view(app):
 def test_street_view_route_is_gone(app):
     inventory = _route_inventory(app)
     assert not [entry for entry in inventory if "streetview" in entry[0]]
-    assert not [
-        entry for entry in inventory if "streetview" in (entry[2] or "")
-    ]
+    assert not [entry for entry in inventory if "streetview" in (entry[2] or "")]
 
 
 def test_street_view_returns_404(client):
-    response = client.get(
-        "/api/v1/google-maps/place/abc/streetview", headers=HEADERS_A
-    )
+    response = client.get("/api/v1/google-maps/place/abc/streetview", headers=HEADERS_A)
     assert response.status_code == 404
 
 
@@ -644,15 +662,12 @@ def test_street_view_is_absent_from_the_openapi_schema(app):
 # Error bodies
 # ---------------------------------------------------------------------------
 
+
 def test_unexpected_service_failure_does_not_leak_internals(client):
     """``str(exc)`` from Playwright or Redis must not reach the caller."""
     boom = RuntimeError("connect ECONNREFUSED redis://cache.internal:6379")
-    with mock.patch.object(
-        google_maps_service, "get_place_by_id", new=AsyncMock(side_effect=boom)
-    ):
-        response = client.get(
-            "/api/v1/google-maps/place/some-place-id", headers=HEADERS_A
-        )
+    with mock.patch.object(google_maps_service, "get_place_by_id", new=AsyncMock(side_effect=boom)):
+        response = client.get("/api/v1/google-maps/place/some-place-id", headers=HEADERS_A)
 
     assert response.status_code == 500
     assert response.content == INTERNAL_ERROR_BODY
@@ -662,8 +677,7 @@ def test_unexpected_service_failure_does_not_leak_internals(client):
 
 
 UPSTREAM_LEAK = (
-    "playwright: connect ECONNREFUSED proxy.internal:8118 while loading "
-    "https://maps.google.com/maps/place/x"
+    "playwright: connect ECONNREFUSED proxy.internal:8118 while loading https://maps.google.com/maps/place/x"
 )
 
 
@@ -678,9 +692,7 @@ def test_service_reported_failure_does_not_leak_its_message(client):
         "get_place_by_id",
         new=AsyncMock(return_value={"error": True, "message": UPSTREAM_LEAK}),
     ):
-        response = client.get(
-            "/api/v1/google-maps/place/some-place-id", headers=HEADERS_A
-        )
+        response = client.get("/api/v1/google-maps/place/some-place-id", headers=HEADERS_A)
 
     assert response.status_code == 500
     for fragment in (b"proxy.internal", b"8118", b"ECONNREFUSED", b"playwright"):
@@ -692,13 +704,9 @@ def test_upstream_cannot_choose_our_status_code(client):
     with mock.patch.object(
         google_maps_service,
         "get_place_by_id",
-        new=AsyncMock(
-            return_value={"error": True, "status_code": 418, "message": UPSTREAM_LEAK}
-        ),
+        new=AsyncMock(return_value={"error": True, "status_code": 418, "message": UPSTREAM_LEAK}),
     ):
-        response = client.get(
-            "/api/v1/google-maps/place/some-place-id", headers=HEADERS_A
-        )
+        response = client.get("/api/v1/google-maps/place/some-place-id", headers=HEADERS_A)
 
     assert response.status_code == 500
 
@@ -708,13 +716,9 @@ def test_upstream_404_still_reaches_the_caller(client):
     with mock.patch.object(
         google_maps_service,
         "get_place_by_id",
-        new=AsyncMock(
-            return_value={"error": True, "status_code": 404, "message": "no such place"}
-        ),
+        new=AsyncMock(return_value={"error": True, "status_code": 404, "message": "no such place"}),
     ):
-        response = client.get(
-            "/api/v1/google-maps/place/some-place-id", headers=HEADERS_A
-        )
+        response = client.get("/api/v1/google-maps/place/some-place-id", headers=HEADERS_A)
 
     assert response.status_code == 404
     assert b"no such place" not in response.content
@@ -732,9 +736,7 @@ def test_failed_job_reports_a_constant_detail(client):
         "get_job_status",
         new=AsyncMock(return_value={"status": "failed", "detail": UPSTREAM_LEAK}),
     ):
-        response = client.get(
-            f"/api/v1/google-maps/jobs/{JOB_OF_A}/results", headers=HEADERS_A
-        )
+        response = client.get(f"/api/v1/google-maps/jobs/{JOB_OF_A}/results", headers=HEADERS_A)
 
     assert response.status_code == 500
     assert response.json()["detail"] == "Job failed."
@@ -746,14 +748,10 @@ def test_malformed_results_payload_is_an_error_not_an_empty_success(client):
     with mock.patch.multiple(
         google_maps_service,
         get_job_status=AsyncMock(return_value={"status": "completed"}),
-        get_job_results=AsyncMock(
-            return_value={"results": {"unexpected": "shape"}}
-        ),
+        get_job_results=AsyncMock(return_value={"results": {"unexpected": "shape"}}),
         process_place_data=lambda raw: list(raw),
     ):
-        response = client.get(
-            f"/api/v1/google-maps/jobs/{JOB_OF_A}/results", headers=HEADERS_A
-        )
+        response = client.get(f"/api/v1/google-maps/jobs/{JOB_OF_A}/results", headers=HEADERS_A)
 
     assert response.status_code == 500
     assert response.content == INTERNAL_ERROR_BODY
@@ -772,13 +770,21 @@ class TestOwnerIsPropagatedToService:
     """
 
     MONITOR_CALLS = [
-        ("post", "/api/v1/google-maps/monitors", "create_monitor",
-         {"json": {"place_id": "ChIJtest", "check_interval_hours": 24}}),
+        (
+            "post",
+            "/api/v1/google-maps/monitors",
+            "create_monitor",
+            {"json": {"place_id": "ChIJtest", "check_interval_hours": 24}},
+        ),
         ("get", "/api/v1/google-maps/monitors", "list_monitors", {}),
         ("get", "/api/v1/google-maps/monitors/m1", "get_monitor", {}),
         ("delete", "/api/v1/google-maps/monitors/m1", "delete_monitor", {}),
-        ("post", "/api/v1/google-maps/webhooks", "register_webhook",
-         {"json": {"url": "https://example.com/hook", "events": ["place.changed"]}}),
+        (
+            "post",
+            "/api/v1/google-maps/webhooks",
+            "register_webhook",
+            {"json": {"url": "https://example.com/hook", "events": ["place.changed"]}},
+        ),
         ("get", "/api/v1/google-maps/webhooks", "list_webhooks", {}),
         ("delete", "/api/v1/google-maps/webhooks/w1", "delete_webhook", {}),
     ]
@@ -792,12 +798,8 @@ class TestOwnerIsPropagatedToService:
         from app.services import google_maps_service as svc_module
 
         stub = mock.AsyncMock(return_value={"monitors": [], "webhooks": [], "total": 0})
-        with mock.patch.object(
-            svc_module.google_maps_service, service_method, stub
-        ):
-            getattr(client, method)(
-                path, headers={"X-API-Key": API_KEY_A}, **kwargs
-            )
+        with mock.patch.object(svc_module.google_maps_service, service_method, stub):
+            getattr(client, method)(path, headers={"X-API-Key": API_KEY_A}, **kwargs)
 
         assert stub.await_count == 1, f"{service_method} was not called"
         passed = stub.await_args.kwargs.get("api_key")

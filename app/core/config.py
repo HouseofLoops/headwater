@@ -4,6 +4,7 @@ Configuration settings for the Headwater application.
 This module provides a centralized way to access configuration settings
 from environment variables using Pydantic's BaseSettings.
 """
+
 import json
 from functools import lru_cache
 from typing import Annotated, Union
@@ -20,13 +21,15 @@ from pydantic_settings import BaseSettings, NoDecode
 # `cp .env.example .env` boots, rejected everywhere else -- otherwise a
 # deployment that copies the file unchanged would run behind a credential
 # published in this repository. Compared lowercase.
-PLACEHOLDER_CREDENTIALS = frozenset({
-    "your-secure-api-key-here",
-    "your-secure-secret-key-minimum-32-characters-here",
-    "development-secret-key-change-in-production",
-    "changeme",
-    "change-me",
-})
+PLACEHOLDER_CREDENTIALS = frozenset(
+    {
+        "your-secure-api-key-here",
+        "your-secure-secret-key-minimum-32-characters-here",
+        "development-secret-key-change-in-production",
+        "changeme",
+        "change-me",
+    }
+)
 
 # Environments where placeholder credentials are tolerated.
 _NON_PRODUCTION_ENVIRONMENTS = frozenset({"development", "dev", "local", "test", "testing"})
@@ -75,6 +78,7 @@ def _parse_delimited_list(value: Union[str, list[str], None]) -> list[str]:
         return [str(item).strip() for item in value if str(item).strip()]
     return []
 
+
 # Import version from version file
 try:
     from app.__version__ import __version__ as app_version
@@ -85,10 +89,11 @@ except ImportError:
 class Settings(BaseSettings):
     """
     Application settings loaded from environment variables.
-    
+
     This class uses Pydantic's BaseSettings to load and validate
     configuration settings from environment variables.
     """
+
     # API settings
     # Accepts "key1,key2" or '["key1","key2"]'. API_KEY (below) is merged in
     # by app.core.auth so the single-key form documented in the README works.
@@ -104,7 +109,6 @@ class Settings(BaseSettings):
     ENABLE_CACHE: bool = True
     CACHE_TTL: int = 3600  # seconds
     REDIS_URL: RedisDsn | None = None
-
 
     # Proxy settings
     ENABLE_PROXY: bool = False
@@ -391,7 +395,7 @@ def get_settings_cache_info() -> dict:
         "hits": cache_info.hits,
         "misses": cache_info.misses,
         "maxsize": cache_info.maxsize,
-        "currsize": cache_info.currsize
+        "currsize": cache_info.currsize,
     }
 
 

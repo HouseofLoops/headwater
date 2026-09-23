@@ -5,11 +5,13 @@ Version increment utility for Headwater.
 This script increments the version number in app/__version__.py
 according to semantic versioning rules.
 """
+
 import os
 import re
 import sys
 
 VERSION_FILE = "app/__version__.py"
+
 
 def read_version():
     """Read the current version from the version file."""
@@ -28,29 +30,27 @@ def read_version():
 
     return match.group(1)
 
+
 def write_version(version):
     """Write the new version to the version file."""
     with open(VERSION_FILE) as f:
         content = f.read()
 
     # Replace version using regex
-    new_content = re.sub(
-        r'__version__\s*=\s*["\']([^"\']+)["\']',
-        f'__version__ = "{version}"',
-        content
-    )
+    new_content = re.sub(r'__version__\s*=\s*["\']([^"\']+)["\']', f'__version__ = "{version}"', content)
 
     with open(VERSION_FILE, "w") as f:
         f.write(new_content)
 
+
 def increment_version(current_version, increment_type):
     """
     Increment the version according to semantic versioning.
-    
+
     Args:
         current_version: Current version string (e.g., "1.2.3")
         increment_type: Type of increment ("major", "minor", or "patch")
-        
+
     Returns:
         New version string
     """
@@ -81,6 +81,7 @@ def increment_version(current_version, increment_type):
         print(f"Error: Current version '{current_version}' is not in the format 'X.Y.Z'.")
         sys.exit(1)
 
+
 def main():
     """Main function."""
     # Check arguments
@@ -101,6 +102,7 @@ def main():
     # Write new version
     write_version(new_version)
     print(f"Version updated in {VERSION_FILE}")
+
 
 if __name__ == "__main__":
     main()

@@ -5,6 +5,7 @@ Environment validation script for Headwater.
 This script checks for required environment variables and dependencies
 to ensure the application can run properly.
 """
+
 import importlib
 import os
 import socket
@@ -22,21 +23,26 @@ BLUE = "\033[94m"
 BOLD = "\033[1m"
 RESET = "\033[0m"
 
+
 def print_header(message):
     """Print a formatted header message."""
     print(f"\n{BOLD}{BLUE}=== {message} ==={RESET}\n")
+
 
 def print_success(message):
     """Print a success message."""
     print(f"{GREEN}✓ {message}{RESET}")
 
+
 def print_warning(message):
     """Print a warning message."""
     print(f"{YELLOW}⚠ {message}{RESET}")
 
+
 def print_error(message):
     """Print an error message."""
     print(f"{RED}✗ {message}{RESET}")
+
 
 def check_env_variables():
     """Check for required environment variables."""
@@ -63,8 +69,7 @@ def check_env_variables():
     ]
 
     # API-specific variables
-    api_vars = [
-    ]
+    api_vars = []
 
     # Check required variables
     missing_required = []
@@ -98,11 +103,8 @@ def check_env_variables():
     if os.environ.get("ENABLE_PROXY", "").lower() == "true" and not os.environ.get("PROXY_URLS"):
         print_error("Proxy is enabled but PROXY_URLS is not set")
 
-    return {
-        "missing_required": missing_required,
-        "missing_recommended": missing_recommended,
-        "api_status": api_status
-    }
+    return {"missing_required": missing_required, "missing_recommended": missing_recommended, "api_status": api_status}
+
 
 def check_dependencies():
     """Check for required Python dependencies."""
@@ -128,6 +130,7 @@ def check_dependencies():
             print_error(f"Package {package} is not installed")
 
     return missing_packages
+
 
 def check_network():
     """Check network connectivity."""
@@ -160,14 +163,12 @@ def check_network():
             sock.close()
 
             # Try to make a request through the proxy
-            proxies = {
-                "http": proxy_url,
-                "https": proxy_url
-            }
+            proxies = {"http": proxy_url, "https": proxy_url}
             requests.get("https://google.com", proxies=proxies, timeout=5)
             print_success("Proxy connection is working")
         except Exception as e:
             print_error(f"Proxy connection error: {e!s}")
+
 
 def check_api_services():
     """Check API services."""
@@ -177,11 +178,13 @@ def check_api_services():
     if os.environ.get("ENABLE_CACHE") == "True" and os.environ.get("REDIS_URL"):
         try:
             import redis
+
             r = redis.from_url(os.environ.get("REDIS_URL"))
             r.ping()
             print_success("Redis connection is working")
         except Exception as e:
             print_error(f"Redis connection error: {e!s}")
+
 
 def main():
     """Run all checks."""
@@ -211,6 +214,7 @@ def main():
         print_warning(f"Missing recommended environment variables: {', '.join(env_results['missing_recommended'])}")
 
     print("\nFor more information, see the README.md file.")
+
 
 if __name__ == "__main__":
     main()

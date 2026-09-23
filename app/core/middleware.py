@@ -4,6 +4,7 @@ Custom middleware for the Headwater application.
 This module provides middleware for CORS, logging, security headers,
 and other cross-cutting concerns.
 """
+
 import logging
 import time
 import uuid
@@ -25,21 +26,19 @@ logger = logging.getLogger(__name__)
 class RequestLoggingMiddleware(BaseHTTPMiddleware):
     """
     Middleware for logging request and response details.
-    
+
     This middleware logs information about each request and response,
     including method, path, status code, and processing time.
     """
 
-    async def dispatch(
-        self, request: Request, call_next: Callable
-    ) -> Response:
+    async def dispatch(self, request: Request, call_next: Callable) -> Response:
         """
         Process the request and log details.
-        
+
         Args:
             request: The incoming request
             call_next: The next middleware or route handler
-            
+
         Returns:
             Response: The response from the next middleware or route handler
         """
@@ -59,7 +58,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
                 "query_params": str(request.query_params),
                 "client_host": request.client.host if request.client else None,
                 "user_agent": request.headers.get("User-Agent"),
-            }
+            },
         )
 
         # Record the start time
@@ -84,7 +83,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
                     "path": request.url.path,
                     "status_code": response.status_code,
                     "process_time_ms": round(process_time * 1000, 2),
-                }
+                },
             )
 
             return response
@@ -101,7 +100,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
                     "path": request.url.path,
                     "error": str(e),
                     "process_time_ms": round(process_time * 1000, 2),
-                }
+                },
             )
 
             # Re-raise the exception
@@ -111,21 +110,19 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     """
     Middleware for adding security headers to responses.
-    
+
     This middleware adds various security headers to responses to
     improve the security of the application.
     """
 
-    async def dispatch(
-        self, request: Request, call_next: Callable
-    ) -> Response:
+    async def dispatch(self, request: Request, call_next: Callable) -> Response:
         """
         Process the request and add security headers to the response.
-        
+
         Args:
             request: The incoming request
             call_next: The next middleware or route handler
-            
+
         Returns:
             Response: The response with added security headers
         """
@@ -214,7 +211,7 @@ def resolve_cors_policy(settings: Settings) -> dict[str, Any]:
 
     if wildcard:
         logger.warning(
-            "CORS is configured with a wildcard origin (\"*\"); "
+            'CORS is configured with a wildcard origin ("*"); '
             "credentials are disabled for cross-origin requests. "
             "Set CORS_ORIGINS to an explicit allow-list to enable them."
         )
@@ -244,10 +241,7 @@ def setup_middleware(app: FastAPI, settings: Settings | None = None) -> None:
 
     # Add trusted host middleware for production
     if settings.ENVIRONMENT == "production":
-        app.add_middleware(
-            TrustedHostMiddleware,
-            allowed_hosts=["api.headwater.com", "headwater.com", "localhost"]
-        )
+        app.add_middleware(TrustedHostMiddleware, allowed_hosts=["api.headwater.com", "headwater.com", "localhost"])
 
     # Add GZip compression middleware
     app.add_middleware(GZipMiddleware, minimum_size=1000)

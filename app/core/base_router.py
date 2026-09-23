@@ -8,7 +8,7 @@ from app.core.auth import get_api_key as authenticate_api_key
 class BaseRouter:
     """
     Base router class that provides common functionality for all API routers.
-    
+
     Features:
     - Auto-derives service_name from prefix if not provided
     - Supports OpenAPI responses documentation
@@ -17,15 +17,11 @@ class BaseRouter:
     """
 
     def __init__(
-        self,
-        prefix: str,
-        service_name: str | None = None,
-        responses: dict[int, dict] | None = None,
-        **kwargs
+        self, prefix: str, service_name: str | None = None, responses: dict[int, dict] | None = None, **kwargs
     ):
         """
         Initialize a new BaseRouter.
-        
+
         Args:
             prefix: URL prefix for all routes (e.g., "/google-ads")
             service_name: Optional name for the service. If not provided, derived from prefix.
@@ -45,6 +41,7 @@ class BaseRouter:
         # Validate consistency between extracted and provided service_name
         if service_name and service_name != extracted_service_name:
             import logging
+
             logging.warning(
                 f"Provided service_name '{service_name}' differs from extracted "
                 f"service_name '{extracted_service_name}' from prefix '{prefix}'"
@@ -56,21 +53,21 @@ class BaseRouter:
             tags=[self.service_name],
             responses=responses or self._default_responses(),
             dependencies=[Depends(authenticate_api_key)],
-            **kwargs
+            **kwargs,
         )
 
     def _extract_service_name(self, prefix: str) -> str:
         """
         Extract service name from the URL prefix.
-        
+
         Example:
             "/google-ads" -> "google-ads"
             "/youtube-transcripts" -> "youtube-transcripts"
             "/api/v1/google-ads" -> "google-ads"
-        
+
         Args:
             prefix: URL prefix string
-            
+
         Returns:
             Extracted service name
         """
@@ -98,7 +95,7 @@ class BaseRouter:
     def _default_responses(self) -> dict[int, dict]:
         """
         Provide default response schemas for common HTTP status codes.
-        
+
         Returns:
             Dictionary of status codes to response schemas
         """
@@ -111,10 +108,10 @@ class BaseRouter:
                             status=400,
                             title="Bad Request",
                             detail="Invalid request parameters",
-                            type="validation_error"
+                            type="validation_error",
                         )
                     }
-                }
+                },
             },
             401: {
                 "description": "Unauthorized",
@@ -124,23 +121,20 @@ class BaseRouter:
                             status=401,
                             title="Unauthorized",
                             detail="Authentication required",
-                            type="authentication_error"
+                            type="authentication_error",
                         )
                     }
-                }
+                },
             },
             403: {
                 "description": "Forbidden",
                 "content": {
                     "application/problem+json": {
                         "example": self._create_error_detail(
-                            status=403,
-                            title="Forbidden",
-                            detail="Invalid API key",
-                            type="authorization_error"
+                            status=403, title="Forbidden", detail="Invalid API key", type="authorization_error"
                         )
                     }
-                }
+                },
             },
             404: {
                 "description": "Not Found",
@@ -150,23 +144,20 @@ class BaseRouter:
                             status=404,
                             title="Not Found",
                             detail="The requested resource was not found",
-                            type="not_found"
+                            type="not_found",
                         )
                     }
-                }
+                },
             },
             422: {
                 "description": "Unprocessable Entity",
                 "content": {
                     "application/problem+json": {
                         "example": self._create_error_detail(
-                            status=422,
-                            title="Unprocessable Entity",
-                            detail="Validation error",
-                            type="validation_error"
+                            status=422, title="Unprocessable Entity", detail="Validation error", type="validation_error"
                         )
                     }
-                }
+                },
             },
             500: {
                 "description": "Internal Server Error",
@@ -176,25 +167,19 @@ class BaseRouter:
                             status=500,
                             title="Internal Server Error",
                             detail="An unexpected error occurred",
-                            type="server_error"
+                            type="server_error",
                         )
                     }
-                }
-            }
+                },
+            },
         }
 
     def _create_error_detail(
-        self,
-        status: int,
-        title: str,
-        detail: str,
-        type: str,
-        instance: str | None = None,
-        **kwargs
+        self, status: int, title: str, detail: str, type: str, instance: str | None = None, **kwargs
     ) -> dict:
         """
         Create an RFC7807 compliant error response.
-        
+
         Args:
             status: HTTP status code
             title: Human-readable title of the error
@@ -202,7 +187,7 @@ class BaseRouter:
             type: Error type identifier
             instance: URI of the specific occurrence of the error
             **kwargs: Additional fields to include in the error response
-            
+
         Returns:
             Dictionary with RFC7807 compliant error details
         """
@@ -210,12 +195,7 @@ class BaseRouter:
         if not type.startswith(("http://", "https://")):
             type = f"https://headwater.com/problems/{type}"
 
-        error = {
-            "type": type,
-            "title": title,
-            "status": status,
-            "detail": detail
-        }
+        error = {"type": type, "title": title, "status": status, "detail": detail}
 
         if instance:
             error["instance"] = instance
@@ -233,11 +213,11 @@ class BaseRouter:
         type: str | None = None,
         instance: str | None = None,
         headers: dict[str, str] | None = None,
-        **kwargs
+        **kwargs,
     ) -> None:
         """
         Raise an HTTPException with RFC7807 compliant error details.
-        
+
         Args:
             status_code: HTTP status code
             detail: Specific details about the error
@@ -246,7 +226,7 @@ class BaseRouter:
             instance: URI of the specific occurrence of the error
             headers: Optional HTTP headers to include in the response
             **kwargs: Additional fields to include in the error response
-            
+
         Raises:
             HTTPException: With RFC7807 compliant error details
         """
@@ -258,7 +238,7 @@ class BaseRouter:
                 403: "Forbidden",
                 404: "Not Found",
                 422: "Unprocessable Entity",
-                500: "Internal Server Error"
+                500: "Internal Server Error",
             }
             title = titles.get(status_code, "Error")
 
@@ -270,18 +250,13 @@ class BaseRouter:
                 403: "authorization_error",
                 404: "not_found",
                 422: "validation_error",
-                500: "server_error"
+                500: "server_error",
             }
             type = types.get(status_code, "error")
 
         # Create RFC7807 error detail
         error_detail = self._create_error_detail(
-            status=status_code,
-            title=title,
-            detail=detail,
-            type=type,
-            instance=instance,
-            **kwargs
+            status=status_code, title=title, detail=detail, type=type, instance=instance, **kwargs
         )
 
         # Set Content-Type header for RFC7807
@@ -289,11 +264,7 @@ class BaseRouter:
             headers = {}
         headers["Content-Type"] = "application/problem+json"
 
-        raise HTTPException(
-            status_code=status_code,
-            detail=error_detail,
-            headers=headers
-        )
+        raise HTTPException(status_code=status_code, detail=error_detail, headers=headers)
 
     # Convenience methods for common error types
 
@@ -310,12 +281,7 @@ class BaseRouter:
 
     def raise_internal_error(self, detail: str | None = None, **kwargs) -> None:
         """Raise a 500 Internal Server Error."""
-        self.raise_http_exception(
-            500,
-            detail or "An unexpected error occurred",
-            type="server_error",
-            **kwargs
-        )
+        self.raise_http_exception(500, detail or "An unexpected error occurred", type="server_error", **kwargs)
 
     # Delegate HTTP method decorators to the underlying router
 

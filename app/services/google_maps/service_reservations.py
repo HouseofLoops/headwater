@@ -1,6 +1,7 @@
 """
 Reservation availability for GoogleMapsService.
 """
+
 import asyncio
 import logging
 from typing import Any
@@ -16,6 +17,7 @@ logger = logging.getLogger("app.services.google_maps_service")
 
 class ReservationsMixin:
     """Reservation availability methods of GoogleMapsService."""
+
     # =========================================================================
     # Reservation availability
     # =========================================================================
@@ -68,12 +70,7 @@ class ReservationsMixin:
                 slots.append(label)
         return slots
 
-    async def check_availability(
-        self,
-        place_id: str,
-        date: str,
-        party_size: int
-    ) -> dict[str, Any]:
+    async def check_availability(self, place_id: str, date: str, party_size: int) -> dict[str, Any]:
         """
         Check reservation availability by scraping the place page.
 
@@ -129,9 +126,11 @@ class ReservationsMixin:
                 await context.close()
         except Exception as e:
             logger.error(
-                    "Availability scrape failed for %s: %s", scrub(place_id), scrub(e),
-                    exc_info=True,
-                )
+                "Availability scrape failed for %s: %s",
+                scrub(place_id),
+                scrub(e),
+                exc_info=True,
+            )
             return {
                 "error": True,
                 "status_code": 502,

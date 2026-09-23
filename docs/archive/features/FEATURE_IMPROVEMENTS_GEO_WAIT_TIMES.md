@@ -62,11 +62,9 @@ Add to `app/services/google_maps_service.py`:
 from typing import List, Tuple
 import math
 
+
 def calculate_grid_coordinates(
-    center_lat: float,
-    center_lng: float,
-    radius_km: float,
-    grid_size: int = 7
+    center_lat: float, center_lng: float, radius_km: float, grid_size: int = 7
 ) -> List[Tuple[float, float]]:
     """
     Generate a grid of coordinates around a center point.
@@ -112,7 +110,7 @@ async def grid_search(
     center_lng: float,
     radius_km: float = 5.0,
     grid_size: int = 5,
-    max_results_per_point: int = 10
+    max_results_per_point: int = 10,
 ) -> dict:
     """
     Search across a grid of coordinates for comprehensive coverage.
@@ -128,9 +126,7 @@ async def grid_search(
     Returns:
         Aggregated results with grid metadata
     """
-    grid_coords = calculate_grid_coordinates(
-        center_lat, center_lng, radius_km, grid_size
-    )
+    grid_coords = calculate_grid_coordinates(center_lat, center_lng, radius_km, grid_size)
 
     all_results = {}
     grid_data = []
@@ -140,15 +136,10 @@ async def grid_search(
             query=query,
             geo_coordinates=f"{lat},{lng}",
             max_results=max_results_per_point,
-            zoom=16  # Higher zoom for local focus
+            zoom=16,  # Higher zoom for local focus
         )
 
-        grid_data.append({
-            "grid_index": idx,
-            "lat": lat,
-            "lng": lng,
-            "results_count": len(results)
-        })
+        grid_data.append({"grid_index": idx, "lat": lat, "lng": lng, "results_count": len(results)})
 
         # Dedupe by place_id
         for place in results:
@@ -167,7 +158,7 @@ async def grid_search(
         "total_grid_points": len(grid_coords),
         "unique_places": len(all_results),
         "grid_metadata": grid_data,
-        "places": list(all_results.values())
+        "places": list(all_results.values()),
     }
 ```
 
@@ -186,10 +177,7 @@ class GridSearchRequest(BaseModel):
 
 
 @router.post("/grid-search", response_model=dict)
-async def grid_search(
-    request: GridSearchRequest,
-    api_key: str = Depends(verify_api_key)
-):
+async def grid_search(request: GridSearchRequest, api_key: str = Depends(verify_api_key)):
     """
     Perform grid-based search across multiple coordinates.
 
@@ -203,7 +191,7 @@ async def grid_search(
         center_lng=request.center_lng,
         radius_km=request.radius_km,
         grid_size=request.grid_size,
-        max_results_per_point=request.max_results_per_point
+        max_results_per_point=request.max_results_per_point,
     )
     return result
 ```
@@ -222,13 +210,7 @@ class BoundingBoxRequest(BaseModel):
 
 
 async def bounding_box_search(
-    self,
-    query: str,
-    north_lat: float,
-    south_lat: float,
-    east_lng: float,
-    west_lng: float,
-    grid_density: int = 5
+    self, query: str, north_lat: float, south_lat: float, east_lng: float, west_lng: float, grid_density: int = 5
 ) -> dict:
     """
     Search within a bounding box by creating a grid.
@@ -245,11 +227,7 @@ async def bounding_box_search(
     radius_km = max(lat_diff * 111.32, lng_diff * 111.32 * math.cos(math.radians(center_lat)))
 
     return await self.grid_search(
-        query=query,
-        center_lat=center_lat,
-        center_lng=center_lng,
-        radius_km=radius_km,
-        grid_size=grid_density
+        query=query, center_lat=center_lat, center_lng=center_lng, radius_km=radius_km, grid_size=grid_density
     )
 ```
 
@@ -271,7 +249,7 @@ async def search_by_location_name(
     self,
     query: str,
     location: str,  # "Portland, OR" or "97027"
-    radius_km: float = 5.0
+    radius_km: float = 5.0,
 ) -> dict:
     """
     Search using a location name instead of coordinates.
@@ -281,12 +259,7 @@ async def search_by_location_name(
     # Check database first
     if location_lower in LOCATION_DATABASE:
         loc = LOCATION_DATABASE[location_lower]
-        return await self.grid_search(
-            query=query,
-            center_lat=loc["lat"],
-            center_lng=loc["lng"],
-            radius_km=radius_km
-        )
+        return await self.grid_search(query=query, center_lat=loc["lat"], center_lng=loc["lng"], radius_km=radius_km)
 
     # Fall back to geocoding
     geocode_result = await self.geocode(location)
@@ -295,7 +268,7 @@ async def search_by_location_name(
             query=query,
             center_lat=float(geocode_result["latitude"]),
             center_lng=float(geocode_result["longitude"]),
-            radius_km=radius_km
+            radius_km=radius_km,
         )
 
     raise ValueError(f"Could not resolve location: {location}")
@@ -340,11 +313,7 @@ try:
             place["live_busyness"] = live_text.strip()
 
     # Look for wait time specifically
-    wait_selectors = [
-        "span:has-text('min wait')",
-        "div:has-text('wait time')",
-        "[aria-label*='wait']"
-    ]
+    wait_selectors = ["span:has-text('min wait')", "div:has-text('wait time')", "[aria-label*='wait']"]
 
     for selector in wait_selectors:
         wait_elem = page.locator(selector)
@@ -352,7 +321,7 @@ try:
             wait_text = await wait_elem.first.text_content()
             if wait_text:
                 # Parse "Usually 15 min wait" or "Live: 20 min wait"
-                match = re.search(r'(\d+)\s*min\s*wait', wait_text, re.IGNORECASE)
+                match = re.search(r"(\d+)\s*min\s*wait", wait_text, re.IGNORECASE)
                 if match:
                     place["wait_time_minutes"] = int(match.group(1))
                     place["wait_time_raw"] = wait_text.strip()
@@ -383,22 +352,12 @@ class PlaceResult(BaseModel):
     # ... existing fields ...
 
     # New wait time fields
-    wait_time_minutes: Optional[int] = Field(
-        default=None,
-        description="Current/typical wait time in minutes"
-    )
-    wait_time_raw: Optional[str] = Field(
-        default=None,
-        description="Raw wait time text from Google"
-    )
+    wait_time_minutes: Optional[int] = Field(default=None, description="Current/typical wait time in minutes")
+    wait_time_raw: Optional[str] = Field(default=None, description="Raw wait time text from Google")
     live_busyness: Optional[str] = Field(
-        default=None,
-        description="Live busyness indicator (e.g., 'Busier than usual')"
+        default=None, description="Live busyness indicator (e.g., 'Busier than usual')"
     )
-    typical_busyness: Optional[str] = Field(
-        default=None,
-        description="Typical busyness (e.g., 'Usually not too busy')"
-    )
+    typical_busyness: Optional[str] = Field(default=None, description="Typical busyness (e.g., 'Usually not too busy')")
 ```
 
 ### Live Wait Time Selectors to Try
@@ -410,18 +369,14 @@ WAIT_TIME_SELECTORS = [
     # Direct wait time mentions
     "span.fontBodyMedium:has-text('min wait')",
     "div[jsaction*='wait']",
-
     # Live indicator with wait
     "div:has(> span:has-text('Live')) + span:has-text('wait')",
-
     # Restaurant-specific wait
     "[data-tooltip*='wait time']",
     "button[aria-label*='wait time']",
-
     # Aria labels
     "[aria-label*='minute wait']",
     "[aria-label*='wait time']",
-
     # Busyness indicators
     "span:has-text('Busier than usual')",
     "span:has-text('Less busy than usual')",

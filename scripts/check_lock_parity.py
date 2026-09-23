@@ -42,10 +42,7 @@ LOCK = ROOT / "requirements.lock"
 # only what the new constraints force. Compiling to a fresh path instead
 # re-resolves the whole graph against today's PyPI and rewrites unrelated
 # packages - a one-package bump came out as a 700-line diff when tried that way.
-REGEN = (
-    "uv pip compile requirements.txt --python-version 3.14 "
-    "--universal --generate-hashes -o requirements.lock"
-)
+REGEN = "uv pip compile requirements.txt --python-version 3.14 --universal --generate-hashes -o requirements.lock"
 
 PIN = re.compile(r"^(?P<name>[A-Za-z0-9._-]+)\s*==\s*(?P<version>[^\s;#\\]+)")
 
@@ -82,9 +79,7 @@ def main() -> int:
 
     missing = sorted(name for name in declared if name not in locked)
     mismatched = sorted(
-        (name, want, locked[name])
-        for name, want in declared.items()
-        if name in locked and locked[name] != want
+        (name, want, locked[name]) for name, want in declared.items() if name in locked and locked[name] != want
     )
 
     if not missing and not mismatched:

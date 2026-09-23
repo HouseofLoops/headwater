@@ -21,10 +21,10 @@ class TestGridSearchDoesNotHideTotalFailure:
     async def _run(self, side_effect):
         from app.services.google_maps_service import google_maps_service
 
-        with patch.object(google_maps_service, "_ensure_initialized", AsyncMock()), \
-             patch.object(
-                 google_maps_service, "search_and_wait", AsyncMock(side_effect=side_effect)
-             ):
+        with (
+            patch.object(google_maps_service, "_ensure_initialized", AsyncMock()),
+            patch.object(google_maps_service, "search_and_wait", AsyncMock(side_effect=side_effect)),
+        ):
             return await google_maps_service.grid_search(
                 query="coffee",
                 center_lat=45.0,
@@ -59,11 +59,16 @@ class TestGridSearchDoesNotHideTotalFailure:
 
         from app.services.google_maps_service import google_maps_service
 
-        with patch.object(google_maps_service, "_ensure_initialized", AsyncMock()), \
-             patch.object(google_maps_service, "search_and_wait", _mixed):
+        with (
+            patch.object(google_maps_service, "_ensure_initialized", AsyncMock()),
+            patch.object(google_maps_service, "search_and_wait", _mixed),
+        ):
             result = await google_maps_service.grid_search(
-                query="coffee", center_lat=45.0, center_lng=-122.0,
-                radius_km=1.0, grid_size=2,
+                query="coffee",
+                center_lat=45.0,
+                center_lng=-122.0,
+                radius_km=1.0,
+                grid_size=2,
             )
 
         assert result.get("success") is True
@@ -87,9 +92,7 @@ class TestGeocodeGetReportsFailure:
     async def _call(self, entry):
         from app.api.google_maps import geo
 
-        with patch.object(
-            geo, "batch_geocode", AsyncMock(return_value={"results": [entry]})
-        ):
+        with patch.object(geo, "batch_geocode", AsyncMock(return_value={"results": [entry]})):
             return await geo.geocode_get(
                 address="123 Nowhere Street",
                 api_key="k",
@@ -99,16 +102,12 @@ class TestGeocodeGetReportsFailure:
     async def test_failed_address_is_not_reported_as_success(self):
         # The list is truthy even when its single entry failed, so checking
         # only `result.get("results")` wrapped a failure in "success": True.
-        out = await self._call(
-            {"address": "123 Nowhere Street", "success": False, "error": "Address not found"}
-        )
+        out = await self._call({"address": "123 Nowhere Street", "success": False, "error": "Address not found"})
         assert out["success"] is False
         assert out["error"] == "Address not found"
 
     async def test_successful_address_still_succeeds(self):
-        out = await self._call(
-            {"address": "123 Nowhere Street", "success": True, "latitude": 1.0, "longitude": 2.0}
-        )
+        out = await self._call({"address": "123 Nowhere Street", "success": True, "latitude": 1.0, "longitude": 2.0})
         assert out["success"] is True
         assert out["result"]["latitude"] == 1.0
 
@@ -116,7 +115,5 @@ class TestGeocodeGetReportsFailure:
         from app.api.google_maps import geo
 
         with patch.object(geo, "batch_geocode", AsyncMock(return_value={"results": []})):
-            out = await geo.geocode_get(
-                address="123 Nowhere Street", api_key="k", rate_limit_check=None
-            )
+            out = await geo.geocode_get(address="123 Nowhere Street", api_key="k", rate_limit_check=None)
         assert out["success"] is False

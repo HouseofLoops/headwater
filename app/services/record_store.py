@@ -276,7 +276,7 @@ class RecordStore:
                         raw = raw.decode()
                     try:
                         records.append(StoredRecord.from_json(raw))
-                    except (ValueError, KeyError):
+                    except ValueError, KeyError:
                         continue
             except Exception as exc:
                 logger.error("Listing %s for owner failed: %s", self.namespace, exc)

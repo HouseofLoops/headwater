@@ -3,6 +3,7 @@ Place-panel extraction for GoogleMapsScraper.
 
 ``_extract_place_details`` and its helpers, mixed into GoogleMapsScraper.
 """
+
 import asyncio
 import logging
 import re
@@ -18,6 +19,8 @@ from app.services.google_maps.scraper_errors import (
 # Logs under the facade module's name so log routing and filters keyed on
 # ``app.services.google_maps_scraper`` are unaffected by the split.
 logger = logging.getLogger("app.services.google_maps_scraper")
+
+
 class PlaceDetailsMixin:
     """Place-details extraction methods of GoogleMapsScraper."""
 
@@ -96,22 +99,23 @@ class PlaceDetailsMixin:
             place["link"] = current_url
 
             # Extract CID from URL (data ID)
-            cid_match = re.search(r'!1s(0x[a-f0-9]+:0x[a-f0-9]+)', current_url)
+            cid_match = re.search(r"!1s(0x[a-f0-9]+:0x[a-f0-9]+)", current_url)
             if cid_match:
                 place["cid"] = cid_match.group(1)
 
             # Extract coordinates from URL
-            coord_match = re.search(r'@(-?\d+\.\d+),(-?\d+\.\d+)', current_url)
+            coord_match = re.search(r"@(-?\d+\.\d+),(-?\d+\.\d+)", current_url)
             if coord_match:
                 place["latitude"] = coord_match.group(1)
                 place["longitude"] = coord_match.group(2)
 
             # Extract title (business name) from URL first as it's most reliable
             # URL format: /maps/place/Business+Name/@...
-            title_from_url = re.search(r'/maps/place/([^/@]+)', current_url)
+            title_from_url = re.search(r"/maps/place/([^/@]+)", current_url)
             if title_from_url:
                 # Decode URL-encoded name
                 from urllib.parse import unquote_plus
+
                 place["title"] = unquote_plus(title_from_url.group(1))
 
             # Also try to get from the page for a cleaner name
@@ -140,14 +144,14 @@ class PlaceDetailsMixin:
                 rating_text = await rating_el.text_content()
                 try:
                     place["review_rating"] = float(rating_text.replace(",", "."))
-                except (ValueError, AttributeError):
+                except ValueError, AttributeError:
                     pass
 
             # Review count - look for text like "(123)"
             review_count_el = page.locator("div.F7nice span[aria-label*='review']").first
             if await review_count_el.count() > 0:
                 rc_text = await review_count_el.get_attribute("aria-label") or ""
-                rc_match = re.search(r'([\d,]+)', rc_text.replace(",", ""))
+                rc_match = re.search(r"([\d,]+)", rc_text.replace(",", ""))
                 if rc_match:
                     place["review_count"] = rc_match.group(1)
 
@@ -222,14 +226,16 @@ class PlaceDetailsMixin:
 
             # Extract photos from the carousel
             with self._optional(misses, "photos"):
-                photo_elements = page.locator("button[jsaction*='heroHeaderImage'] img, div[jsaction*='photo'] img, img.Uf0tqf")
+                photo_elements = page.locator(
+                    "button[jsaction*='heroHeaderImage'] img, div[jsaction*='photo'] img, img.Uf0tqf"
+                )
                 photo_count = await photo_elements.count()
                 for i in range(min(photo_count, 10)):  # Limit to 10 photos
                     photo = photo_elements.nth(i)
                     src = await photo.get_attribute("src")
                     if src and "googleusercontent.com" in src:
                         # Get higher resolution version
-                        high_res_src = re.sub(r'=w\d+-h\d+', '=w800-h600', src)
+                        high_res_src = re.sub(r"=w\d+-h\d+", "=w800-h600", src)
                         place["photos"].append(high_res_src)
 
             # Menu link
@@ -325,7 +331,7 @@ class PlaceDetailsMixin:
                     price_text = await price_btn.text_content()
                     if price_text:
                         # Extract price range like "$1–10 per person"
-                        price_match = re.search(r'\$[\d,]+[–-]\$?[\d,]+', price_text)
+                        price_match = re.search(r"\$[\d,]+[–-]\$?[\d,]+", price_text)
                         if price_match:
                             place["price_per_person"] = price_match.group(0)
 
@@ -337,7 +343,9 @@ class PlaceDetailsMixin:
 
                 # Try alternative - look for groups in the main panel
                 if service_count == 0:
-                    service_groups = page.locator("div[role='main'] span[role='group'], div[role='main'] [aria-label*='dine-in'], div[role='main'] [aria-label*='drive-through']")
+                    service_groups = page.locator(
+                        "div[role='main'] span[role='group'], div[role='main'] [aria-label*='dine-in'], div[role='main'] [aria-label*='drive-through']"
+                    )
                     service_count = await service_groups.count()
 
                 for i in range(service_count):
@@ -358,14 +366,23 @@ class PlaceDetailsMixin:
                     if await about_section.count() > 0:
                         about_text = await about_section.text_content()
                         if about_text:
-                            service_texts = ["Dine-in", "Drive-through", "Takeout", "Delivery", "No-contact delivery", "Curbside pickup"]
+                            service_texts = [
+                                "Dine-in",
+                                "Drive-through",
+                                "Takeout",
+                                "Delivery",
+                                "No-contact delivery",
+                                "Curbside pickup",
+                            ]
                             for svc in service_texts:
                                 if svc.lower() in about_text.lower():
                                     place["service_options"].append(svc)
 
             # Extract popular times data
             with self._optional(misses, "popular_times"):
-                popular_times_section = page.locator("region[aria-label*='Popular times'], div:has(heading:has-text('Popular times'))")
+                popular_times_section = page.locator(
+                    "region[aria-label*='Popular times'], div:has(heading:has-text('Popular times'))"
+                )
                 pt_count = await popular_times_section.count()
 
                 # Also try alternative selectors
@@ -374,7 +391,9 @@ class PlaceDetailsMixin:
 
                 if pt_count > 0 or busy_count_direct > 0:
                     # Get the day selector button
-                    day_btn = page.locator("button[aria-label*='days'], button:has-text('Saturdays'), button:has-text('Sundays'), button:has-text('Mondays')").first
+                    day_btn = page.locator(
+                        "button[aria-label*='days'], button:has-text('Saturdays'), button:has-text('Sundays'), button:has-text('Mondays')"
+                    ).first
 
                     current_day = "Unknown"
                     if await day_btn.count() > 0:
@@ -391,12 +410,9 @@ class PlaceDetailsMixin:
                         label = await busy_imgs.nth(i).get_attribute("aria-label")
                         if label:
                             # Parse "93% busy at 10 AM." or "79% busy at 10 AM"
-                            match = re.search(r'(\d+)%\s+busy\s+at\s+(\d+\s*(?:AM|PM))', label, re.IGNORECASE)
+                            match = re.search(r"(\d+)%\s+busy\s+at\s+(\d+\s*(?:AM|PM))", label, re.IGNORECASE)
                             if match:
-                                hourly_data.append({
-                                    "hour": match.group(2),
-                                    "busy_percent": int(match.group(1))
-                                })
+                                hourly_data.append({"hour": match.group(2), "busy_percent": int(match.group(1))})
                     if hourly_data:
                         place["popular_times"][current_day] = hourly_data
 
@@ -415,7 +431,7 @@ class PlaceDetailsMixin:
                     "div:has-text('Less busy than usual')",
                     "div:has-text('As busy as it gets')",
                     "div:has-text('Not too busy')",
-                    "[aria-label*='Live']"
+                    "[aria-label*='Live']",
                 ]
 
                 for selector in live_busy_selectors:
@@ -431,7 +447,7 @@ class PlaceDetailsMixin:
                     "span:has-text('min wait')",
                     "div:has-text('min wait')",
                     "[aria-label*='wait']",
-                    "span:has-text('minute wait')"
+                    "span:has-text('minute wait')",
                 ]
 
                 for selector in wait_selectors:
@@ -440,7 +456,7 @@ class PlaceDetailsMixin:
                         wait_text = await wait_elem.text_content()
                         if wait_text:
                             # Parse "Usually 15 min wait" or "Live: 20 min wait"
-                            match = re.search(r'(\d+)\s*min(?:ute)?\s*wait', wait_text, re.IGNORECASE)
+                            match = re.search(r"(\d+)\s*min(?:ute)?\s*wait", wait_text, re.IGNORECASE)
                             if match:
                                 place["wait_time_minutes"] = int(match.group(1))
                                 place["wait_time_raw"] = wait_text.strip()
@@ -452,7 +468,7 @@ class PlaceDetailsMixin:
                     "span:has-text('Usually a little busy')",
                     "span:has-text('Usually not busy')",
                     "span:has-text('Usually busy')",
-                    "div:has-text('Usually')"
+                    "div:has-text('Usually')",
                 ]
 
                 for selector in typical_selectors:
@@ -462,7 +478,6 @@ class PlaceDetailsMixin:
                         if typical_text and "Usually" in typical_text and "wait" not in typical_text.lower():
                             place["typical_busyness"] = typical_text.strip()
                             break
-
 
             # Extract review summary (star breakdown)
             with self._optional(misses, "review_summary"):
@@ -480,7 +495,7 @@ class PlaceDetailsMixin:
                         label = await review_table.nth(i).get_attribute("aria-label")
                         if label:
                             # Parse "5 stars, 474 reviews" or "5 stars, 691 reviews"
-                            match = re.search(r'(\d+)\s*stars?,\s*([\d,]+)\s*reviews?', label, re.IGNORECASE)
+                            match = re.search(r"(\d+)\s*stars?,\s*([\d,]+)\s*reviews?", label, re.IGNORECASE)
                             if match:
                                 stars = match.group(1)
                                 count = match.group(2).replace(",", "")
@@ -496,19 +511,20 @@ class PlaceDetailsMixin:
 
                 # Try alternative selector
                 if topic_count == 0:
-                    topic_radios = page.locator("div[role='radio'][aria-label*='reviews'], button[aria-label*='mentioned']")
+                    topic_radios = page.locator(
+                        "div[role='radio'][aria-label*='reviews'], button[aria-label*='mentioned']"
+                    )
                     topic_count = await topic_radios.count()
 
                 for i in range(min(topic_count, 10)):  # Limit to 10 topics
                     label = await topic_radios.nth(i).get_attribute("aria-label")
                     if label:
                         # Parse "drive thru, mentioned in 102 reviews"
-                        match = re.search(r'([^,]+),\s*mentioned\s+in\s+(\d+)\s+reviews?', label, re.IGNORECASE)
+                        match = re.search(r"([^,]+),\s*mentioned\s+in\s+(\d+)\s+reviews?", label, re.IGNORECASE)
                         if match:
-                            place["review_topics"].append({
-                                "topic": match.group(1).strip(),
-                                "count": int(match.group(2))
-                            })
+                            place["review_topics"].append(
+                                {"topic": match.group(1).strip(), "count": int(match.group(2))}
+                            )
 
             # Extract sample reviews (quotes shown at top of reviews section)
             with self._optional(misses, "sample_reviews"):
@@ -551,11 +567,11 @@ class PlaceDetailsMixin:
                             related = {"name": parts[0]}
                             for part in parts[1:]:
                                 if "stars" in part.lower():
-                                    rating_match = re.search(r'([\d.]+)', part)
+                                    rating_match = re.search(r"([\d.]+)", part)
                                     if rating_match:
                                         related["rating"] = float(rating_match.group(1))
                                 elif "reviews" in part.lower():
-                                    count_match = re.search(r'([\d,]+)', part)
+                                    count_match = re.search(r"([\d,]+)", part)
                                     if count_match:
                                         related["review_count"] = int(count_match.group(1).replace(",", ""))
                                 else:
@@ -594,9 +610,7 @@ class PlaceDetailsMixin:
                 missing=list(REQUIRED_PLACE_FIELDS),
             ) from e
 
-    def _finalise_place(
-        self, place: dict[str, Any], misses: list[str]
-    ) -> dict[str, Any]:
+    def _finalise_place(self, place: dict[str, Any], misses: list[str]) -> dict[str, Any]:
         """Attach freshness metadata and enforce the required fields.
 
         Args:
@@ -629,8 +643,7 @@ class PlaceDetailsMixin:
 
         if not core_present:
             logger.error(
-                "Place %r extracted with no core field (%s); treating as a "
-                "stale-selector partial result",
+                "Place %r extracted with no core field (%s); treating as a stale-selector partial result",
                 place.get("title"),
                 ", ".join(CORE_PLACE_FIELDS),
             )
@@ -671,7 +684,11 @@ class PlaceDetailsMixin:
                 for day in days:
                     if day in row_text:
                         # Extract time portion
-                        time_match = re.search(r'(\d{1,2}(?::\d{2})?\s*(?:AM|PM)\s*[–-]\s*\d{1,2}(?::\d{2})?\s*(?:AM|PM)|Closed|Open 24 hours)', row_text, re.IGNORECASE)
+                        time_match = re.search(
+                            r"(\d{1,2}(?::\d{2})?\s*(?:AM|PM)\s*[–-]\s*\d{1,2}(?::\d{2})?\s*(?:AM|PM)|Closed|Open 24 hours)",
+                            row_text,
+                            re.IGNORECASE,
+                        )
                         if time_match:
                             hours[day] = [time_match.group(0)]
                         break
@@ -695,7 +712,7 @@ class PlaceDetailsMixin:
                 if match:
                     time_str = match.group(1).strip()
                     # Clean up the time string
-                    time_str = re.sub(r'\.\s*$', '', time_str)
+                    time_str = re.sub(r"\.\s*$", "", time_str)
                     time_str = time_str.replace(" to ", "–")
                     hours[day] = [time_str]
 

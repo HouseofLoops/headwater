@@ -5,6 +5,7 @@ The module-level limit state (``_max_concurrent_browsers``, ``_max_fanout``
 and the per-loop semaphores) lives here and only here; the facade
 re-exports the accessor functions, never the mutable globals.
 """
+
 import asyncio
 import logging
 import os
@@ -55,17 +56,13 @@ def _env_int(name: str, default: int) -> int:
     return value
 
 
-_max_concurrent_browsers = _env_int(
-    "GOOGLE_MAPS_MAX_CONCURRENT_BROWSERS", DEFAULT_MAX_CONCURRENT_BROWSERS
-)
+_max_concurrent_browsers = _env_int("GOOGLE_MAPS_MAX_CONCURRENT_BROWSERS", DEFAULT_MAX_CONCURRENT_BROWSERS)
 _max_fanout = _env_int("GOOGLE_MAPS_MAX_FANOUT", DEFAULT_MAX_FANOUT)
 
 # Semaphores are per event loop: a single module-level Semaphore binds to the
 # first loop that awaits it, and reusing it from another loop (pytest creates
 # one per test, uvicorn one per worker) raises or silently fails to bound.
-_browser_semaphores: weakref.WeakKeyDictionary[Any, asyncio.Semaphore] = (
-    weakref.WeakKeyDictionary()
-)
+_browser_semaphores: weakref.WeakKeyDictionary[Any, asyncio.Semaphore] = weakref.WeakKeyDictionary()
 
 
 def get_max_concurrent_browsers() -> int:
@@ -122,8 +119,7 @@ def cap_fanout(items: Sequence[T], *, kind: str = "fan-out") -> list[T]:
     if len(items) <= limit:
         return list(items)
     logger.warning(
-        "%s requested %d points; truncated to the %d-point limit "
-        "(raise GOOGLE_MAPS_MAX_FANOUT to allow more)",
+        "%s requested %d points; truncated to the %d-point limit (raise GOOGLE_MAPS_MAX_FANOUT to allow more)",
         kind,
         len(items),
         limit,

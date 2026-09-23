@@ -4,6 +4,7 @@ Integration tests for API endpoints.
 These tests verify the API endpoints work correctly with the full
 application stack, using minimal mocking.
 """
+
 import os
 
 import pytest
@@ -23,9 +24,11 @@ def app():
     # otherwise get_settings() keeps whatever was resolved at first import and
     # the fixture silently tests a different configuration than it declares.
     from app.core.config import get_settings
+
     get_settings.cache_clear()
 
     from main import create_application
+
     return create_application()
 
 
@@ -42,6 +45,7 @@ def authenticated_client(app):
     os.environ["ENABLE_API_KEY_AUTH"] = "true"
 
     from main import create_application
+
     app = create_application()
     client = TestClient(app)
     client.headers["X-API-Key"] = "test-api-key-123"
@@ -227,11 +231,7 @@ class TestCorsHeaders:
     def test_cors_headers_present(self, client):
         """Test that CORS headers are present in responses."""
         response = client.options(
-            "/health",
-            headers={
-                "Origin": "http://localhost:3000",
-                "Access-Control-Request-Method": "GET"
-            }
+            "/health", headers={"Origin": "http://localhost:3000", "Access-Control-Request-Method": "GET"}
         )
         # CORS preflight should return 200 or headers should be present
         assert response.status_code in [200, 400]
@@ -247,9 +247,6 @@ class TestContentNegotiation:
 
     def test_accepts_json_request(self, client):
         """Test that API accepts JSON requests."""
-        response = client.get(
-            "/health",
-            headers={"Accept": "application/json"}
-        )
+        response = client.get("/health", headers={"Accept": "application/json"})
         assert response.status_code == 200
         assert "application/json" in response.headers.get("content-type", "")

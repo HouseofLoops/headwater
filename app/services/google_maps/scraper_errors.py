@@ -1,6 +1,7 @@
 """
 Failure signals and field requirements for the Google Maps scraper.
 """
+
 from collections.abc import Sequence
 from typing import Any
 
