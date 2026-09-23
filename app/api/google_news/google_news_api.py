@@ -270,12 +270,12 @@ async def get_news_by_source(
 
     except ValidationError as ve:
         logger.error(f"Validation error for source '{source}': {ve}")
-        raise HTTPException(status_code=400, detail="Invalid source URL or domain.")
+        raise HTTPException(status_code=400, detail="Invalid source URL or domain.") from ve
     except HTTPException as http_exc:
         raise http_exc
     except Exception as e:
         logger.error(f"Unexpected error fetching Google News for source '{source}': {e!s}")
-        raise HTTPException(status_code=500, detail="Internal Server Error")
+        raise HTTPException(status_code=500, detail="Internal Server Error") from e
 
 
 @gnews_router.get("/search/", summary="Search News", response_model=NewsResponse, response_model_exclude_none=True)
@@ -350,7 +350,7 @@ async def search_google_news(
         raise http_exc
     except Exception as e:
         logger.error(f"Error fetching Google News for query '{query}': {e!s}")
-        raise HTTPException(status_code=500, detail="Internal Server Error")
+        raise HTTPException(status_code=500, detail="Internal Server Error") from e
 
 
 @gnews_router.get("/top/", summary="Top News", response_model=NewsResponse, response_model_exclude_none=True)
@@ -394,7 +394,7 @@ async def get_top_google_news(
         raise http_exc
     except Exception as e:
         logger.error(f"Error fetching top Google News: {e!s}")
-        raise HTTPException(status_code=500, detail="Internal Server Error")
+        raise HTTPException(status_code=500, detail="Internal Server Error") from e
 
 
 @gnews_router.get("/topic/", summary="News by Topic", response_model=NewsResponse, response_model_exclude_none=True)
@@ -454,7 +454,7 @@ async def get_news_by_topic(
         raise http_exc
     except Exception as e:
         logger.error(f"Error fetching Google News for topic '{topic}': {e!s}")
-        raise HTTPException(status_code=500, detail="Internal Server Error")
+        raise HTTPException(status_code=500, detail="Internal Server Error") from e
 
 
 @gnews_router.get(
@@ -525,7 +525,7 @@ async def get_news_by_location(
         raise http_exc
     except Exception as e:
         logger.error(f"Error fetching Google News for location '{location}': {e!s}")
-        raise HTTPException(status_code=500, detail="Internal Server Error")
+        raise HTTPException(status_code=500, detail="Internal Server Error") from e
 
 
 # The `/source/` endpoint definition is already provided above.
@@ -579,7 +579,7 @@ async def get_google_news_articles(
         raise http_exc
     except Exception as e:
         logger.error(f"Error fetching Google News articles for query '{query}': {e!s}")
-        raise HTTPException(status_code=500, detail="Internal Server Error")
+        raise HTTPException(status_code=500, detail="Internal Server Error") from e
 
 
 @gnews_router.get("/article-details/", summary="Article Details", response_model=dict)
@@ -597,7 +597,7 @@ async def get_article_details(
     except UrlNotAllowed as exc:
         # Detail to the logs, generic message to the caller.
         logger.warning("Blocked outbound article fetch: %s", exc.reason)
-        raise HTTPException(status_code=400, detail=exc.public_message)
+        raise HTTPException(status_code=400, detail=exc.public_message) from exc
 
     target_url = validated.url
     logger.info("Fetching article details for allow-listed host %s", validated.host)
@@ -696,13 +696,13 @@ async def get_article_details(
         # fetch failure, so the response cannot say whether the allow-listed
         # host tried to redirect us somewhere internal.
         logger.warning("Blocked redirect while fetching article: %s", exc.reason)
-        raise HTTPException(status_code=502, detail=ARTICLE_FETCH_FAILED_DETAIL)
+        raise HTTPException(status_code=502, detail=ARTICLE_FETCH_FAILED_DETAIL) from exc
     except ArticleException as ae:
         # The old body echoed the target host and the underlying failure, which
         # let a caller tell "port closed" from "port open but not HTML" and use
         # the endpoint as an internal port scanner. Cause goes to the logs only.
         logger.error("Newspaper error fetching %s: %s", validated.host, ae)
-        raise HTTPException(status_code=502, detail=ARTICLE_FETCH_FAILED_DETAIL)
+        raise HTTPException(status_code=502, detail=ARTICLE_FETCH_FAILED_DETAIL) from ae
     except Exception as e:
         logger.error(
             "Unexpected error fetching article details for %s: %s",
@@ -710,4 +710,4 @@ async def get_article_details(
             e,
             exc_info=True,
         )
-        raise HTTPException(status_code=502, detail=ARTICLE_FETCH_FAILED_DETAIL)
+        raise HTTPException(status_code=502, detail=ARTICLE_FETCH_FAILED_DETAIL) from e

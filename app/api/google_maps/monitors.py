@@ -79,7 +79,7 @@ async def create_monitor(
         raise
     except Exception as e:
         logger.error(f"Create monitor error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL)
+        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL) from e
 
 
 @router.get("/monitors", summary="List monitors", response_description="Active monitors")
@@ -116,7 +116,7 @@ async def list_monitors(
         raise
     except Exception as e:
         logger.error(f"List monitors error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL)
+        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL) from e
 
 
 @router.get("/monitors/{monitor_id}", summary="Get monitor status", response_description="Monitor details and history")
@@ -150,7 +150,7 @@ async def get_monitor(
         raise
     except Exception as e:
         logger.error(f"Get monitor error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL)
+        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL) from e
 
 
 @router.delete("/monitors/{monitor_id}", summary="Delete monitor", response_description="Deletion confirmation")
@@ -181,7 +181,7 @@ async def delete_monitor(
         raise
     except Exception as e:
         logger.error(f"Delete monitor error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL)
+        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL) from e
 
 
 @router.post("/webhooks", summary="Register webhook", response_description="Webhook registration")
@@ -228,7 +228,7 @@ async def register_webhook(
         raise
     except Exception as e:
         logger.error(f"Register webhook error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL)
+        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL) from e
 
 
 @router.get("/webhooks", summary="List webhooks", response_description="Registered webhooks")
@@ -248,7 +248,7 @@ async def list_webhooks(api_key: str = Depends(get_api_key), rate_limit_check: N
         raise
     except Exception as e:
         logger.error(f"List webhooks error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL)
+        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL) from e
 
 
 @router.delete("/webhooks/{webhook_id}", summary="Delete webhook", response_description="Deletion confirmation")
@@ -279,4 +279,4 @@ async def delete_webhook(
         raise
     except Exception as e:
         logger.error(f"Delete webhook error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL)
+        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL) from e

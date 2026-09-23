@@ -9,7 +9,7 @@ import inspect
 from collections.abc import Callable
 from enum import Enum
 from pathlib import Path
-from typing import Any, Union
+from typing import Any
 
 
 def get_enum_values(enum_class: type) -> list[Any]:
@@ -149,7 +149,7 @@ def import_string(dotted_path: str) -> Any:
         raise ImportError(f"Module {module_path} does not define a {class_name} attribute/class") from e
 
 
-def find_modules(directory: Union[str, Path], recursive: bool = True) -> list[str]:
+def find_modules(directory: str | Path, recursive: bool = True) -> list[str]:
     """
     Find all Python modules in a directory.
 

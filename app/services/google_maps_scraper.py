@@ -54,7 +54,6 @@ from app.services.google_maps.scraper_jobs import (
 from app.services.google_maps.scraper_limits import (
     DEFAULT_MAX_CONCURRENT_BROWSERS,
     DEFAULT_MAX_FANOUT,
-    T,
     _browser_semaphore,
     _env_int,
     cap_fanout,

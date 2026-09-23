@@ -5,10 +5,7 @@ Split out of app.core.utils, which still re-exports every name here.
 """
 
 from collections.abc import Callable
-from typing import Any, TypeVar, Union
-
-# Type variable for generic functions
-T = TypeVar("T")
+from typing import Any
 
 
 def merge_dicts(dict1: dict[str, Any], dict2: dict[str, Any]) -> dict[str, Any]:
@@ -90,7 +87,7 @@ def unflatten_dict(d: dict[str, Any], separator: str = ".") -> dict[str, Any]:
     return result
 
 
-def deep_get(d: dict[str, Any], keys: Union[str, list[str]], default: Any = None, separator: str = ".") -> Any:
+def deep_get(d: dict[str, Any], keys: str | list[str], default: Any = None, separator: str = ".") -> Any:
     """
     Get a value from a nested dictionary using a dotted path.
 
@@ -116,7 +113,7 @@ def deep_get(d: dict[str, Any], keys: Union[str, list[str]], default: Any = None
     return current
 
 
-def deep_set(d: dict[str, Any], keys: Union[str, list[str]], value: Any, separator: str = ".") -> dict[str, Any]:
+def deep_set(d: dict[str, Any], keys: str | list[str], value: Any, separator: str = ".") -> dict[str, Any]:
     """
     Set a value in a nested dictionary using a dotted path.
 
@@ -144,7 +141,7 @@ def deep_set(d: dict[str, Any], keys: Union[str, list[str]], value: Any, separat
     return d
 
 
-def chunks(lst: list[T], n: int) -> list[list[T]]:
+def chunks[T](lst: list[T], n: int) -> list[list[T]]:
     """
     Split a list into chunks of size n.
 
@@ -158,7 +155,7 @@ def chunks(lst: list[T], n: int) -> list[list[T]]:
     return [lst[i : i + n] for i in range(0, len(lst), n)]
 
 
-def batch_process(items: list[T], process_func: Callable[[list[T]], list[Any]], batch_size: int = 100) -> list[Any]:
+def batch_process[T](items: list[T], process_func: Callable[[list[T]], list[Any]], batch_size: int = 100) -> list[Any]:
     """
     Process a list of items in batches.
 

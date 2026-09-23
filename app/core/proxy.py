@@ -220,10 +220,7 @@ def is_host_excluded(url_or_host: str | None) -> bool:
     if "//" in host:
         host = host.split("//", 1)[1]
     host = host.split("/", 1)[0].split("@")[-1].split(":")[0]
-    for excluded in _excluded_hosts():
-        if host == excluded or host.endswith("." + excluded):
-            return True
-    return False
+    return any(host == excluded or host.endswith("." + excluded) for excluded in _excluded_hosts())
 
 
 def proxy_for(url_or_host: str | None = None) -> str | None:

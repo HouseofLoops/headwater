@@ -47,7 +47,7 @@ logger = logging.getLogger(__name__)
 #
 # Restore by deleting this block if GNews ever changes how process_url works.
 # ---------------------------------------------------------------------------
-import gnews.utils.utils as _gnews_utils
+import gnews.utils.utils as _gnews_utils  # noqa: E402 - kept inside the self-contained monkeypatch block explained above
 
 
 def _skip_gnews_url_resolution(url: str, proxies: dict | None = None) -> str:

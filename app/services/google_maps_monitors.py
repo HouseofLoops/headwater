@@ -41,6 +41,7 @@ instead of an invented ``"active"``.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import hashlib
 import hmac
 import json
@@ -396,7 +397,11 @@ async def list_monitors(
     predicate = None
     if status:
         wanted = status.lower()
-        predicate = lambda r: str(r.data.get("status", "")).lower() == wanted
+
+        def _status_matches(r) -> bool:
+            return str(r.data.get("status", "")).lower() == wanted
+
+        predicate = _status_matches
 
     records = await _monitor_store().list_for_owner(owner, limit=limit, offset=offset, predicate=predicate)
     # The total must count what the filter selected, not everything. A total
@@ -1219,7 +1224,5 @@ async def stop_monitor_scheduler() -> None:
     if task is None or task.done():
         return
     task.cancel()
-    try:
+    with contextlib.suppress(asyncio.CancelledError):
         await task
-    except asyncio.CancelledError:
-        pass

@@ -79,7 +79,7 @@ async def get_directions(
         raise
     except Exception as e:
         logger.error(f"Directions error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL)
+        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL) from e
 
 
 @router.get("/directions", summary="Get directions (GET)", response_description="Route information")
@@ -151,7 +151,7 @@ async def batch_geocode(
         raise
     except Exception as e:
         logger.error(f"Geocode error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL)
+        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL) from e
 
 
 @router.get("/geocode", summary="Geocode address (GET)", response_description="Coordinates for address")

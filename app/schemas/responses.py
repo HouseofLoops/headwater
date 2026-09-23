@@ -5,11 +5,9 @@ This module provides base response models that can be extended
 by specific API endpoints for consistent response structure.
 """
 
-from typing import Any, Generic, TypeVar
+from typing import Any
 
 from pydantic import BaseModel, Field
-
-T = TypeVar("T")
 
 
 class BaseAPIResponse(BaseModel):
@@ -38,7 +36,7 @@ class ErrorResponse(BaseModel):
     code: str | None = Field(None, description="Error code for programmatic handling")
 
 
-class PaginatedResponse(BaseModel, Generic[T]):
+class PaginatedResponse[T](BaseModel):
     """
     Generic paginated response model.
 

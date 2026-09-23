@@ -131,8 +131,9 @@ pytest tests/test_specific_feature.py
 # Run with coverage
 pytest --cov=app --cov-report=html
 
-# Run linting (the same blocking rule set CI enforces)
-ruff check --select E9,F63,F7,F82 .
+# Run linting and the format check (the same gates CI enforces)
+ruff check .
+ruff format --check .
 ```
 
 ### 5. Commit Your Changes
@@ -172,20 +173,16 @@ is kept in step with CI and pre-commit.
 
 ### Linting
 
-CI (`.github/workflows/_verify.yml`, job "Lint (ruff)") runs ruff in two steps:
+CI (`.github/workflows/_verify.yml`, job "Lint (ruff)") runs the full rule set from
+`pyproject.toml` and fails on any finding; the pre-commit ruff hook runs the same rules.
 
 ```bash
-# 1. Blocking: real errors only (syntax errors, undefined names, invalid comparisons).
-#    This must pass; the pre-commit ruff hook runs the same selection.
-ruff check --select E9,F63,F7,F82 .
-
-# 2. Advisory: the full rule set from pyproject.toml. CI never fails on this; it
-#    publishes the finding count to the job summary so the trend is visible.
-ruff check --statistics .
+ruff check .
 ```
 
-`make lint` runs both. The full rule set still has pre-existing findings, so do not run
-`ruff check --fix .` across the whole repository; fix findings in the code you touch:
+`make lint` runs the same check plus the format check. The repository is at zero findings, so a
+new one is yours to fix. If a finding is a deliberate exception, silence that line with
+`# noqa: <RULE> - <reason>` rather than adding the rule to `lint.ignore`.
 
 ```bash
 ruff check path/to/changed_file.py
@@ -194,8 +191,8 @@ ruff check --fix path/to/changed_file.py
 
 ### Code Formatting
 
-Use `ruff format` on the files you change. CI does not yet enforce formatting, and the repository
-has not been formatted in one pass, so avoid reformatting unrelated files in a feature PR:
+The whole repository is formatted with `ruff format`, and CI (and the `ruff-format` pre-commit
+hook) fails on unformatted files:
 
 ```bash
 # Format the files you changed

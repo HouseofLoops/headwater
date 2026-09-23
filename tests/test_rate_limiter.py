@@ -56,14 +56,14 @@ from app.core.rate_limiter import (
 
 def settings_stub(**overrides):
     """Build a settings-like object for the limiter."""
-    base = dict(
-        RATE_LIMIT_ENABLED=True,
-        RATE_LIMIT_REQUESTS=100,
-        RATE_LIMIT_TIMEFRAME=3600,
-        REDIS_URL=None,
-        ENVIRONMENT="development",
-        API_KEYS=[],
-    )
+    base = {
+        "RATE_LIMIT_ENABLED": True,
+        "RATE_LIMIT_REQUESTS": 100,
+        "RATE_LIMIT_TIMEFRAME": 3600,
+        "REDIS_URL": None,
+        "ENVIRONMENT": "development",
+        "API_KEYS": [],
+    }
     base.update(overrides)
     return SimpleNamespace(**base)
 

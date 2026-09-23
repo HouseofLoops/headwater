@@ -153,4 +153,4 @@ class TestLegacyModuleAttributes:
 
     def test_unknown_attribute_still_raises(self):
         with pytest.raises(AttributeError):
-            proxy_module.NOT_A_REAL_SETTING
+            proxy_module.NOT_A_REAL_SETTING  # noqa: B018 - the attribute access itself is what must raise

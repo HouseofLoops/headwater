@@ -176,10 +176,7 @@ async def batch_get_transcripts(
     The body wins when both are supplied. See MAX_BATCH_VIDEO_IDS for the
     per-request cap; larger batches are rejected with HTTP 400.
     """
-    if payload is not None and payload.video_ids:
-        resolved_video_ids = payload.video_ids
-    else:
-        resolved_video_ids = video_ids or []
+    resolved_video_ids = payload.video_ids if payload is not None and payload.video_ids else video_ids or []
 
     if not resolved_video_ids:
         raise HTTPException(

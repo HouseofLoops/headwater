@@ -55,7 +55,7 @@ import os
 import sys
 import time
 from collections.abc import Callable
-from typing import Any, Union
+from typing import Any
 
 from fastapi import Request, Response
 from fastapi.responses import JSONResponse
@@ -679,7 +679,7 @@ class RateLimiter:
         headers["Retry-After"] = self._retry_after(rate_limit_info["reset"])
         return headers
 
-    async def limit(self, request: Request, call_next: Callable | None = None) -> Union[Response, Any]:
+    async def limit(self, request: Request, call_next: Callable | None = None) -> Response | Any:
         """
         Apply rate limiting to a request.
 
@@ -760,7 +760,7 @@ class RateLimiter:
         request: Request,
         exc: RateLimiterUnavailableError,
         call_next: Callable | None,
-    ) -> Union[Response, Any]:
+    ) -> Response | Any:
         """
         Apply the configured failure policy when the limiter cannot decide.
 

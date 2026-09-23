@@ -5,6 +5,7 @@ Nearby, grid, bounding-box and location searches, bulk search and
 competitor analysis -- everything that fans out over ``search_and_wait``.
 """
 
+import contextlib
 import logging
 import math
 from typing import Any
@@ -476,10 +477,8 @@ class AreaSearchMixin:
             for p in processed:
                 rc = p.get("review_count")
                 if rc:
-                    try:
+                    with contextlib.suppress(ValueError, TypeError):
                         review_counts.append(int(str(rc).replace(",", "")))
-                    except ValueError, TypeError:
-                        pass
 
             def get_rating(x):
                 try:

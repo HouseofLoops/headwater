@@ -427,7 +427,7 @@ async def interest_over_time(
         raise http_exc
     except Exception as e:
         logger.error(f"Error in interest_over_time: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Internal Server Error")
+        raise HTTPException(status_code=500, detail="Internal Server Error") from e
 
 
 # -------------------------------------------------------------------------
@@ -477,7 +477,7 @@ async def interest_by_region(
         raise http_exc
     except Exception as e:
         logger.error(f"Error in interest_by_region: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Internal Server Error")
+        raise HTTPException(status_code=500, detail="Internal Server Error") from e
 
 
 # -------------------------------------------------------------------------
@@ -527,7 +527,7 @@ async def related_queries(
         raise http_exc
     except Exception as e:
         logger.error(f"Error in related_queries: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Internal Server Error")
+        raise HTTPException(status_code=500, detail="Internal Server Error") from e
 
 
 # -------------------------------------------------------------------------
@@ -577,7 +577,7 @@ async def related_topics(
         raise http_exc
     except Exception as e:
         logger.error(f"Error in related_topics: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Internal Server Error")
+        raise HTTPException(status_code=500, detail="Internal Server Error") from e
 
 
 # -------------------------------------------------------------------------
@@ -616,7 +616,7 @@ async def trending_now(
         raise http_exc
     except Exception as e:
         logger.error(f"Error in trending_now: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Internal Server Error")
+        raise HTTPException(status_code=500, detail="Internal Server Error") from e
 
 
 # -------------------------------------------------------------------------
@@ -655,7 +655,7 @@ async def trending_now_by_rss(
         raise http_exc
     except Exception as e:
         logger.error(f"Error in trending_now_by_rss: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Internal Server Error")
+        raise HTTPException(status_code=500, detail="Internal Server Error") from e
 
 
 # -------------------------------------------------------------------------
@@ -709,7 +709,7 @@ async def trending_now_news_by_ids(
         raise http_exc
     except Exception as e:
         logger.error(f"Error in trending_now_news_by_ids: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Internal Server Error")
+        raise HTTPException(status_code=500, detail="Internal Server Error") from e
 
 
 # -------------------------------------------------------------------------
@@ -765,7 +765,7 @@ async def trending_now_showcase_timeline(
         raise http_exc
     except Exception as e:
         logger.error(f"Error in trending_now_showcase_timeline: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Internal Server Error")
+        raise HTTPException(status_code=500, detail="Internal Server Error") from e
 
 
 # -------------------------------------------------------------------------
@@ -805,7 +805,7 @@ async def get_categories(
         raise http_exc
     except Exception as e:
         logger.error(f"Error in get_categories: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Internal Server Error")
+        raise HTTPException(status_code=500, detail="Internal Server Error") from e
 
 
 # -------------------------------------------------------------------------
@@ -874,4 +874,4 @@ async def get_geo(
         raise http_exc
     except Exception as e:
         logger.error(f"Error in get_geo: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Internal Server Error")
+        raise HTTPException(status_code=500, detail="Internal Server Error") from e

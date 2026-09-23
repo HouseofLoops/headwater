@@ -407,7 +407,6 @@ class GoogleMapsScraper(PlaceDetailsMixin):
         for i in range(min(link_count, max_results)):
             try:
                 link = place_links.nth(i)
-                href = await link.get_attribute("href")
                 name = await link.get_attribute("aria-label") or ""
 
                 if not name or name in seen_names:

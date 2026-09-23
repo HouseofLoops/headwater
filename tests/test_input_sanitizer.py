@@ -1,6 +1,5 @@
 from unittest.mock import MagicMock, patch
 
-
 from app.core.input_sanitizer import InputSanitizer, get_input_sanitizer, sanitize_input, set_input_sanitizer
 
 

@@ -6,7 +6,6 @@ Split out of app.core.utils, which still re-exports every name here.
 
 import logging
 from collections.abc import Callable
-from typing import Union
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -16,7 +15,7 @@ def retry(
     func: Callable,
     max_retries: int = 3,
     retry_delay: float = 1.0,
-    exceptions: Union[type, tuple[type, ...]] = Exception,
+    exceptions: type | tuple[type, ...] = Exception,
     logger: logging.Logger | None = None,
 ):
     """

@@ -89,7 +89,7 @@ class TestCrud:
         await store.put("alice", "j", {"v": 1})
         # Force expiry rather than sleeping.
         key = store._key("alice", "j")
-        expires_at, record = store._memory[key]
+        _expires_at, record = store._memory[key]
         store._memory[key] = (0.0, record)
         assert await store.get("alice", "j") is None
 

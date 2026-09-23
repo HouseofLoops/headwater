@@ -33,6 +33,11 @@ from app.services.google_maps.service_reservations import ReservationsMixin
 
 logger = logging.getLogger(__name__)
 
+# The event loop only keeps weak references to tasks, so a fire-and-forget
+# task with no other reference can be garbage-collected mid-flight. Scrape
+# jobs are held here until they finish.
+_background_tasks: set[asyncio.Task] = set()
+
 
 class GoogleMapsService(
     AreaSearchMixin,
@@ -155,7 +160,9 @@ class GoogleMapsService(
                     logger.info("Using proxy for Google Maps scraping")
 
             # Start background task
-            asyncio.create_task(self._scraper_module.run_scrape_job(job, proxy=proxy))
+            task = asyncio.create_task(self._scraper_module.run_scrape_job(job, proxy=proxy))
+            _background_tasks.add(task)
+            task.add_done_callback(_background_tasks.discard)
 
             logger.info("Created job %s for query: %s", scrub(job_id), scrub(query))
 
@@ -358,10 +365,9 @@ class GoogleMapsService(
         while elapsed < timeout:
             status_response = await self.get_job_status(job_id, owner=owner)
 
-            if status_response.get("error"):
-                # If it's a real error (not just job not found during creation)
-                if status_response.get("status_code") != 404:
-                    return status_response
+            # A real error (not just the job not being found yet during creation)
+            if status_response.get("error") and status_response.get("status_code") != 404:
+                return status_response
 
             status = status_response.get("status", "").lower()
 

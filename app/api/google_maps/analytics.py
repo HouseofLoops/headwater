@@ -82,7 +82,7 @@ async def get_review_analytics(
         raise
     except Exception as e:
         logger.error(f"Analytics error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL)
+        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL) from e
 
 
 @router.post("/competitors", summary="Analyze competitors", response_description="Competitor comparison")
@@ -141,4 +141,4 @@ async def analyze_competitors(
         raise
     except Exception as e:
         logger.error(f"Competitor analysis error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL)
+        raise HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL) from e

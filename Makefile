@@ -5,7 +5,7 @@ help:
 	@echo "  make install            - Install dependencies"
 	@echo "  make run                - Run development server"
 	@echo "  make test               - Run tests"
-	@echo "  make lint               - Run ruff (blocking rules, then advisory stats)"
+	@echo "  make lint               - Run ruff lint and format checks (same as CI)"
 	@echo "  make docker-build       - Build Docker image"
 	@echo "  make docker-nocache-build - Build Docker image without cache"
 	@echo "  make docker-run         - Run Docker container"
@@ -70,11 +70,11 @@ run:
 test:
 	pytest --cov=app tests/
 
-# Mirrors the CI lint job (.github/workflows/_verify.yml): the first command is
-# the blocking gate, the second prints the advisory full-rule-set counts.
+# Mirrors the CI lint job (.github/workflows/_verify.yml): the full rule set
+# and the format check, both blocking.
 lint:
-	ruff check --select E9,F63,F7,F82 .
-	ruff check --exit-zero --statistics .
+	ruff check .
+	ruff format --check .
 
 docker-build:
 	docker build -t headwater .

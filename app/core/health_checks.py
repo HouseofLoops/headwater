@@ -73,7 +73,7 @@ async def check_redis_connection() -> dict[str, Any]:
         return {"status": "skipped", "message": "Redis module not available"}
     except Exception as e:
         logger.exception("Redis health check failed")
-        raise ServiceUnavailableError(detail=f"Redis connection failed: {e!s}", error_type="redis_unavailable")
+        raise ServiceUnavailableError(detail=f"Redis connection failed: {e!s}", error_type="redis_unavailable") from e
 
 
 async def check_external_apis() -> dict[str, Any]:
@@ -267,4 +267,4 @@ async def require_healthy_service(service: str, settings: Settings = Depends(get
         logger.exception(f"Health check failed for {service}")
         raise ServiceUnavailableError(
             detail=f"Service {service} is unavailable: {e!s}", error_type=f"{service}_unavailable"
-        )
+        ) from e
