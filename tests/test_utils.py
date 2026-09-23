@@ -466,7 +466,7 @@ class TestDecorators:
         def test_func():
             return "result"
 
-        with patch('app.core.utils.logger') as mock_logger:
+        with patch('app.core.decorators.logger') as mock_logger:
             result = test_func()
             assert result == "result"
             mock_logger.debug.assert_called_once()
