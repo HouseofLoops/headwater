@@ -20,7 +20,7 @@
 # Match the CI ratchet instead: only the blocking rule set is enforced.
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v5.0.0
+    rev: v6.0.0
     hooks:
       - id: trailing-whitespace
         args: [--markdown-linebreak-ext=md]
@@ -48,8 +48,12 @@ repos:
         name: ruff (blocking rules only)
         args: [--select, "E9,F63,F7,F82", --no-fix]
 
+  # bandit < 1.9 cannot parse Python 3.14 source: it skipped every file with
+  # "exception while scanning file" and reported a false pass. 1.9.4 really
+  # scans, and surfaces 13 pre-existing findings in app/ and main.py that were
+  # always there (B324 md5, B311 random, B314/B405 xml.etree, B104, B110).
   - repo: https://github.com/PyCQA/bandit
-    rev: 1.8.0
+    rev: 1.9.4
     hooks:
       - id: bandit
         args: [-c, pyproject.toml]
@@ -57,13 +61,13 @@ repos:
         exclude: ^(tests|scripts|examples)/
 
   - repo: https://github.com/hadolint/hadolint
-    rev: v2.13.1-beta
+    rev: v2.15.1
     hooks:
       - id: hadolint-docker
         args: [--ignore, DL3008, --ignore, DL3009]
 
   - repo: https://github.com/shellcheck-py/shellcheck-py
-    rev: v0.10.0.1
+    rev: v0.11.0.1
     hooks:
       - id: shellcheck
 
