@@ -611,6 +611,7 @@ async def get_article_details(
 
             # Try NLP processing
             nlp_success = True
+            nlp_permanently_absent = False
             try:
                 await loop.run_in_executor(None, article.nlp)
             except (LookupError, ImportError) as le:

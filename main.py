@@ -328,8 +328,11 @@ def create_application() -> FastAPI:
 
             result = dict(result) if isinstance(result, dict) else {"result": result}
             result["record_storage_durable"] = await RecordStore("maps:jobs").is_durable()
-        except Exception as exc:
-            result["record_storage_durable"] = f"unknown: {exc}"
+        except Exception:
+            # The exception text is not returned: a Redis connection error can
+            # carry the REDIS_URL, password included. Log it; report "unknown".
+            logger.exception("Could not determine record storage durability")
+            result["record_storage_durable"] = "unknown"
         return result
 
     @app.get("/ping", tags=["Health"], summary="Simple ping endpoint")

@@ -431,6 +431,35 @@ class TestMainApplication:
         call_args = mock_check_health.call_args
         assert call_args[1]["include_details"] is True
 
+    @patch("main.check_health", new_callable=AsyncMock)
+    @patch("main.settings")
+    def test_detailed_health_does_not_return_exception_text(
+        self, mock_settings_patch, mock_check_health, mock_settings
+    ):
+        """A durability-probe failure must not echo the exception (it can carry REDIS_URL)."""
+        mock_check_health.return_value = {"status": "healthy", "details": {}}
+        mock_settings_patch.PROJECT_NAME = mock_settings.PROJECT_NAME
+        mock_settings_patch.VERSION = mock_settings.VERSION
+        mock_settings_patch.ENVIRONMENT = mock_settings.ENVIRONMENT
+        leaked = "redis://:s3cret-pass@redis.internal:6379/0"
+
+        from main import create_application
+
+        client = TestClient(create_application())
+        with (
+            patch(
+                "app.services.record_store.RecordStore.is_durable",
+                new_callable=AsyncMock,
+                side_effect=ConnectionError(f"Error connecting to {leaked}"),
+            ),
+            api_key_auth_enforced(),
+        ):
+            response = client.get("/health/detailed", headers={"X-API-Key": VALID_TEST_KEY})
+
+        assert response.status_code == 200
+        assert response.json()["record_storage_durable"] == "unknown"
+        assert "s3cret-pass" not in response.text
+
     @patch("main.settings")
     def test_api_config_endpoint(self, mock_settings_patch, mock_settings):
         """Test API configuration endpoint."""
