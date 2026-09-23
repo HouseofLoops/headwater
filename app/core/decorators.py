@@ -53,7 +53,11 @@ def retry(
                     if logger:
                         logger.error(f"Failed all {max_retries} retries for {func.__name__}: {e!s}")
 
-        # If we get here, all retries failed
+        # If we get here, all retries failed. last_exception is None only when
+        # max_retries < 0 and the loop never ran; `raise None` would surface as
+        # a confusing "exceptions must derive from BaseException" TypeError.
+        if last_exception is None:
+            raise ValueError(f"max_retries must be >= 0, got {max_retries}")
         raise last_exception
 
     return decorator

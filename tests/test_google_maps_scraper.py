@@ -190,7 +190,7 @@ def no_sleep():
     async def instant(_seconds):
         return None
 
-    with patch("app.services.google_maps_scraper.asyncio.sleep", instant):
+    with patch("asyncio.sleep", instant):
         yield
 
 

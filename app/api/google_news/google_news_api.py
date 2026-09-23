@@ -12,53 +12,23 @@ from pydantic import BaseModel, ValidationError, validator
 from app.core.rate_limiter import rate_limit
 from app.core.url_guard import UrlNotAllowed
 from app.services.google_news_article_service import (
-    ARTICLE_DETAILS_ALLOW_HTTP as ARTICLE_DETAILS_ALLOW_HTTP,
-)
-from app.services.google_news_article_service import (
-    ARTICLE_DETAILS_ALLOWED_HOSTS as ARTICLE_DETAILS_ALLOWED_HOSTS,
-)
-from app.services.google_news_article_service import (
-    ARTICLE_DETAILS_RESOLVE_DNS as ARTICLE_DETAILS_RESOLVE_DNS,
-)
-from app.services.google_news_article_service import (
-    ARTICLE_FETCH_FAILED_DETAIL as ARTICLE_FETCH_FAILED_DETAIL,
-)
-from app.services.google_news_article_service import (
-    ARTICLE_MAX_BYTES as ARTICLE_MAX_BYTES,
-)
-from app.services.google_news_article_service import (
-    ARTICLE_MAX_REDIRECTS as ARTICLE_MAX_REDIRECTS,
-)
-from app.services.google_news_article_service import (
-    BLOCKED_URL_DETAIL as BLOCKED_URL_DETAIL,
-)
-from app.services.google_news_article_service import (
-    _configured_article_hosts as _configured_article_hosts,
-)
-from app.services.google_news_article_service import (
-    ensure_nltk_setup as ensure_nltk_setup,
-)
-from app.services.google_news_article_service import (
-    fetch_allow_listed_html as fetch_allow_listed_html,
-)
-from app.services.google_news_article_service import (
-    nltk as nltk,
-)
-from app.services.google_news_article_service import (
-    setup_nltk as setup_nltk,
-)
-from app.services.google_news_article_service import (
-    validate_article_url as validate_article_url,
-)
-from app.services.google_news_catalog import (
-    AVAILABLE_COUNTRIES as AVAILABLE_COUNTRIES,
-)
-from app.services.google_news_catalog import (
-    AVAILABLE_LANGUAGES as AVAILABLE_LANGUAGES,
+    ARTICLE_DETAILS_ALLOW_HTTP,
+    ARTICLE_DETAILS_ALLOWED_HOSTS,
+    ARTICLE_DETAILS_RESOLVE_DNS,
+    ARTICLE_FETCH_FAILED_DETAIL,
+    ARTICLE_MAX_BYTES,
+    ARTICLE_MAX_REDIRECTS,
+    BLOCKED_URL_DETAIL,
+    _configured_article_hosts,
+    ensure_nltk_setup,
+    fetch_allow_listed_html,
+    nltk,
+    setup_nltk,
+    validate_article_url,
 )
 
 # Non-route logic lives in the service layer. Every name is re-exported here
-# (explicit `as` form) so existing `from ...google_news_api import X` imports
+# (listed in __all__ below) so existing `from ...google_news_api import X` imports
 # keep working. Module state -- the settings object, the nltk setup task, the
 # allow-list constants -- is defined once, in the service module that uses it.
 #
@@ -69,65 +39,70 @@ from app.services.google_news_catalog import (
 # get_gnews_http_client for the article fetch) must be patched on the service
 # module that defines or uses it.
 from app.services.google_news_catalog import (
-    AVAILABLE_TOPICS as AVAILABLE_TOPICS,
+    AVAILABLE_COUNTRIES,
+    AVAILABLE_LANGUAGES,
+    AVAILABLE_TOPICS,
 )
 from app.services.google_news_service import (
-    CACHE_NAMESPACE as CACHE_NAMESPACE,
+    CACHE_NAMESPACE,
+    GOOGLE_NEWS_HOSTS,
+    UPSTREAM_NEWS_FAILURE_DETAIL,
+    ProcessedArticles,
+    build_news_response,
+    decode_and_process_articles,
+    decode_google_news_url,
+    decode_url,
+    generate_cache_key,
+    get_base64_str,
+    get_cached_or_fetch,
+    get_decoding_params,
+    get_gnews_http_client,
+    get_gnews_instance,
+    is_cacheable,
+    is_google_news_redirect,
+    settings,
+    transform_article,
+    validate_date_format,
 )
-from app.services.google_news_service import (
-    GOOGLE_NEWS_HOSTS as GOOGLE_NEWS_HOSTS,
-)
-from app.services.google_news_service import (
-    UPSTREAM_NEWS_FAILURE_DETAIL as UPSTREAM_NEWS_FAILURE_DETAIL,
-)
-from app.services.google_news_service import (
-    ProcessedArticles as ProcessedArticles,
-)
-from app.services.google_news_service import (
-    build_news_response as build_news_response,
-)
-from app.services.google_news_service import (
-    decode_and_process_articles as decode_and_process_articles,
-)
-from app.services.google_news_service import (
-    decode_google_news_url as decode_google_news_url,
-)
-from app.services.google_news_service import (
-    decode_url as decode_url,
-)
-from app.services.google_news_service import (
-    generate_cache_key as generate_cache_key,
-)
-from app.services.google_news_service import (
-    get_base64_str as get_base64_str,
-)
-from app.services.google_news_service import (
-    get_cached_or_fetch as get_cached_or_fetch,
-)
-from app.services.google_news_service import (
-    get_decoding_params as get_decoding_params,
-)
-from app.services.google_news_service import (
-    get_gnews_http_client as get_gnews_http_client,
-)
-from app.services.google_news_service import (
-    get_gnews_instance as get_gnews_instance,
-)
-from app.services.google_news_service import (
-    is_cacheable as is_cacheable,
-)
-from app.services.google_news_service import (
-    is_google_news_redirect as is_google_news_redirect,
-)
-from app.services.google_news_service import (
-    settings as settings,
-)
-from app.services.google_news_service import (
-    transform_article as transform_article,
-)
-from app.services.google_news_service import (
-    validate_date_format as validate_date_format,
-)
+
+__all__ = [
+    "ARTICLE_DETAILS_ALLOWED_HOSTS",
+    "ARTICLE_DETAILS_ALLOW_HTTP",
+    "ARTICLE_DETAILS_RESOLVE_DNS",
+    "ARTICLE_FETCH_FAILED_DETAIL",
+    "ARTICLE_MAX_BYTES",
+    "ARTICLE_MAX_REDIRECTS",
+    "AVAILABLE_COUNTRIES",
+    "AVAILABLE_LANGUAGES",
+    "AVAILABLE_TOPICS",
+    "BLOCKED_URL_DETAIL",
+    "CACHE_NAMESPACE",
+    "GOOGLE_NEWS_HOSTS",
+    "UPSTREAM_NEWS_FAILURE_DETAIL",
+    "ProcessedArticles",
+    "_configured_article_hosts",
+    "build_news_response",
+    "decode_and_process_articles",
+    "decode_google_news_url",
+    "decode_url",
+    "ensure_nltk_setup",
+    "fetch_allow_listed_html",
+    "generate_cache_key",
+    "get_base64_str",
+    "get_cached_or_fetch",
+    "get_decoding_params",
+    "get_gnews_http_client",
+    "get_gnews_instance",
+    "gnews_router",
+    "is_cacheable",
+    "is_google_news_redirect",
+    "nltk",
+    "settings",
+    "setup_nltk",
+    "transform_article",
+    "validate_article_url",
+    "validate_date_format",
+]
 
 # Initialize Google News API Router
 gnews_router = APIRouter()

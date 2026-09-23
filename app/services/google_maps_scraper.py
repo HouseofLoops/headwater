@@ -27,10 +27,8 @@ Three defects this module previously shipped, and how they are addressed here:
    places but extracts none of them raises :class:`SelectorsStaleError`.
 """
 
-import asyncio
 import logging
 from datetime import datetime
-from typing import Optional
 
 from app.services.google_maps.scraper import GoogleMapsScraper
 from app.services.google_maps.scraper_errors import (
@@ -76,16 +74,27 @@ logger = logging.getLogger(__name__)
 # than something a linter has to be told to ignore: `owner_id_for_api_key` is
 # part of this module's public surface on purpose.
 __all__ = [
+    "CORE_PLACE_FIELDS",
+    "DEFAULT_MAX_CONCURRENT_BROWSERS",
+    "DEFAULT_MAX_FANOUT",
     "JOB_NAMESPACE",
+    "REQUIRED_PLACE_FIELDS",
     "GoogleMapsScraper",
     "JobStatus",
     "JobStore",
     "PlaceExtractionError",
+    "RecordStore",
     "ScrapeJob",
     "ScraperError",
     "SelectorsStaleError",
+    "_browser_semaphore",
+    "_env_int",
     "cap_fanout",
+    "configure_limits",
     "get_job_store",
+    "get_max_concurrent_browsers",
+    "get_max_fanout",
+    "get_record_store",
     "owner_id_for_api_key",
     "run_scrape_job",
 ]
