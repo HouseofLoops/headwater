@@ -26,25 +26,31 @@ Three defects this module previously shipped, and how they are addressed here:
    raise :class:`PlaceExtractionError`, and a search that finds candidate
    places but extracts none of them raises :class:`SelectorsStaleError`.
 """
-import asyncio  # noqa: F401  (tests patch google_maps_scraper.asyncio.sleep)
+import asyncio
 import logging
-from typing import Optional
 from datetime import datetime
+from typing import Optional
 
-from app.services.record_store import (
-    RecordStore,  # noqa: F401
-    get_record_store,  # noqa: F401
-    # Re-exported so callers can derive a job owner without also having to know
-    # about the record-store module: `from ...google_maps_scraper import
-    # owner_id_for_api_key`.
-    owner_id_for_api_key,  # noqa: F401
+from app.services.google_maps.scraper import GoogleMapsScraper
+from app.services.google_maps.scraper_errors import (
+    CORE_PLACE_FIELDS,
+    REQUIRED_PLACE_FIELDS,
+    PlaceExtractionError,
+    ScraperError,
+    SelectorsStaleError,
+)
+from app.services.google_maps.scraper_jobs import (
+    JOB_NAMESPACE,
+    JobStatus,
+    JobStore,
+    ScrapeJob,
 )
 
 # The implementation is split across app.services.google_maps.*; every name
 # below is re-exported so existing import paths keep working. The mutable
 # limit globals are deliberately NOT re-exported: they live only in
 # scraper_limits, and a copy here would be a stale snapshot.
-from app.services.google_maps.scraper_limits import (  # noqa: F401
+from app.services.google_maps.scraper_limits import (
     DEFAULT_MAX_CONCURRENT_BROWSERS,
     DEFAULT_MAX_FANOUT,
     T,
@@ -55,20 +61,14 @@ from app.services.google_maps.scraper_limits import (  # noqa: F401
     get_max_concurrent_browsers,
     get_max_fanout,
 )
-from app.services.google_maps.scraper_errors import (  # noqa: F401
-    CORE_PLACE_FIELDS,
-    REQUIRED_PLACE_FIELDS,
-    PlaceExtractionError,
-    ScraperError,
-    SelectorsStaleError,
+from app.services.record_store import (
+    RecordStore,
+    get_record_store,
+    # Re-exported so callers can derive a job owner without also having to know
+    # about the record-store module: `from ...google_maps_scraper import
+    # owner_id_for_api_key`.
+    owner_id_for_api_key,
 )
-from app.services.google_maps.scraper_jobs import (  # noqa: F401
-    JOB_NAMESPACE,
-    JobStatus,
-    JobStore,
-    ScrapeJob,
-)
-from app.services.google_maps.scraper import GoogleMapsScraper  # noqa: F401
 
 logger = logging.getLogger(__name__)
 
@@ -76,18 +76,18 @@ logger = logging.getLogger(__name__)
 # than something a linter has to be told to ignore: `owner_id_for_api_key` is
 # part of this module's public surface on purpose.
 __all__ = [
-    "JobStatus",
-    "ScrapeJob",
-    "JobStore",
+    "JOB_NAMESPACE",
     "GoogleMapsScraper",
-    "get_job_store",
-    "run_scrape_job",
-    "owner_id_for_api_key",
-    "cap_fanout",
+    "JobStatus",
+    "JobStore",
+    "PlaceExtractionError",
+    "ScrapeJob",
     "ScraperError",
     "SelectorsStaleError",
-    "PlaceExtractionError",
-    "JOB_NAMESPACE",
+    "cap_fanout",
+    "get_job_store",
+    "owner_id_for_api_key",
+    "run_scrape_job",
 ]
 
 
@@ -108,7 +108,7 @@ async def get_job_store() -> JobStore:
 
 async def run_scrape_job(
     job: ScrapeJob,
-    proxy: Optional[str] = None
+    proxy: str | None = None
 ):
     """
     Run a scrape job in the background.

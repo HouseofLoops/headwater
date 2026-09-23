@@ -10,14 +10,13 @@ limit middleware is attached here, because ``main.py`` does not yet install it
 ``RateLimitMiddleware`` means these tests exercise the production limiter code
 end to end -- key derivation, counting, 429 rendering and headers.
 """
+import os
+
 import pytest
 from fastapi.testclient import TestClient
-import os
-import time
 
 from app.core.config import get_settings
 from app.core.rate_limiter import RateLimitMiddleware, reset_rate_limit_state
-
 
 ISOLATED_ENV_VARS = (
     "WEB_CONCURRENCY", "UVICORN_WORKERS", "GUNICORN_WORKERS", "WORKERS",

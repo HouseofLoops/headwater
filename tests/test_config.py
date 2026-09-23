@@ -5,17 +5,15 @@ This module contains comprehensive tests for application configuration,
 settings loading, validation, and caching functionality.
 """
 
-import os
 import math
+import os
 from unittest.mock import patch
 
 from app.core.config import (
     # Classes
     Settings,
-
     # Functions
     get_settings,
-
     # Global variables
     settings,
 )

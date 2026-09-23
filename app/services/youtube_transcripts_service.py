@@ -10,27 +10,28 @@ Features:
 - Centralized exception handling
 - Updated for youtube-transcript-api v1.x API compatibility
 """
-import logging
 import asyncio
 import csv
 import io
-from typing import List, Optional, Dict, Any, Callable, TypeVar
-from functools import wraps
+import logging
+from collections.abc import Callable
+from typing import Any, TypeVar
 
+from fastapi import HTTPException
+from requests.exceptions import ConnectionError as RequestsConnectionError
+from requests.exceptions import ProxyError
 from youtube_transcript_api import (
-    YouTubeTranscriptApi,
+    IpBlocked,
     NoTranscriptFound,
+    RequestBlocked,
     TranscriptsDisabled,
     VideoUnavailable,
-    IpBlocked,
-    RequestBlocked,
+    YouTubeTranscriptApi,
 )
+from youtube_transcript_api.formatters import SRTFormatter, WebVTTFormatter
 from youtube_transcript_api.proxies import GenericProxyConfig
-from youtube_transcript_api.formatters import WebVTTFormatter, SRTFormatter
-from requests.exceptions import ProxyError, ConnectionError as RequestsConnectionError
-from fastapi import HTTPException
 
-from app.core.proxy import get_proxy_sync, proxy_for, is_host_excluded, rotate_proxy, ENABLE_PROXY, mask_proxy
+from app.core.proxy import ENABLE_PROXY, is_host_excluded, mask_proxy, proxy_for, rotate_proxy
 
 # Everything this service fetches lives on youtube.com, so proxy decisions
 # are made against this one host.
@@ -49,9 +50,9 @@ class YouTubeTranscriptsService:
 
     def __init__(self):
         """Initialize the service."""
-        self._api_cache: Dict[str, YouTubeTranscriptApi] = {}
+        self._api_cache: dict[str, YouTubeTranscriptApi] = {}
 
-    def _get_youtube_api(self, proxy_url: Optional[str] = None) -> YouTubeTranscriptApi:
+    def _get_youtube_api(self, proxy_url: str | None = None) -> YouTubeTranscriptApi:
         """
         Get or create a YouTubeTranscriptApi instance with the given proxy.
 
@@ -220,8 +221,8 @@ class YouTubeTranscriptsService:
     def fetch_transcript(
         self,
         video_id: str,
-        languages: List[str] = None
-    ) -> List[Dict[str, Any]]:
+        languages: list[str] = None
+    ) -> list[dict[str, Any]]:
         """
         Fetch transcript for a YouTube video with retry support.
 
@@ -238,7 +239,7 @@ class YouTubeTranscriptsService:
         if languages is None:
             languages = ["en"]
 
-        def _fetch(api: YouTubeTranscriptApi) -> List[Dict[str, Any]]:
+        def _fetch(api: YouTubeTranscriptApi) -> list[dict[str, Any]]:
             fetched = api.fetch(video_id, languages=tuple(languages))
             return fetched.to_raw_data()
 
@@ -247,8 +248,8 @@ class YouTubeTranscriptsService:
     async def fetch_transcript_async(
         self,
         video_id: str,
-        languages: List[str] = None
-    ) -> List[Dict[str, Any]]:
+        languages: list[str] = None
+    ) -> list[dict[str, Any]]:
         """
         Asynchronously fetch transcript for a YouTube video.
 
@@ -265,7 +266,7 @@ class YouTubeTranscriptsService:
             languages
         )
 
-    def list_available_transcripts(self, video_id: str) -> List[Dict[str, Any]]:
+    def list_available_transcripts(self, video_id: str) -> list[dict[str, Any]]:
         """
         List all available transcripts for a video with retry support.
 
@@ -278,7 +279,7 @@ class YouTubeTranscriptsService:
         Raises:
             HTTPException: If transcripts cannot be listed
         """
-        def _list(api: YouTubeTranscriptApi) -> List[Dict[str, Any]]:
+        def _list(api: YouTubeTranscriptApi) -> list[dict[str, Any]]:
             transcript_list = api.list(video_id)
             transcripts_info = []
             for transcript in transcript_list:
@@ -301,7 +302,7 @@ class YouTubeTranscriptsService:
     async def list_available_transcripts_async(
         self,
         video_id: str
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Asynchronously list all available transcripts.
 
@@ -319,7 +320,7 @@ class YouTubeTranscriptsService:
     def get_transcript_metadata(
         self,
         video_id: str,
-        languages: List[str] = None
+        languages: list[str] = None
     ):
         """
         Get transcript metadata for a video.
@@ -347,8 +348,8 @@ class YouTubeTranscriptsService:
         self,
         video_id: str,
         target_language: str,
-        source_languages: List[str] = None
-    ) -> Dict[str, Any]:
+        source_languages: list[str] = None
+    ) -> dict[str, Any]:
         """
         Translate a transcript to the target language with retry support.
 
@@ -366,7 +367,7 @@ class YouTubeTranscriptsService:
         if source_languages is None:
             source_languages = ["en"]
 
-        def _translate(api: YouTubeTranscriptApi) -> Dict[str, Any]:
+        def _translate(api: YouTubeTranscriptApi) -> dict[str, Any]:
             transcript_list = api.list(video_id)
             transcript_obj = transcript_list.find_transcript(source_languages)
             translated_transcript = transcript_obj.translate(target_language)
@@ -394,8 +395,8 @@ class YouTubeTranscriptsService:
         self,
         video_id: str,
         target_language: str,
-        source_languages: List[str] = None
-    ) -> Dict[str, Any]:
+        source_languages: list[str] = None
+    ) -> dict[str, Any]:
         """
         Asynchronously translate a transcript.
 
@@ -418,7 +419,7 @@ class YouTubeTranscriptsService:
         self,
         video_id: str,
         format_type: str,
-        languages: List[str] = None
+        languages: list[str] = None
     ) -> str:
         """
         Fetch and format transcript directly from a video with retry support.
@@ -471,7 +472,7 @@ class YouTubeTranscriptsService:
         self,
         video_id: str,
         format_type: str,
-        languages: List[str] = None
+        languages: list[str] = None
     ) -> str:
         """
         Asynchronously format a transcript.

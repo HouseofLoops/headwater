@@ -11,14 +11,13 @@ Features:
 - Location coordinates and plus codes
 - Category and price level
 """
-import logging
 import asyncio
+import logging
 import uuid
-from typing import Optional, List, Dict, Any
+from typing import Any
 
-from app.core.config import get_settings
-from app.core.proxy import ENABLE_PROXY, get_proxy, proxy_for
 from app.core.log_safety import scrub
+from app.core.proxy import ENABLE_PROXY, proxy_for
 
 # Most methods live in mixins under app.services.google_maps; the
 # GoogleMapsService class and the google_maps_service singleton stay here so
@@ -68,7 +67,7 @@ class GoogleMapsService(
             self._scraper_module = google_maps_scraper
             self._initialized = True
 
-    async def health_check(self) -> Dict[str, Any]:
+    async def health_check(self) -> dict[str, Any]:
         """
         Check if the scraping service is healthy.
 
@@ -80,7 +79,7 @@ class GoogleMapsService(
 
             # For native scraping, we just verify Playwright can be imported
             try:
-                from playwright.async_api import async_playwright
+                from playwright.async_api import async_playwright  # noqa: F401 - availability probe
                 return {
                     "healthy": True,
                     "status_code": 200,
@@ -111,8 +110,8 @@ class GoogleMapsService(
         depth: int = 1,
         email_extraction: bool = False,
         zoom: int = 15,
-        geo_coordinates: Optional[str] = None
-    ) -> Dict[str, Any]:
+        geo_coordinates: str | None = None
+    ) -> dict[str, Any]:
         """
         Create a new Google Maps search job.
 
@@ -158,7 +157,7 @@ class GoogleMapsService(
             if ENABLE_PROXY:
                 proxy = proxy_for(GOOGLE_MAPS_HOST)
                 if proxy:
-                    logger.info(f"Using proxy for Google Maps scraping")
+                    logger.info("Using proxy for Google Maps scraping")
 
             # Start background task
             asyncio.create_task(
@@ -181,7 +180,7 @@ class GoogleMapsService(
                 "message": str(e)
             }
 
-    async def get_job_status(self, job_id: str, owner: str) -> Dict[str, Any]:
+    async def get_job_status(self, job_id: str, owner: str) -> dict[str, Any]:
         """
         Get the status of a scraping job.
 
@@ -237,7 +236,7 @@ class GoogleMapsService(
         job_id: str,
         owner: str,
         format: str = "json"
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Get the results of a completed job.
 
@@ -296,10 +295,10 @@ class GoogleMapsService(
     async def list_jobs(
         self,
         owner: str,
-        status: Optional[str] = None,
+        status: str | None = None,
         limit: int = 50,
         offset: int = 0
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         List all jobs with optional filtering.
 
@@ -332,7 +331,7 @@ class GoogleMapsService(
                 "message": str(e)
             }
 
-    async def delete_job(self, job_id: str, owner: str) -> Dict[str, Any]:
+    async def delete_job(self, job_id: str, owner: str) -> dict[str, Any]:
         """
         Delete a job and its results.
 
@@ -373,10 +372,10 @@ class GoogleMapsService(
         depth: int = 1,
         email_extraction: bool = False,
         zoom: int = 15,
-        geo_coordinates: Optional[str] = None,
+        geo_coordinates: str | None = None,
         timeout: int = 300,
         poll_interval: int = 2
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Create a search job and wait for results.
 
@@ -453,7 +452,7 @@ class GoogleMapsService(
             "message": f"Job did not complete within {timeout} seconds"
         }
 
-    def process_place_data(self, raw_data: List[Dict]) -> List[Dict[str, Any]]:
+    def process_place_data(self, raw_data: list[dict]) -> list[dict[str, Any]]:
         """
         Process and normalize place data from scraper results.
 
@@ -549,7 +548,7 @@ class GoogleMapsService(
     # Extended Feature Methods
     # =========================================================================
 
-    async def get_place_by_id(self, place_id: str) -> Dict[str, Any]:
+    async def get_place_by_id(self, place_id: str) -> dict[str, Any]:
         """
         Get place details by Place ID.
 
@@ -578,9 +577,9 @@ class GoogleMapsService(
 
     async def lookup_place(
         self,
-        url: Optional[str] = None,
-        place_id: Optional[str] = None
-    ) -> Dict[str, Any]:
+        url: str | None = None,
+        place_id: str | None = None
+    ) -> dict[str, Any]:
         """
         Look up a place by URL or Place ID.
 
@@ -601,8 +600,8 @@ class GoogleMapsService(
                 return {"error": True, "message": "URL or place_id required"}
 
             # Create a scraper and extract place details
-            from app.services.google_maps_scraper import GoogleMapsScraper
             from app.core.proxy import ENABLE_PROXY, proxy_for
+            from app.services.google_maps_scraper import GoogleMapsScraper
 
             proxy = None
             if ENABLE_PROXY:

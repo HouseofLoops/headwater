@@ -4,12 +4,12 @@ Per-place content for GoogleMapsService.
 Reviews, photos, Q&A, autocomplete, review analytics, batch geocoding,
 attributes and history.
 """
-import logging
 import asyncio
-from typing import Optional, List, Dict, Any
+import logging
+from typing import Any
 
-from app.core.proxy import ENABLE_PROXY, proxy_for
 from app.core.log_safety import scrub
+from app.core.proxy import ENABLE_PROXY, proxy_for
 from app.services.google_maps.constants import GOOGLE_MAPS_HOST
 
 # Logs under the facade module's name so log routing and filters keyed on
@@ -25,9 +25,9 @@ class PlaceContentMixin:
         sort_by: str = "most_relevant",
         limit: int = 50,
         offset: int = 0,
-        min_rating: Optional[int] = None,
+        min_rating: int | None = None,
         include_owner_responses: bool = True
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Get the sample of reviews rendered on the place panel.
 
@@ -106,8 +106,8 @@ class PlaceContentMixin:
         place_id: str,
         max_photos: int = 20,
         size: str = "large",
-        category: Optional[str] = None
-    ) -> Dict[str, Any]:
+        category: str | None = None
+    ) -> dict[str, Any]:
         """
         Get photos for a place.
 
@@ -173,7 +173,7 @@ class PlaceContentMixin:
         page,
         limit: int,
         include_answers: bool
-    ) -> Optional[List[Dict[str, Any]]]:
+    ) -> list[dict[str, Any]] | None:
         """Read the Q&A entries on a place page.
 
         Returns None when no Q&A section was rendered at all, which is
@@ -194,14 +194,14 @@ class PlaceContentMixin:
         if not nodes and not section_present:
             return None
 
-        questions: List[Dict[str, Any]] = []
+        questions: list[dict[str, Any]] = []
         for node in nodes[:limit]:
             text = " ".join(((await node.inner_text()) or "").split())
             if not text:
                 continue
-            entry: Dict[str, Any] = {"question": text}
+            entry: dict[str, Any] = {"question": text}
             if include_answers:
-                answers: List[str] = []
+                answers: list[str] = []
                 for selector in self._QA_ANSWER_SELECTORS:
                     answer_nodes = await node.query_selector_all(selector)
                     if answer_nodes:
@@ -219,7 +219,7 @@ class PlaceContentMixin:
         place_id: str,
         limit: int = 20,
         include_answers: bool = True
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Get Q&A for a place by scraping the questions rendered on its page.
 
@@ -301,12 +301,12 @@ class PlaceContentMixin:
     async def autocomplete(
         self,
         input: str,
-        types: Optional[str] = None,
-        latitude: Optional[float] = None,
-        longitude: Optional[float] = None,
-        radius_meters: Optional[int] = None,
+        types: str | None = None,
+        latitude: float | None = None,
+        longitude: float | None = None,
+        radius_meters: int | None = None,
         language: str = "en"
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Get place autocomplete suggestions.
 
@@ -350,7 +350,7 @@ class PlaceContentMixin:
         include_sentiment: bool = True,
         include_trends: bool = True,
         include_keywords: bool = True
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Get analytics for a place's reviews.
 
@@ -392,8 +392,8 @@ class PlaceContentMixin:
 
     async def batch_geocode(
         self,
-        addresses: List[str]
-    ) -> Dict[str, Any]:
+        addresses: list[str]
+    ) -> dict[str, Any]:
         """
         Geocode multiple addresses.
 
@@ -455,7 +455,7 @@ class PlaceContentMixin:
     async def get_place_attributes(
         self,
         place_id: str
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Get detailed attributes for a place.
 
@@ -490,11 +490,11 @@ class PlaceContentMixin:
     async def get_place_history(
         self,
         place_id: str,
-        field: Optional[str] = None,
-        start_date: Optional[str] = None,
-        end_date: Optional[str] = None,
-        api_key: Optional[str] = None
-    ) -> Dict[str, Any]:
+        field: str | None = None,
+        start_date: str | None = None,
+        end_date: str | None = None,
+        api_key: str | None = None
+    ) -> dict[str, Any]:
         """
         Get recorded change history for a place.
 

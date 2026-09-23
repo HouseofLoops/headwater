@@ -19,20 +19,19 @@ What these tests pin down:
 """
 
 import socket
-from typing import Any, Dict, List, Optional
+from typing import Any
+from unittest import mock
+from unittest.mock import AsyncMock
 
 import pytest
 from fastapi import APIRouter, Depends, FastAPI
 from fastapi.testclient import TestClient
-from unittest import mock
-from unittest.mock import AsyncMock
 
 from app.api.google_maps import google_maps_router
 from app.core.auth import get_api_key
 from app.core.rate_limiter import rate_limit
 from app.services.google_maps_service import google_maps_service
 from app.services.record_store import owner_id_for_api_key
-
 
 # The exact body a rejected URL must produce. Written out literally rather than
 # imported so that a change to the constant is a visible test failure and not a
@@ -348,7 +347,7 @@ OWNER_B = owner_id_for_api_key(API_KEY_B)
 JOB_OF_A = "job-owned-by-a"
 JOB_OF_B = "job-owned-by-b"
 
-_NOT_FOUND: Dict[str, Any] = {
+_NOT_FOUND: dict[str, Any] = {
     "error": True,
     "status_code": 404,
     "message": "Job not found",
@@ -369,30 +368,30 @@ def owner_scoped_service():
     """
     jobs = {JOB_OF_A: OWNER_A, JOB_OF_B: OWNER_B}
 
-    async def get_job_status(job_id: str, owner: Optional[str] = None):
+    async def get_job_status(job_id: str, owner: str | None = None):
         if jobs.get(job_id) != owner:
             return dict(_NOT_FOUND)
         return {"status": "completed", "progress": 100}
 
     async def get_job_results(
-        job_id: str, owner: Optional[str] = None, format: str = "json"
+        job_id: str, owner: str | None = None, format: str = "json"
     ):
         if jobs.get(job_id) != owner:
             return dict(_NOT_FOUND)
         return {"results": [{"name": "A place"}]}
 
-    async def delete_job(job_id: str, owner: Optional[str] = None):
+    async def delete_job(job_id: str, owner: str | None = None):
         if jobs.get(job_id) != owner:
             return dict(_NOT_FOUND)
         del jobs[job_id]
         return {"success": True, "job_id": job_id}
 
     async def list_jobs(
-        owner: Optional[str] = None,
-        status: Optional[str] = None,
+        owner: str | None = None,
+        status: str | None = None,
         limit: int = 50,
         offset: int = 0,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         return [{"id": jid} for jid, own in jobs.items() if own == owner]
 
     with mock.patch.multiple(
@@ -482,7 +481,7 @@ def test_job_routes_pass_the_callers_owner_id(client, owner_scoped_service):
     """Pin the exact argument shape the service layer must accept."""
     recorded = {}
 
-    async def record(job_id: str, owner: Optional[str] = None):
+    async def record(job_id: str, owner: str | None = None):
         recorded["job_id"] = job_id
         recorded["owner"] = owner
         return {"status": "completed"}

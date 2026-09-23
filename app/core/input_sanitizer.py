@@ -5,11 +5,12 @@ This module provides comprehensive input sanitization, validation, and cleaning
 for API parameters to prevent injection attacks and ensure data integrity.
 """
 
-import re
-import logging
 import html
-from typing import Any, Dict, Optional
+import logging
+import re
+from typing import Any
 from urllib.parse import quote
+
 from app.core.config import get_settings
 
 logger = logging.getLogger(__name__)
@@ -40,7 +41,7 @@ class InputSanitizer:
             except re.error as e:
                 logger.warning("Invalid suspicious pattern '%s': %s", pattern, str(e))
 
-    def sanitize_query(self, query: str) -> Dict[str, Any]:
+    def sanitize_query(self, query: str) -> dict[str, Any]:
         """
         Sanitize and validate a search query.
 
@@ -98,7 +99,7 @@ class InputSanitizer:
             "length": len(cleaned)
         }
 
-    def sanitize_country_code(self, country_code: str) -> Dict[str, Any]:
+    def sanitize_country_code(self, country_code: str) -> dict[str, Any]:
         """
         Sanitize and validate country code.
 
@@ -137,7 +138,7 @@ class InputSanitizer:
             "warnings": []
         }
 
-    def sanitize_language_code(self, language_code: str) -> Dict[str, Any]:
+    def sanitize_language_code(self, language_code: str) -> dict[str, Any]:
         """
         Sanitize and validate language code.
 
@@ -176,7 +177,7 @@ class InputSanitizer:
             "warnings": []
         }
 
-    def sanitize_integer_param(self, value: Any, param_name: str, min_val: Optional[int] = None, max_val: Optional[int] = None) -> Dict[str, Any]:
+    def sanitize_integer_param(self, value: Any, param_name: str, min_val: int | None = None, max_val: int | None = None) -> dict[str, Any]:
         """
         Sanitize and validate integer parameters.
 
@@ -239,7 +240,7 @@ class InputSanitizer:
                 "warnings": []
             }
 
-    def sanitize_string_param(self, value: Any, param_name: str, max_length: Optional[int] = None) -> Dict[str, Any]:
+    def sanitize_string_param(self, value: Any, param_name: str, max_length: int | None = None) -> dict[str, Any]:
         """
         Sanitize and validate string parameters.
 
@@ -325,7 +326,7 @@ class InputSanitizer:
 
         return ''.join(allowed_chars)
 
-    def validate_all_params(self, **params) -> Dict[str, Any]:
+    def validate_all_params(self, **params) -> dict[str, Any]:
         """
         Validate all API parameters at once.
 
@@ -395,7 +396,7 @@ class InputSanitizer:
 
 
 # Global sanitizer instance
-_sanitizer: Optional[InputSanitizer] = None
+_sanitizer: InputSanitizer | None = None
 
 
 def get_input_sanitizer() -> InputSanitizer:
@@ -411,7 +412,7 @@ def set_input_sanitizer(sanitizer: InputSanitizer):
     globals()['_sanitizer'] = sanitizer
 
 
-def sanitize_input(**params) -> Dict[str, Any]:
+def sanitize_input(**params) -> dict[str, Any]:
     """
     Convenience function to sanitize input parameters.
 

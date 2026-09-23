@@ -23,9 +23,9 @@ Usage:
 # and missing dependency issues
 
 __all__ = [
+    "google_autocomplete_service",
+    "google_maps_service",
     "google_news_service",
     "google_trends_service",
-    "google_autocomplete_service",
     "youtube_transcripts_service",
-    "google_maps_service",
 ]

@@ -4,12 +4,11 @@ URL query-string parsing and building helpers.
 Split out of app.core.utils, which still re-exports every name here.
 """
 
-from typing import Any, Dict, List, Optional
-from urllib.parse import urlparse, parse_qs, urlencode
+from typing import Any
+from urllib.parse import parse_qs, urlencode, urlparse
 
 
-
-def parse_query_params(url: str) -> Dict[str, List[str]]:
+def parse_query_params(url: str) -> dict[str, list[str]]:
     """
     Parse query parameters from a URL.
     
@@ -25,8 +24,8 @@ def parse_query_params(url: str) -> Dict[str, List[str]]:
 
 def build_url(
     base_url: str,
-    path: Optional[str] = None,
-    params: Optional[Dict[str, Any]] = None
+    path: str | None = None,
+    params: dict[str, Any] | None = None
 ) -> str:
     """
     Build a URL with path and query parameters.
@@ -40,7 +39,7 @@ def build_url(
         str: The built URL
     """
     url = base_url
-    
+
     # Add path if provided
     if path:
         # Ensure path starts with / and base_url doesn't end with /
@@ -48,15 +47,15 @@ def build_url(
             path = '/' + path
         if url.endswith('/'):
             url = url[:-1]
-        
+
         url += path
-    
+
     # Add query parameters if provided
     if params:
         # Filter out None values
         filtered_params = {k: v for k, v in params.items() if v is not None}
-        
+
         if filtered_params:
             url += '?' + urlencode(filtered_params, doseq=True)
-    
+
     return url

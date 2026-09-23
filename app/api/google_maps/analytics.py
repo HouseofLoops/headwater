@@ -17,9 +17,9 @@ from app.api.google_maps.schemas import (
     CompetitorRequest,
 )
 from app.core.auth import get_api_key
+from app.core.log_safety import scrub
 from app.core.rate_limiter import rate_limit
 from app.services.google_maps_service import google_maps_service
-from app.core.log_safety import scrub
 
 logger = logging.getLogger(__name__)
 

@@ -30,7 +30,7 @@ from __future__ import annotations
 
 import logging
 
-__all__ = ["scrub", "LogInjectionFilter", "install_log_injection_filter"]
+__all__ = ["LogInjectionFilter", "install_log_injection_filter", "scrub"]
 
 #: Longest a single scrubbed value may be. A caller can otherwise push
 #: megabytes into the log with one request.

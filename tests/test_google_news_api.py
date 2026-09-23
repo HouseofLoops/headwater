@@ -1,8 +1,7 @@
-import httpx
-import pytest
-from unittest import mock
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import httpx
+import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
@@ -11,16 +10,16 @@ from pydantic import ValidationError
 # If gnews_router is in app.api.google_news.google_news_api, and you have a main app instance
 # For simplicity, we might need to create a local app instance for testing the router
 from app.api.google_news import google_news_api
-from app.services import google_news_article_service
 from app.api.google_news.google_news_api import (
-    gnews_router,
-    transform_article,
+    NewsArticle,
     decode_and_process_articles,
     decode_google_news_url,
+    gnews_router,
     is_google_news_redirect,
-    NewsArticle,
+    transform_article,
 )
 from app.core import cache_manager as cache_manager_module
+from app.services import google_news_article_service
 
 # Setup a minimal FastAPI app for testing the router
 app = FastAPI()
@@ -214,7 +213,7 @@ async def test_decode_google_news_url_success(mock_decode_url, mock_get_decoding
 @patch('app.services.google_news_service.get_base64_str', new_callable=AsyncMock)
 async def test_decode_google_news_url_fail_base64(mock_get_base64_str):
     mock_get_base64_str.return_value = {"status": False, "message": "Invalid base64"}
-    
+
     source_url = "http://invalid-google-news-url.com"
     result = await decode_google_news_url(source_url)
 
@@ -263,11 +262,11 @@ def test_get_top_google_news_success():
         NewsArticle(title="Top News 1", url="http://decoded.com/news/1", publisher="Pub1", published_date="date1", description="desc1").model_dump(),
         NewsArticle(title="Top News 2", url="http://decoded.com/news/2", publisher="Pub2", published_date="date2", description="desc2").model_dump(),
     ]
-    
+
     # Patch get_gnews_instance and decode_and_process_articles
     with patch('app.api.google_news.google_news_api.get_gnews_instance', new_callable=AsyncMock) as mock_get_gnews, \
          patch('app.api.google_news.google_news_api.decode_and_process_articles', new_callable=AsyncMock) as mock_decode_process:
-        
+
         mock_get_gnews.return_value = mock_gnews_instance
         mock_decode_process.return_value = expected_processed_articles # Simulate that articles were successfully decoded
 
@@ -276,14 +275,14 @@ def test_get_top_google_news_success():
         assert response.status_code == 200
         response_json = response.json()
         assert response_json == {"articles": expected_processed_articles}
-        
+
         # Assert that get_gnews_instance was called with correct parameters from the endpoint
         mock_get_gnews.assert_called_once()
         call_args = mock_get_gnews.call_args[1] # Get kwargs
         assert call_args['language'] == 'en'
         assert call_args['country'] == 'US'
         assert call_args['max_results'] == 2
-        
+
         # Assert that decode_and_process_articles was called with the raw articles from gnews
         mock_decode_process.assert_called_once_with(mock_gnews_instance.get_top_news.return_value)
         mock_gnews_instance.get_top_news.assert_called_once()
@@ -297,7 +296,7 @@ def test_get_top_google_news_gnews_returns_no_news():
         mock_get_gnews.return_value = mock_gnews_instance
 
         response = client.get("/news/top/")
-        
+
         assert response.status_code == 404
         assert response.json() == {"detail": "No top news found."}
 
@@ -310,12 +309,12 @@ def test_get_top_google_news_decode_returns_no_news():
 
     with patch('app.api.google_news.google_news_api.get_gnews_instance', new_callable=AsyncMock) as mock_get_gnews, \
          patch('app.api.google_news.google_news_api.decode_and_process_articles', new_callable=AsyncMock) as mock_decode_process:
-        
+
         mock_get_gnews.return_value = mock_gnews_instance
         mock_decode_process.return_value = [] # Simulate all articles failed decoding or were filtered
 
         response = client.get("/news/top/")
-        
+
         assert response.status_code == 404
         # This detail comes from the new check in the endpoint after calling decode_and_process_articles
         assert response.json() == {"detail": "No processable top news found after URL decoding."}
@@ -513,12 +512,12 @@ async def test_get_article_details_success(
     mock_article.meta_data = {}
     mock_article.meta_description = ""
     mock_article.meta_keywords = ""
-    
+
     # Mock the synchronous methods
     mock_article.download = MagicMock()
     mock_article.parse = MagicMock()
     mock_article.nlp = MagicMock()
-    
+
     # Make the Article constructor return our mock
     mock_article_class.return_value = mock_article
 

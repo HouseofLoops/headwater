@@ -26,7 +26,6 @@ import pytest
 from app.services.google_maps_service import GoogleMapsService, google_maps_service
 from app.services.record_store import RecordStore
 
-
 # --------------------------------------------------------------------------
 # Playwright doubles
 # --------------------------------------------------------------------------
@@ -99,8 +98,8 @@ class FakeScraper:
 @pytest.fixture(autouse=True)
 def fast_and_offline(monkeypatch):
     """No real sleeps, no real browser, no real Redis, no real DNS."""
-    import app.services.google_maps_scraper as scraper_module
     import app.core.url_guard as url_guard
+    import app.services.google_maps_scraper as scraper_module
     import app.services.record_store as record_store
 
     record_store._stores.clear()

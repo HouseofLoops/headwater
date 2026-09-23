@@ -6,12 +6,12 @@ Place-panel extraction for GoogleMapsScraper.
 import asyncio
 import logging
 import re
-from typing import Optional, List, Dict, Any
+from typing import Any
 
 from app.services.google_maps.scraper_errors import (
     CORE_PLACE_FIELDS,
-    PlaceExtractionError,
     REQUIRED_PLACE_FIELDS,
+    PlaceExtractionError,
     ScraperError,
 )
 
@@ -21,7 +21,7 @@ logger = logging.getLogger("app.services.google_maps_scraper")
 class PlaceDetailsMixin:
     """Place-details extraction methods of GoogleMapsScraper."""
 
-    async def _extract_place_details(self, page) -> Optional[Dict[str, Any]]:
+    async def _extract_place_details(self, page) -> dict[str, Any] | None:
         """Extract detailed information from a place page.
 
         Returns:
@@ -35,7 +35,7 @@ class PlaceDetailsMixin:
                 this returned ``None`` and the caller dropped it silently,
                 which is how a total parser failure became an empty success.
         """
-        misses: List[str] = []
+        misses: list[str] = []
         try:
             # Wait longer for content to fully load
             await asyncio.sleep(2)
@@ -595,8 +595,8 @@ class PlaceDetailsMixin:
             ) from e
 
     def _finalise_place(
-        self, place: Dict[str, Any], misses: List[str]
-    ) -> Dict[str, Any]:
+        self, place: dict[str, Any], misses: list[str]
+    ) -> dict[str, Any]:
         """Attach freshness metadata and enforce the required fields.
 
         Args:
@@ -649,7 +649,7 @@ class PlaceDetailsMixin:
             )
         return place
 
-    async def _extract_expanded_hours(self, page) -> Optional[Dict[str, List[str]]]:
+    async def _extract_expanded_hours(self, page) -> dict[str, list[str]] | None:
         """Extract hours from expanded hours table.
 
         Returns None when no hours row parses -- opening hours are optional and
@@ -678,7 +678,7 @@ class PlaceDetailsMixin:
 
         return hours if hours else None
 
-    def _parse_hours_label(self, label: str) -> Optional[Dict[str, List[str]]]:
+    def _parse_hours_label(self, label: str) -> dict[str, list[str]] | None:
         """Parse hours from aria-label into structured format."""
         if not label:
             return None

@@ -1,4 +1,5 @@
 from app.core.proxy import mask_proxy
+
 """
 HTTP Client Manager with Connection Pooling.
 
@@ -9,9 +10,11 @@ connection pooling, request batching, and enhanced error handling.
 import asyncio
 import logging
 import time
-from typing import Optional, Dict, Any, List
 from contextlib import asynccontextmanager
+from typing import Any
+
 import httpx
+
 from app.core.config import get_settings
 from app.core.constants import DEFAULT_USER_AGENT
 
@@ -25,7 +28,7 @@ class HTTPClientManager:
 
     def __init__(self):
         self.settings = get_settings()
-        self._clients: Dict[str, httpx.AsyncClient] = {}
+        self._clients: dict[str, httpx.AsyncClient] = {}
         self._client_lock = asyncio.Lock()
         self._stats = {
             "total_requests": 0,
@@ -36,7 +39,7 @@ class HTTPClientManager:
             "average_response_time": 0.0
         }
 
-    async def get_client(self, proxy_url: Optional[str] = None) -> httpx.AsyncClient:
+    async def get_client(self, proxy_url: str | None = None) -> httpx.AsyncClient:
         """
         Get or create an HTTP client with connection pooling.
 
@@ -91,11 +94,11 @@ class HTTPClientManager:
         self,
         url: str,
         method: str = "GET",
-        params: Optional[Dict[str, Any]] = None,
-        headers: Optional[Dict[str, str]] = None,
-        proxy_url: Optional[str] = None,
+        params: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+        proxy_url: str | None = None,
         **kwargs
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Make an HTTP request with comprehensive error handling and metadata.
 
@@ -185,10 +188,10 @@ class HTTPClientManager:
 
     async def batch_requests(
         self,
-        requests: List[Dict[str, Any]],
-        max_concurrent: Optional[int] = None,
-        timeout: Optional[float] = None
-    ) -> List[Dict[str, Any]]:
+        requests: list[dict[str, Any]],
+        max_concurrent: int | None = None,
+        timeout: float | None = None
+    ) -> list[dict[str, Any]]:
         """
         Execute multiple HTTP requests in parallel with batch processing.
 
@@ -212,7 +215,7 @@ class HTTPClientManager:
         batch_timeout = timeout or self.settings.BATCH_TIMEOUT
         semaphore = asyncio.Semaphore(max_concurrent)
 
-        async def make_request_with_semaphore(req: Dict[str, Any]) -> Dict[str, Any]:
+        async def make_request_with_semaphore(req: dict[str, Any]) -> dict[str, Any]:
             async with semaphore:
                 return await self.make_request(**req)
 
@@ -268,7 +271,7 @@ class HTTPClientManager:
                 (current_avg * (total_requests - 1)) + response_time
             ) / total_requests
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get HTTP client statistics."""
         return {
             **self._stats,
@@ -283,7 +286,7 @@ class HTTPClientManager:
         """Get total number of requests made."""
         return self._stats["total_requests"]
 
-    def get_connection_stats(self) -> Dict[str, Any]:
+    def get_connection_stats(self) -> dict[str, Any]:
         """Get connection pool statistics."""
         return {
             "active_clients": len(self._clients),
@@ -305,7 +308,7 @@ class HTTPClientManager:
 
 
 # Global HTTP client manager instance
-_http_client_manager: Optional[HTTPClientManager] = None
+_http_client_manager: HTTPClientManager | None = None
 
 
 def get_http_client_manager() -> HTTPClientManager:
@@ -324,7 +327,7 @@ def get_http_client_manager() -> HTTPClientManager:
     return _http_client_manager
 
 
-def set_http_client_manager(manager: Optional[HTTPClientManager]) -> None:
+def set_http_client_manager(manager: HTTPClientManager | None) -> None:
     """Set (or clear, with ``None``) the global HTTP client manager instance."""
     global _http_client_manager
     _http_client_manager = manager

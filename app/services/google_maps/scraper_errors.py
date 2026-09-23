@@ -1,7 +1,9 @@
 """
 Failure signals and field requirements for the Google Maps scraper.
 """
-from typing import Optional, Dict, Any, Sequence
+from collections.abc import Sequence
+from typing import Any
+
 # -- Failure signals ----------------------------------------------------------
 
 
@@ -20,7 +22,7 @@ class PlaceExtractionError(ScraperError):
 
     status_code = 502
 
-    def __init__(self, message: str, *, missing: Optional[Sequence[str]] = None) -> None:
+    def __init__(self, message: str, *, missing: Sequence[str] | None = None) -> None:
         super().__init__(message)
         self.missing = list(missing or [])
 
@@ -46,14 +48,14 @@ class SelectorsStaleError(ScraperError):
         *,
         attempted: int = 0,
         extracted: int = 0,
-        missing: Optional[Sequence[str]] = None,
+        missing: Sequence[str] | None = None,
     ) -> None:
         super().__init__(message)
         self.attempted = attempted
         self.extracted = extracted
         self.missing = list(missing or [])
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Structured payload a router can return alongside a 503."""
         return {
             "error": True,

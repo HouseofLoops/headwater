@@ -14,6 +14,7 @@ from app.services.record_store import (
     owner_id_for_api_key,
 )
 
+
 @pytest.fixture
 def store():
     """A store forced onto the in-memory backend (no Redis in tests)."""

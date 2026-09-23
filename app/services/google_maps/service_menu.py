@@ -1,12 +1,12 @@
 """
 Menu extraction for GoogleMapsService.
 """
-import logging
 import asyncio
-from typing import Optional, List, Dict, Any
+import logging
+from typing import Any
 
-from app.core.proxy import ENABLE_PROXY, proxy_for
 from app.core.log_safety import scrub
+from app.core.proxy import ENABLE_PROXY, proxy_for
 from app.services.google_maps.constants import GOOGLE_MAPS_HOST
 
 # Logs under the facade module's name so log routing and filters keyed on
@@ -35,7 +35,7 @@ class MenuMixin:
     )
 
     @staticmethod
-    def _parse_menu_item(text: str, include_prices: bool, include_descriptions: bool) -> Optional[Dict[str, Any]]:
+    def _parse_menu_item(text: str, include_prices: bool, include_descriptions: bool) -> dict[str, Any] | None:
         """Turn one rendered menu item into a record, or None if it is not one."""
         import re
 
@@ -68,7 +68,7 @@ class MenuMixin:
             if body:
                 description = " ".join(body)
 
-        item: Dict[str, Any] = {"name": name}
+        item: dict[str, Any] = {"name": name}
         if include_prices:
             item["price"] = price
         if include_descriptions:
@@ -80,7 +80,7 @@ class MenuMixin:
         page,
         include_prices: bool,
         include_descriptions: bool
-    ) -> Optional[List[Dict[str, Any]]]:
+    ) -> list[dict[str, Any]] | None:
         """Read Google's inline menu items.
 
         Returns None when no menu region was rendered at all -- distinct from
@@ -101,7 +101,7 @@ class MenuMixin:
         if not nodes and not section_present:
             return None
 
-        items: List[Dict[str, Any]] = []
+        items: list[dict[str, Any]] = []
         for node in nodes:
             text = (await node.inner_text()) or ""
             parsed = self._parse_menu_item(text, include_prices, include_descriptions)
@@ -115,7 +115,7 @@ class MenuMixin:
         include_prices: bool = True,
         include_descriptions: bool = True,
         categorize: bool = True
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Extract a place's menu by scraping the menu Google renders.
 
@@ -181,7 +181,7 @@ class MenuMixin:
             await scraper.close()
 
         if items:
-            categories: Dict[str, List[Dict[str, Any]]] = {}
+            categories: dict[str, list[dict[str, Any]]] = {}
             if categorize:
                 # Google's inline menu does not label sections in a form we can
                 # read reliably, so items land in a single "Menu" group rather

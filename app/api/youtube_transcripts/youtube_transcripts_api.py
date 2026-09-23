@@ -3,11 +3,12 @@ YouTube Transcripts API Router.
 
 Thin API layer that delegates to the YouTubeTranscriptsService.
 """
-from fastapi import APIRouter, Body, Query, HTTPException, Depends
-from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Any
 import asyncio
 import logging
+from typing import Any
+
+from fastapi import APIRouter, Body, Depends, HTTPException, Query
+from pydantic import BaseModel, Field
 
 from app.core.auth import get_api_key
 from app.core.cache_manager import generate_cache_key, get_cached_or_fetch
@@ -35,12 +36,12 @@ class TranscriptResponse(BaseModel):
     language_code: str
     is_generated: bool
     is_translatable: bool
-    translation_languages: List[TranslationLanguage]
-    transcript: List[TranscriptItem]
+    translation_languages: list[TranslationLanguage]
+    transcript: list[TranscriptItem]
 
 
 class TranscriptListResponse(BaseModel):
-    transcripts: List[Dict[str, Any]]
+    transcripts: list[dict[str, Any]]
 
 
 # One batch fans out to one upstream fetch per video id, so an unbounded list
@@ -49,9 +50,9 @@ MAX_BATCH_VIDEO_IDS = 50
 
 
 class BatchTranscriptRequest(BaseModel):
-    video_ids: List[str] = Field(..., description="List of YouTube video IDs")
-    languages: Optional[List[str]] = Field(None, description="Language codes by priority")
-    preserve_formatting: Optional[bool] = Field(None, description="Preserve HTML formatting")
+    video_ids: list[str] = Field(..., description="List of YouTube video IDs")
+    languages: list[str] | None = Field(None, description="Language codes by priority")
+    preserve_formatting: bool | None = Field(None, description="Preserve HTML formatting")
 
 @youtube_transcripts_router.get(
     "/get-transcript",
@@ -59,8 +60,8 @@ class BatchTranscriptRequest(BaseModel):
     summary="Get Transcript"
 )
 async def get_transcript(
-    video_id: str = Query(..., description="YouTube video ID", example="dQw4w9WgXcQ"),
-    languages: Optional[List[str]] = Query(["en"], description="Language codes by priority", example=["en", "es"]),
+    video_id: str = Query(..., description="YouTube video ID", examples=["dQw4w9WgXcQ"]),
+    languages: list[str] | None = Query(["en"], description="Language codes by priority", examples=[["en", "es"]]),
     preserve_formatting: bool = Query(False, description="Preserve HTML formatting"),
     api_key: str = Depends(get_api_key),
     _rate_limit: None = Depends(rate_limit)
@@ -110,7 +111,7 @@ async def get_transcript(
     summary="List Transcripts"
 )
 async def list_transcripts(
-    video_id: str = Query(..., description="YouTube video ID", example="dQw4w9WgXcQ"),
+    video_id: str = Query(..., description="YouTube video ID", examples=["dQw4w9WgXcQ"]),
     api_key: str = Depends(get_api_key),
     _rate_limit: None = Depends(rate_limit)
 ):
@@ -132,9 +133,9 @@ async def list_transcripts(
     summary="Translate Transcript"
 )
 async def translate_transcript(
-    video_id: str = Query(..., description="YouTube video ID", example="dQw4w9WgXcQ"),
-    target_language: str = Query(..., description="Target language code", example="es"),
-    source_languages: Optional[List[str]] = Query(["en"], description="Source language codes", example=["en"]),
+    video_id: str = Query(..., description="YouTube video ID", examples=["dQw4w9WgXcQ"]),
+    target_language: str = Query(..., description="Target language code", examples=["es"]),
+    source_languages: list[str] | None = Query(["en"], description="Source language codes", examples=[["en"]]),
     api_key: str = Depends(get_api_key),
     _rate_limit: None = Depends(rate_limit)
 ):
@@ -170,16 +171,16 @@ async def translate_transcript(
 
 @youtube_transcripts_router.post(
     "/batch-get-transcripts",
-    response_model=List[TranscriptResponse],
+    response_model=list[TranscriptResponse],
     summary="Batch Get Transcripts"
 )
 async def batch_get_transcripts(
-    payload: Optional[BatchTranscriptRequest] = Body(None),
+    payload: BatchTranscriptRequest | None = Body(None),
     # The query form predates the body and existing callers still send repeated
     # ?video_ids= parameters, so it stays supported alongside the JSON body.
-    video_ids: Optional[List[str]] = Query(None, description="List of video IDs (query form)"),
-    languages: Optional[List[str]] = Query(None, description="Language codes by priority"),
-    preserve_formatting: Optional[bool] = Query(None, description="Preserve HTML formatting"),
+    video_ids: list[str] | None = Query(None, description="List of video IDs (query form)"),
+    languages: list[str] | None = Query(None, description="Language codes by priority"),
+    preserve_formatting: bool | None = Query(None, description="Preserve HTML formatting"),
     api_key: str = Depends(get_api_key),
     _rate_limit: None = Depends(rate_limit)
 ):
@@ -277,9 +278,9 @@ async def batch_get_transcripts(
 
 @youtube_transcripts_router.get("/format-transcript", summary="Format Transcript")
 async def format_transcript(
-    video_id: str = Query(..., description="YouTube video ID", example="dQw4w9WgXcQ"),
+    video_id: str = Query(..., description="YouTube video ID", examples=["dQw4w9WgXcQ"]),
     format_type: str = Query("json", description="Output format: json, txt, vtt, srt, csv"),
-    languages: Optional[List[str]] = Query(["en"], description="Language codes by priority"),
+    languages: list[str] | None = Query(["en"], description="Language codes by priority"),
     api_key: str = Depends(get_api_key),
     _rate_limit: None = Depends(rate_limit)
 ):

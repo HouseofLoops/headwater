@@ -24,8 +24,8 @@ import pytest
 from app.services.google_maps_scraper import (
     CORE_PLACE_FIELDS,
     GoogleMapsScraper,
-    JobStore,
     JobStatus,
+    JobStore,
     PlaceExtractionError,
     ScrapeJob,
     SelectorsStaleError,

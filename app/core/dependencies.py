@@ -5,11 +5,11 @@ This module provides reusable dependencies that can be used across
 the application for common functionality like authentication,
 database access, and more.
 """
-from fastapi import Depends, Request, Header
-from typing import Optional
+
+from fastapi import Depends, Header, Request
 
 from app.core.auth import authenticate_api_key
-from app.core.config import get_settings, Settings
+from app.core.config import Settings, get_settings
 
 
 # Settings dependency
@@ -43,8 +43,8 @@ async def get_api_key_dependency(
 
 async def get_optional_api_key(
     request: Request,
-    x_api_key: Optional[str] = Header(None, alias="X-API-Key")
-) -> Optional[str]:
+    x_api_key: str | None = Header(None, alias="X-API-Key")
+) -> str | None:
     """
     Get the API key if provided, but don't require it.
     
@@ -57,7 +57,7 @@ async def get_optional_api_key(
     """
     if not x_api_key:
         return None
-    
+
     try:
         return await authenticate_api_key(x_api_key, request)
     except:
@@ -67,8 +67,8 @@ async def get_optional_api_key(
 # -----------------------------------------------------------------------------
 # Service dependencies for testability
 # -----------------------------------------------------------------------------
-from app.core.http_client import HTTPClientManager, get_http_client_manager
 from app.core.cache_manager import CacheManager, cache_manager
+from app.core.http_client import HTTPClientManager, get_http_client_manager
 
 
 def get_http_client_dependency() -> HTTPClientManager:
@@ -101,9 +101,9 @@ class ServiceDependencies:
 
     def __init__(
         self,
-        settings: Optional[Settings] = None,
-        http_client: Optional[HTTPClientManager] = None,
-        cache: Optional[CacheManager] = None
+        settings: Settings | None = None,
+        http_client: HTTPClientManager | None = None,
+        cache: CacheManager | None = None
     ):
         self._settings = settings
         self._http_client = http_client
@@ -125,7 +125,7 @@ class ServiceDependencies:
         return self._cache or cache_manager
 
 
-_default_dependencies: Optional[ServiceDependencies] = None
+_default_dependencies: ServiceDependencies | None = None
 
 
 def get_service_dependencies() -> ServiceDependencies:

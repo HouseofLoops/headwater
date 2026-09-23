@@ -6,7 +6,6 @@ declared here are relative to the ``/google-maps`` prefix applied there.
 """
 import logging
 from datetime import datetime
-from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
@@ -20,20 +19,20 @@ from app.api.google_maps.schemas import (
     MAX_RESULTS_CEILING,
     MAX_SEARCH_TIMEOUT_SECONDS,
     SECONDS_PER_RESULT,
-    affordable_results_within,
-    seconds_needed_for,
-    SearchRequest,
-    NearbySearchRequest,
+    BoundingBoxRequest,
     BulkSearchRequest,
     GridSearchRequest,
-    BoundingBoxRequest,
     LocationSearchRequest,
+    NearbySearchRequest,
+    SearchRequest,
+    affordable_results_within,
+    seconds_needed_for,
 )
 from app.core.auth import get_api_key
+from app.core.log_safety import scrub
 from app.core.rate_limiter import rate_limit
 from app.services.google_maps_service import google_maps_service
 from app.services.record_store import owner_id_for_api_key
-from app.core.log_safety import scrub
 
 logger = logging.getLogger(__name__)
 
@@ -229,7 +228,7 @@ async def search_places_get(
     depth: int = Query(1, ge=1, le=3, description="Crawl depth"),
     email_extraction: bool = Query(False, description="Extract emails"),
     zoom: int = Query(15, ge=1, le=21, description="Map zoom level"),
-    geo_coordinates: Optional[str] = Query(None, description="Search center (lat,lng)"),
+    geo_coordinates: str | None = Query(None, description="Search center (lat,lng)"),
     wait_for_results: bool = Query(True, description="Wait for results"),
     timeout: int = Query(
         300,
@@ -370,7 +369,7 @@ async def nearby_search_get(
     latitude: float = Query(..., ge=-90, le=90, description="Center latitude"),
     longitude: float = Query(..., ge=-180, le=180, description="Center longitude"),
     radius_meters: int = Query(1000, ge=100, le=50000, description="Search radius"),
-    query: Optional[str] = Query(None, description="Filter query"),
+    query: str | None = Query(None, description="Filter query"),
     language: str = Query("en", description="Language code"),
     max_results: int = Query(20, ge=1, le=100, description="Maximum results"),
     api_key: str = Depends(get_api_key),
@@ -641,10 +640,10 @@ async def location_search_get(
 )
 async def autocomplete(
     input: str = Query(..., min_length=2, max_length=200, description="Search input"),
-    types: Optional[str] = Query(None, description="Place types filter"),
-    latitude: Optional[float] = Query(None, ge=-90, le=90, description="Bias latitude"),
-    longitude: Optional[float] = Query(None, ge=-180, le=180, description="Bias longitude"),
-    radius_meters: Optional[int] = Query(None, ge=1, le=50000, description="Bias radius"),
+    types: str | None = Query(None, description="Place types filter"),
+    latitude: float | None = Query(None, ge=-90, le=90, description="Bias latitude"),
+    longitude: float | None = Query(None, ge=-180, le=180, description="Bias longitude"),
+    radius_meters: int | None = Query(None, ge=1, le=50000, description="Bias radius"),
     language: str = Query("en", description="Language code"),
     api_key: str = Depends(get_api_key),
     rate_limit_check: None = Depends(rate_limit)

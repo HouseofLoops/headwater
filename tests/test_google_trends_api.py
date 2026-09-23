@@ -5,25 +5,24 @@ This module provides extensive test coverage for all Google Trends API endpoints
 including success cases, error handling, caching, and edge cases.
 """
 
-import pytest
-import pandas as pd
+from unittest.mock import MagicMock, patch
+
 import numpy as np
-import json
-from unittest.mock import AsyncMock, MagicMock, patch
+import pandas as pd
+import pytest
 from fastapi.testclient import TestClient
-from fastapi import HTTPException
 
 # Import the router and utility functions
 from app.api.google_trends.google_trends_api import (
-    google_trends_router,
-    get_random_headers,
-    df_to_json,
-    to_jsonable,
-    get_trends_instance,
     BATCH_PERIOD_BY_TIMEFRAME,
     REFERER_LIST,
     USER_AGENT_LIST,
-    HumanFriendlyBatchPeriod
+    HumanFriendlyBatchPeriod,
+    df_to_json,
+    get_random_headers,
+    get_trends_instance,
+    google_trends_router,
+    to_jsonable,
 )
 from app.core import cache_manager as cache_manager_module
 

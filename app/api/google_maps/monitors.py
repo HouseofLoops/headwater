@@ -5,7 +5,6 @@ declared here are relative to the ``/google-maps`` prefix applied there.
 """
 import logging
 from datetime import datetime
-from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
 
@@ -19,9 +18,9 @@ from app.api.google_maps.schemas import (
     WebhookRequest,
 )
 from app.core.auth import get_api_key
+from app.core.log_safety import scrub
 from app.core.rate_limiter import rate_limit
 from app.services.google_maps_service import google_maps_service
-from app.core.log_safety import scrub
 
 logger = logging.getLogger(__name__)
 
@@ -99,7 +98,7 @@ async def create_monitor(
     response_description="Active monitors"
 )
 async def list_monitors(
-    status: Optional[str] = Query(None, description="Filter by status"),
+    status: str | None = Query(None, description="Filter by status"),
     limit: int = Query(50, ge=1, le=100, description="Maximum monitors"),
     offset: int = Query(0, ge=0, description="Pagination offset"),
     api_key: str = Depends(get_api_key),

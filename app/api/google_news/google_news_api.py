@@ -1,15 +1,61 @@
-from fastapi import APIRouter, HTTPException, Query, Depends, Request  # Ensure Depends is imported if not already
-from fastapi.responses import JSONResponse
-from newspaper import Article, Config, ArticleException
-from typing import List, Optional  # Ensure Optional is imported
-import logging
 import asyncio
-from urllib.parse import quote, urlparse
-from pydantic import BaseModel, validator, ValidationError
+import hashlib
+import logging
 import re
+from urllib.parse import quote, urlparse
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Request  # Ensure Depends is imported if not already
+from fastapi.responses import JSONResponse
+from newspaper import Article, ArticleException, Config
+from pydantic import BaseModel, ValidationError, validator
+
 from app.core.rate_limiter import rate_limit
 from app.core.url_guard import UrlNotAllowed
-import hashlib
+from app.services.google_news_article_service import (
+    ARTICLE_DETAILS_ALLOW_HTTP as ARTICLE_DETAILS_ALLOW_HTTP,
+)
+from app.services.google_news_article_service import (
+    ARTICLE_DETAILS_ALLOWED_HOSTS as ARTICLE_DETAILS_ALLOWED_HOSTS,
+)
+from app.services.google_news_article_service import (
+    ARTICLE_DETAILS_RESOLVE_DNS as ARTICLE_DETAILS_RESOLVE_DNS,
+)
+from app.services.google_news_article_service import (
+    ARTICLE_FETCH_FAILED_DETAIL as ARTICLE_FETCH_FAILED_DETAIL,
+)
+from app.services.google_news_article_service import (
+    ARTICLE_MAX_BYTES as ARTICLE_MAX_BYTES,
+)
+from app.services.google_news_article_service import (
+    ARTICLE_MAX_REDIRECTS as ARTICLE_MAX_REDIRECTS,
+)
+from app.services.google_news_article_service import (
+    BLOCKED_URL_DETAIL as BLOCKED_URL_DETAIL,
+)
+from app.services.google_news_article_service import (
+    _configured_article_hosts as _configured_article_hosts,
+)
+from app.services.google_news_article_service import (
+    ensure_nltk_setup as ensure_nltk_setup,
+)
+from app.services.google_news_article_service import (
+    fetch_allow_listed_html as fetch_allow_listed_html,
+)
+from app.services.google_news_article_service import (
+    nltk as nltk,
+)
+from app.services.google_news_article_service import (
+    setup_nltk as setup_nltk,
+)
+from app.services.google_news_article_service import (
+    validate_article_url as validate_article_url,
+)
+from app.services.google_news_catalog import (
+    AVAILABLE_COUNTRIES as AVAILABLE_COUNTRIES,
+)
+from app.services.google_news_catalog import (
+    AVAILABLE_LANGUAGES as AVAILABLE_LANGUAGES,
+)
 
 # Non-route logic lives in the service layer. Every name is re-exported here
 # (explicit `as` form) so existing `from ...google_news_api import X` imports
@@ -24,44 +70,63 @@ import hashlib
 # module that defines or uses it.
 from app.services.google_news_catalog import (
     AVAILABLE_TOPICS as AVAILABLE_TOPICS,
-    AVAILABLE_LANGUAGES as AVAILABLE_LANGUAGES,
-    AVAILABLE_COUNTRIES as AVAILABLE_COUNTRIES,
+)
+from app.services.google_news_service import (
+    CACHE_NAMESPACE as CACHE_NAMESPACE,
+)
+from app.services.google_news_service import (
+    GOOGLE_NEWS_HOSTS as GOOGLE_NEWS_HOSTS,
+)
+from app.services.google_news_service import (
+    UPSTREAM_NEWS_FAILURE_DETAIL as UPSTREAM_NEWS_FAILURE_DETAIL,
+)
+from app.services.google_news_service import (
+    ProcessedArticles as ProcessedArticles,
+)
+from app.services.google_news_service import (
+    build_news_response as build_news_response,
+)
+from app.services.google_news_service import (
+    decode_and_process_articles as decode_and_process_articles,
+)
+from app.services.google_news_service import (
+    decode_google_news_url as decode_google_news_url,
+)
+from app.services.google_news_service import (
+    decode_url as decode_url,
+)
+from app.services.google_news_service import (
+    generate_cache_key as generate_cache_key,
+)
+from app.services.google_news_service import (
+    get_base64_str as get_base64_str,
+)
+from app.services.google_news_service import (
+    get_cached_or_fetch as get_cached_or_fetch,
+)
+from app.services.google_news_service import (
+    get_decoding_params as get_decoding_params,
+)
+from app.services.google_news_service import (
+    get_gnews_http_client as get_gnews_http_client,
+)
+from app.services.google_news_service import (
+    get_gnews_instance as get_gnews_instance,
+)
+from app.services.google_news_service import (
+    is_cacheable as is_cacheable,
+)
+from app.services.google_news_service import (
+    is_google_news_redirect as is_google_news_redirect,
 )
 from app.services.google_news_service import (
     settings as settings,
-    CACHE_NAMESPACE as CACHE_NAMESPACE,
-    generate_cache_key as generate_cache_key,
-    is_cacheable as is_cacheable,
-    get_cached_or_fetch as get_cached_or_fetch,
-    get_gnews_http_client as get_gnews_http_client,
-    GOOGLE_NEWS_HOSTS as GOOGLE_NEWS_HOSTS,
-    is_google_news_redirect as is_google_news_redirect,
-    get_base64_str as get_base64_str,
-    get_decoding_params as get_decoding_params,
-    validate_date_format as validate_date_format,
-    decode_url as decode_url,
-    decode_google_news_url as decode_google_news_url,
-    get_gnews_instance as get_gnews_instance,
-    ProcessedArticles as ProcessedArticles,
-    decode_and_process_articles as decode_and_process_articles,
-    UPSTREAM_NEWS_FAILURE_DETAIL as UPSTREAM_NEWS_FAILURE_DETAIL,
-    build_news_response as build_news_response,
+)
+from app.services.google_news_service import (
     transform_article as transform_article,
 )
-from app.services.google_news_article_service import (
-    nltk as nltk,
-    setup_nltk as setup_nltk,
-    ensure_nltk_setup as ensure_nltk_setup,
-    _configured_article_hosts as _configured_article_hosts,
-    ARTICLE_DETAILS_ALLOWED_HOSTS as ARTICLE_DETAILS_ALLOWED_HOSTS,
-    ARTICLE_DETAILS_ALLOW_HTTP as ARTICLE_DETAILS_ALLOW_HTTP,
-    ARTICLE_DETAILS_RESOLVE_DNS as ARTICLE_DETAILS_RESOLVE_DNS,
-    BLOCKED_URL_DETAIL as BLOCKED_URL_DETAIL,
-    ARTICLE_FETCH_FAILED_DETAIL as ARTICLE_FETCH_FAILED_DETAIL,
-    ARTICLE_MAX_REDIRECTS as ARTICLE_MAX_REDIRECTS,
-    ARTICLE_MAX_BYTES as ARTICLE_MAX_BYTES,
-    validate_article_url as validate_article_url,
-    fetch_allow_listed_html as fetch_allow_listed_html,
+from app.services.google_news_service import (
+    validate_date_format as validate_date_format,
 )
 
 # Initialize Google News API Router
@@ -88,9 +153,9 @@ class SourceQuery(BaseModel):
 class NewsArticle(BaseModel):
     title: str
     published_date: str
-    description: Optional[str]
+    description: str | None
     url: str
-    publisher: Optional[str]
+    publisher: str | None
 
 class NewsResponse(BaseModel):
     """A list of articles, plus a signal when some were lost.
@@ -101,9 +166,9 @@ class NewsResponse(BaseModel):
     the caller is told rather than being handed a short list that looks whole.
     """
 
-    articles: List[NewsArticle]
-    partial: Optional[bool] = None
-    dropped: Optional[int] = None
+    articles: list[NewsArticle]
+    partial: bool | None = None
+    dropped: int | None = None
 
 class ErrorResponse(BaseModel):
     detail: str
@@ -132,14 +197,14 @@ async def get_available_countries(
 @gnews_router.get("/source/", summary="News by Source", response_model=NewsResponse, response_model_exclude_none=True)
 async def get_news_by_source(
     # === REQUIRED ===
-    source: str = Query(..., description="Source domain or URL", example="cnn.com"),
+    source: str = Query(..., description="Source domain or URL", examples=["cnn.com"]),
     # === COMMONLY USED ===
-    language: str = Query("en", description="Language code", example="en"),
-    country: str = Query("US", description="Country code", example="US"),
+    language: str = Query("en", description="Language code", examples=["en"]),
+    country: str = Query("US", description="Country code", examples=["US"]),
     max_results: int = Query(5, ge=1, le=100, description="Max results (1-100)"),
     # === DATE FILTERS ===
-    start_date: Optional[str] = Query(None, regex=r"^\d{4}-\d{2}-\d{2}$", description="Start date (YYYY-MM-DD)"),
-    end_date: Optional[str] = Query(None, regex=r"^\d{4}-\d{2}-\d{2}$", description="End date (YYYY-MM-DD)"),
+    start_date: str | None = Query(None, pattern=r"^\d{4}-\d{2}-\d{2}$", description="Start date (YYYY-MM-DD)"),
+    end_date: str | None = Query(None, pattern=r"^\d{4}-\d{2}-\d{2}$", description="End date (YYYY-MM-DD)"),
     # === OPTIONS ===
     exclude_duplicates: bool = Query(False, description="Exclude duplicates"),
     # === AUTH ===
@@ -206,22 +271,22 @@ async def get_news_by_source(
     except HTTPException as http_exc:
         raise http_exc
     except Exception as e:
-        logger.error(f"Unexpected error fetching Google News for source '{source}': {str(e)}")
+        logger.error(f"Unexpected error fetching Google News for source '{source}': {e!s}")
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
 @gnews_router.get("/search/", summary="Search News", response_model=NewsResponse, response_model_exclude_none=True)
 async def search_google_news(
     request: Request,
     # === REQUIRED ===
-    query: str = Query(..., description="Search query", example="climate change"),
+    query: str = Query(..., description="Search query", examples=["climate change"]),
     # === COMMONLY USED ===
-    language: str = Query("en", description="Language code", example="en"),
-    country: str = Query("US", description="Country code", example="US"),
+    language: str = Query("en", description="Language code", examples=["en"]),
+    country: str = Query("US", description="Country code", examples=["US"]),
     max_results: int = Query(5, ge=1, le=100, description="Max results (1-100)"),
-    sort_by: str = Query("relevance", regex="^(relevance|date)$", description="Sort by: relevance, date"),
+    sort_by: str = Query("relevance", pattern="^(relevance|date)$", description="Sort by: relevance, date"),
     # === DATE FILTERS ===
-    start_date: Optional[str] = Query(None, regex=r"^\d{4}-\d{2}-\d{2}$", description="Start date (YYYY-MM-DD)"),
-    end_date: Optional[str] = Query(None, regex=r"^\d{4}-\d{2}-\d{2}$", description="End date (YYYY-MM-DD)"),
+    start_date: str | None = Query(None, pattern=r"^\d{4}-\d{2}-\d{2}$", description="Start date (YYYY-MM-DD)"),
+    end_date: str | None = Query(None, pattern=r"^\d{4}-\d{2}-\d{2}$", description="End date (YYYY-MM-DD)"),
     # === OPTIONS ===
     exclude_duplicates: bool = Query(False, description="Exclude duplicates"),
     exact_match: bool = Query(False, description="Exact match only"),
@@ -280,14 +345,14 @@ async def search_google_news(
     except HTTPException as http_exc:
         raise http_exc
     except Exception as e:
-        logger.error(f"Error fetching Google News for query '{query}': {str(e)}")
+        logger.error(f"Error fetching Google News for query '{query}': {e!s}")
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
 @gnews_router.get("/top/", summary="Top News", response_model=NewsResponse, response_model_exclude_none=True)
 async def get_top_google_news(
     # === COMMONLY USED ===
-    language: str = Query("en", description="Language code", example="en"),
-    country: str = Query("US", description="Country code", example="US"),
+    language: str = Query("en", description="Language code", examples=["en"]),
+    country: str = Query("US", description="Country code", examples=["US"]),
     max_results: int = Query(10, ge=1, le=100, description="Max results (1-100)"),
     # === AUTH ===
     rate_limit_check: None = Depends(rate_limit),
@@ -328,16 +393,16 @@ async def get_top_google_news(
     except HTTPException as http_exc:
         raise http_exc
     except Exception as e:
-        logger.error(f"Error fetching top Google News: {str(e)}")
+        logger.error(f"Error fetching top Google News: {e!s}")
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
 @gnews_router.get("/topic/", summary="News by Topic", response_model=NewsResponse, response_model_exclude_none=True)
 async def get_news_by_topic(
     # === REQUIRED ===
-    topic: str = Query(..., description="Topic name (WORLD, TECHNOLOGY, SPORTS, etc.)", example="TECHNOLOGY"),
+    topic: str = Query(..., description="Topic name (WORLD, TECHNOLOGY, SPORTS, etc.)", examples=["TECHNOLOGY"]),
     # === COMMONLY USED ===
-    language: str = Query("en", description="Language code", example="en"),
-    country: str = Query("US", description="Country code", example="US"),
+    language: str = Query("en", description="Language code", examples=["en"]),
+    country: str = Query("US", description="Country code", examples=["US"]),
     max_results: int = Query(5, ge=1, le=100, description="Max results (1-100)"),
     # === OPTIONS ===
     exclude_duplicates: bool = Query(False, description="Exclude duplicates"),
@@ -388,20 +453,20 @@ async def get_news_by_topic(
     except HTTPException as http_exc:
         raise http_exc
     except Exception as e:
-        logger.error(f"Error fetching Google News for topic '{topic}': {str(e)}")
+        logger.error(f"Error fetching Google News for topic '{topic}': {e!s}")
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
 @gnews_router.get("/location/", summary="News by Location", response_model=NewsResponse, response_model_exclude_none=True)
 async def get_news_by_location(
     # === REQUIRED ===
-    location: str = Query(..., description="Location name", example="New York"),
+    location: str = Query(..., description="Location name", examples=["New York"]),
     # === COMMONLY USED ===
-    language: str = Query("en", description="Language code", example="en"),
-    country: str = Query("US", description="Country code", example="US"),
+    language: str = Query("en", description="Language code", examples=["en"]),
+    country: str = Query("US", description="Country code", examples=["US"]),
     max_results: int = Query(5, ge=1, le=100, description="Max results (1-100)"),
     # === DATE FILTERS ===
-    start_date: Optional[str] = Query(None, regex=r"^\d{4}-\d{2}-\d{2}$", description="Start date (YYYY-MM-DD)"),
-    end_date: Optional[str] = Query(None, regex=r"^\d{4}-\d{2}-\d{2}$", description="End date (YYYY-MM-DD)"),
+    start_date: str | None = Query(None, pattern=r"^\d{4}-\d{2}-\d{2}$", description="Start date (YYYY-MM-DD)"),
+    end_date: str | None = Query(None, pattern=r"^\d{4}-\d{2}-\d{2}$", description="End date (YYYY-MM-DD)"),
     # === OPTIONS ===
     exclude_duplicates: bool = Query(False, description="Exclude duplicates"),
     # === AUTH ===
@@ -459,7 +524,7 @@ async def get_news_by_location(
     except HTTPException as http_exc:
         raise http_exc
     except Exception as e:
-        logger.error(f"Error fetching Google News for location '{location}': {str(e)}")
+        logger.error(f"Error fetching Google News for location '{location}': {e!s}")
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
 # The `/source/` endpoint definition is already provided above.
@@ -467,12 +532,12 @@ async def get_news_by_location(
 @gnews_router.get("/articles/", summary="Bulk Articles", response_model=NewsResponse, response_model_exclude_none=True)
 async def get_google_news_articles(
     # === COMMONLY USED ===
-    query: str = Query("news", description="Search query", example="technology"),
-    language: str = Query("en", description="Language code", example="en"),
-    country: str = Query("US", description="Country code", example="US"),
+    query: str = Query("news", description="Search query", examples=["technology"]),
+    language: str = Query("en", description="Language code", examples=["en"]),
+    country: str = Query("US", description="Country code", examples=["US"]),
     max_results: int = Query(5, ge=1, le=100, description="Max results (1-100)"),
     # === TIME PERIOD ===
-    period: str = Query("1d", regex=r"^\d+[dwmy]$", description="Period: 7d, 1w, 1m, 1y"),
+    period: str = Query("1d", pattern=r"^\d+[dwmy]$", description="Period: 7d, 1w, 1m, 1y"),
     # === AUTH ===
     rate_limit_check: None = Depends(rate_limit),
 ):
@@ -519,7 +584,7 @@ async def get_google_news_articles(
     except HTTPException as http_exc:
         raise http_exc
     except Exception as e:
-        logger.error(f"Error fetching Google News articles for query '{query}': {str(e)}")
+        logger.error(f"Error fetching Google News articles for query '{query}': {e!s}")
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
 

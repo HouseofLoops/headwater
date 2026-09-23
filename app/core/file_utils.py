@@ -7,7 +7,6 @@ Split out of app.core.utils, which still re-exports every name here.
 import os
 
 
-
 def get_file_extension(filename: str) -> str:
     """
     Get the extension of a file.

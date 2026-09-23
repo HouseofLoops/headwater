@@ -4,11 +4,12 @@ Google Autocomplete Service.
 This module handles all business logic for fetching and processing
 Google Autocomplete suggestions, including keyword variation generation.
 """
-import logging
-import json
-import xml.etree.ElementTree as ET
-from typing import Optional, List, Dict, Any
 import asyncio
+import json
+import logging
+import xml.etree.ElementTree as ET
+from typing import Any
+
 import httpx
 
 from app.core.constants import KEYWORD_CATEGORIES
@@ -31,11 +32,11 @@ class GoogleAutocompleteService:
         output: str = "toolbar",
         gl: str = "US",
         hl: str = "en",
-        client: Optional[str] = None,
-        ds: Optional[str] = None,
-        spell: Optional[int] = None,
+        client: str | None = None,
+        ds: str | None = None,
+        spell: int | None = None,
         **kwargs
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Build request parameters for Google Autocomplete API.
 
@@ -73,7 +74,7 @@ class GoogleAutocompleteService:
 
         return params
 
-    def parse_json_response(self, data: list) -> Dict[str, Any]:
+    def parse_json_response(self, data: list) -> dict[str, Any]:
         """
         Parse Google Autocomplete JSON response.
 
@@ -91,7 +92,7 @@ class GoogleAutocompleteService:
             "metadata": data[4] if len(data) > 4 else {},
         }
 
-    def parse_xml_response(self, content: bytes) -> List[str]:
+    def parse_xml_response(self, content: bytes) -> list[str]:
         """
         Parse Google Autocomplete XML response.
 
@@ -110,15 +111,15 @@ class GoogleAutocompleteService:
                     data = suggestion_element.get("data", "")
                     suggestions.append(data)
         except ET.ParseError as e:
-            logger.error(f"XML Parse Error: {str(e)}")
+            logger.error(f"XML Parse Error: {e!s}")
         return suggestions
 
     def extract_suggestions_from_response(
         self,
         response_text: str,
         output_format: str,
-        client: Optional[str] = None
-    ) -> Dict[str, Any]:
+        client: str | None = None
+    ) -> dict[str, Any]:
         """
         Extract suggestions from API response based on format.
 
@@ -198,8 +199,8 @@ class GoogleAutocompleteService:
         self,
         http_client: httpx.AsyncClient,
         query: str,
-        params: Dict[str, Any]
-    ) -> Dict[str, Any]:
+        params: dict[str, Any]
+    ) -> dict[str, Any]:
         """
         Fetch suggestions asynchronously.
 
@@ -245,9 +246,9 @@ class GoogleAutocompleteService:
         self,
         http_client: httpx.AsyncClient,
         base_query: str,
-        params: Dict[str, Any],
+        params: dict[str, Any],
         max_parallel: int = 10
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Generate keyword variations using parallel processing.
 

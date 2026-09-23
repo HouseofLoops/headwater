@@ -12,7 +12,6 @@ import io
 import json
 import logging
 from datetime import datetime
-from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from fastapi.responses import StreamingResponse
@@ -27,10 +26,10 @@ from app.api.google_maps.schemas import (
     ExportFormat,
 )
 from app.core.auth import get_api_key
+from app.core.log_safety import scrub
 from app.core.rate_limiter import rate_limit
 from app.services.google_maps_service import google_maps_service
 from app.services.record_store import owner_id_for_api_key
-from app.core.log_safety import scrub
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +42,7 @@ router = APIRouter(route_class=SafeUrlValidationRoute)
     response_description="List of jobs with their status"
 )
 async def list_jobs(
-    status: Optional[str] = Query(
+    status: str | None = Query(
         None,
         description="Filter by status (pending, running, completed, failed)"
     ),

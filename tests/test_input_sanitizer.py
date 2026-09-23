@@ -1,12 +1,7 @@
-import pytest
-import re
-from unittest.mock import patch, MagicMock
-from app.core.input_sanitizer import (
-    InputSanitizer,
-    get_input_sanitizer,
-    set_input_sanitizer,
-    sanitize_input
-)
+from unittest.mock import MagicMock, patch
+
+
+from app.core.input_sanitizer import InputSanitizer, get_input_sanitizer, sanitize_input, set_input_sanitizer
 
 
 class TestInputSanitizer:

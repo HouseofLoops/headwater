@@ -1,11 +1,10 @@
 """
 Tests for the search module.
 """
-import pytest
+
 from app.core.search import (
-    Trie,
-    TrieNode,
     SuggestionIndex,
+    Trie,
     get_suggestion_index,
     reset_suggestion_index,
 )

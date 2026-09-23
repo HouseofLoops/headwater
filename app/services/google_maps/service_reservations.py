@@ -1,12 +1,12 @@
 """
 Reservation availability for GoogleMapsService.
 """
-import logging
 import asyncio
-from typing import Optional, List, Dict, Any
+import logging
+from typing import Any
 
-from app.core.proxy import ENABLE_PROXY, proxy_for
 from app.core.log_safety import scrub
+from app.core.proxy import ENABLE_PROXY, proxy_for
 from app.services.google_maps.constants import GOOGLE_MAPS_HOST
 
 # Logs under the facade module's name so log routing and filters keyed on
@@ -33,14 +33,14 @@ class ReservationsMixin:
     )
 
     @staticmethod
-    def _parse_slot_label(text: str) -> Optional[str]:
+    def _parse_slot_label(text: str) -> str | None:
         """Pull a clock time out of a slot button's label, or None."""
         import re
 
         match = re.search(r"\b\d{1,2}:\d{2}\s*(?:AM|PM)?\b", text or "", re.IGNORECASE)
         return match.group(0).strip() if match else None
 
-    async def _extract_reservation_slots(self, page) -> Optional[List[str]]:
+    async def _extract_reservation_slots(self, page) -> list[str] | None:
         """Read rendered reservation slots.
 
         Returns None when no reservation module was rendered at all, which is
@@ -61,7 +61,7 @@ class ReservationsMixin:
         if not nodes and not module_present:
             return None
 
-        slots: List[str] = []
+        slots: list[str] = []
         for node in nodes:
             label = self._parse_slot_label((await node.inner_text()) or "")
             if label and label not in slots:
@@ -73,7 +73,7 @@ class ReservationsMixin:
         place_id: str,
         date: str,
         party_size: int
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Check reservation availability by scraping the place page.
 

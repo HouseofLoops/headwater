@@ -1,10 +1,9 @@
 import contextlib
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from unittest.mock import patch, MagicMock, AsyncMock
-from fastapi.testclient import TestClient
 from fastapi import FastAPI
-
+from fastapi.testclient import TestClient
 
 #: Endpoints that disclose host metrics, dependency topology, rate-limit
 #: thresholds or the effective configuration. None of them may be readable

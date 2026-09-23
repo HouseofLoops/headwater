@@ -4,8 +4,8 @@ JSON / dict serialization helpers for models and plain values.
 Split out of app.core.utils, which still re-exports every name here.
 """
 
-from typing import Any, Dict
 import json
+from typing import Any
 
 from fastapi.encoders import jsonable_encoder
 
@@ -40,13 +40,13 @@ def to_json(
         exclude_defaults=exclude_defaults,
         by_alias=by_alias
     )
-    
+
     # Set default options for json.dumps
     kwargs.setdefault("ensure_ascii", False)
     kwargs.setdefault("allow_nan", True)
     kwargs.setdefault("indent", None)
     kwargs.setdefault("separators", (",", ":"))
-    
+
     # Convert to JSON string
     return json.dumps(json_dict, **kwargs)
 
@@ -57,7 +57,7 @@ def to_dict(
     exclude_unset: bool = False,
     exclude_defaults: bool = False,
     by_alias: bool = True
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Convert an object to a dictionary.
     
@@ -80,7 +80,7 @@ def to_dict(
     )
 
 
-def from_dict(data: Dict[str, Any], model_class: type) -> Any:
+def from_dict(data: dict[str, Any], model_class: type) -> Any:
     """
     Convert a dictionary to a model instance.
     

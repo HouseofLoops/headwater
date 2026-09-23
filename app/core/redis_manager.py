@@ -7,12 +7,11 @@ that can be used by caching, rate limiting, and other Redis-dependent features.
 
 import asyncio
 import logging
-from typing import Optional, Any
 from contextlib import asynccontextmanager
 
 import redis.asyncio as aioredis
 from redis.asyncio import Redis
-from redis.exceptions import ConnectionError, TimeoutError, RedisError
+from redis.exceptions import ConnectionError, RedisError, TimeoutError
 
 from app.core.config import get_settings
 
@@ -31,19 +30,19 @@ class RedisManager:
     - Graceful shutdown
     """
 
-    _instance: Optional['RedisManager'] = None
+    _instance: RedisManager | None = None
     _lock: asyncio.Lock = asyncio.Lock()
 
     def __init__(self):
         """Initialize the Redis manager."""
         self.settings = get_settings()
-        self._client: Optional[Redis] = None
+        self._client: Redis | None = None
         self._initialized = False
         self._connection_error_count = 0
         self._max_connection_errors = 5
 
     @classmethod
-    async def get_instance(cls) -> 'RedisManager':
+    async def get_instance(cls) -> RedisManager:
         """
         Get the singleton instance of RedisManager.
 
@@ -105,7 +104,7 @@ class RedisManager:
         """Check if Redis is available."""
         return self._client is not None and self._initialized
 
-    async def get_client(self) -> Optional[Redis]:
+    async def get_client(self) -> Redis | None:
         """
         Get the Redis client, attempting reconnection if necessary.
 
@@ -152,7 +151,7 @@ class RedisManager:
     # Async Redis Operations
     # ==========================================================================
 
-    async def get(self, key: str) -> Optional[str]:
+    async def get(self, key: str) -> str | None:
         """
         Get a value from Redis.
 
@@ -177,7 +176,7 @@ class RedisManager:
         self,
         key: str,
         value: str,
-        ttl: Optional[int] = None
+        ttl: int | None = None
     ) -> bool:
         """
         Set a value in Redis.
@@ -247,7 +246,7 @@ class RedisManager:
             self._handle_connection_error()
             return 0
 
-    async def incr(self, key: str) -> Optional[int]:
+    async def incr(self, key: str) -> int | None:
         """
         Increment a counter in Redis.
 
@@ -453,7 +452,7 @@ class RedisManager:
 # Convenience Functions
 # =============================================================================
 
-async def get_redis() -> Optional[Redis]:
+async def get_redis() -> Redis | None:
     """
     Get the Redis client.
 

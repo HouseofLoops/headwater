@@ -6,22 +6,24 @@ by storing frequently accessed data in memory or Redis.
 
 Uses the shared async Redis manager for Redis operations.
 """
-from typing import Any, Dict, Optional, Union, Callable, TypeVar, Generic, List, Tuple
-import time
-import json
 import asyncio
-import logging
 import functools
 import hashlib
+import json
+import logging
+import time
+from collections.abc import Callable
 from dataclasses import asdict, is_dataclass
-from datetime import date, datetime, time as dt_time, timedelta
+from datetime import date, datetime, timedelta
+from datetime import time as dt_time
 from decimal import Decimal
 from enum import Enum
+from typing import Any, TypeVar
 from uuid import UUID
 
-from app.core.config import get_settings, Settings
-from app.core.redis_manager import RedisManager
+from app.core.config import Settings, get_settings
 from app.core.log_safety import scrub
+from app.core.redis_manager import RedisManager
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -31,19 +33,19 @@ T = TypeVar('T')
 
 # In-memory cache storage
 # Format: {key: (value, expiry_timestamp)}
-_cache_store: Dict[str, Tuple[Any, float]] = {}
+_cache_store: dict[str, tuple[Any, float]] = {}
 
 # Thread-safe lock for in-memory cache operations
 _cache_lock: asyncio.Lock = asyncio.Lock()
 
 # Cleanup task reference to prevent garbage collection
-_cleanup_task: Optional[asyncio.Task] = None
+_cleanup_task: asyncio.Task | None = None
 
 # Shared Redis manager instance (initialized lazily)
-_redis_manager: Optional[RedisManager] = None
+_redis_manager: RedisManager | None = None
 
 
-async def _get_redis_manager() -> Optional[RedisManager]:
+async def _get_redis_manager() -> RedisManager | None:
     """Get the shared Redis manager instance."""
     global _redis_manager
     if _redis_manager is None:
@@ -121,7 +123,7 @@ def _encode_uncacheable(value: Any) -> Any:
     )
 
 
-_ENVELOPE_DECODERS: Dict[str, Callable[[Any], Any]] = {
+_ENVELOPE_DECODERS: dict[str, Callable[[Any], Any]] = {
     "datetime": datetime.fromisoformat,
     "date": date.fromisoformat,
     "time": dt_time.fromisoformat,
@@ -133,7 +135,7 @@ _ENVELOPE_DECODERS: Dict[str, Callable[[Any], Any]] = {
 }
 
 
-def _decode_envelope(obj: Dict[str, Any]) -> Any:
+def _decode_envelope(obj: dict[str, Any]) -> Any:
     """``json.loads`` ``object_hook``: rebuild values tagged by the encoder."""
     if len(obj) == 2 and _TYPE_TAG in obj and _VALUE_KEY in obj:
         decoder = _ENVELOPE_DECODERS.get(obj[_TYPE_TAG])
@@ -154,7 +156,7 @@ class CacheManager:
     for better performance.
     """
 
-    def __init__(self, settings: Optional[Settings] = None):
+    def __init__(self, settings: Settings | None = None):
         """
         Initialize the cache manager.
 
@@ -164,7 +166,7 @@ class CacheManager:
         self.settings = settings or get_settings()
         self.enabled = self.settings.ENABLE_CACHE if hasattr(self.settings, "ENABLE_CACHE") else True
         self.ttl = self.settings.CACHE_TTL if hasattr(self.settings, "CACHE_TTL") else 3600  # seconds
-    
+
     def _serialize(self, value: Any) -> str:
         """
         Serialize a value to a JSON string that round-trips.
@@ -214,7 +216,7 @@ class CacheManager:
             # return it untouched rather than raising.
             return value
 
-    def _generate_key(self, key: str, namespace: Optional[str] = None) -> str:
+    def _generate_key(self, key: str, namespace: str | None = None) -> str:
         """
         Generate a cache key with optional namespace.
         
@@ -228,11 +230,11 @@ class CacheManager:
         if namespace:
             return f"cache:{namespace}:{key}"
         return f"cache:{key}"
-    
+
     async def get(
         self,
         key: str,
-        namespace: Optional[str] = None,
+        namespace: str | None = None,
         default: Any = None
     ) -> Any:
         """
@@ -260,7 +262,7 @@ class CacheManager:
                     logger.debug(f"Cache hit (Redis): {full_key}")
                     return self._deserialize(value)
             except Exception as e:
-                logger.error(f"Redis error in get: {str(e)}")
+                logger.error(f"Redis error in get: {e!s}")
 
         # Fall back to in-memory cache with thread-safe access
         async with _cache_lock:
@@ -277,13 +279,13 @@ class CacheManager:
 
         logger.debug(f"Cache miss: {full_key}")
         return default
-    
+
     async def set(
         self,
         key: str,
         value: Any,
-        ttl: Optional[int] = None,
-        namespace: Optional[str] = None
+        ttl: int | None = None,
+        namespace: str | None = None
     ) -> bool:
         """
         Set a value in the cache.
@@ -324,7 +326,7 @@ class CacheManager:
                     logger.debug(f"Cache set (Redis): {full_key}, TTL: {ttl}s")
                     return True
             except Exception as e:
-                logger.error(f"Redis error in set: {str(e)}")
+                logger.error(f"Redis error in set: {e!s}")
 
         # Fall back to in-memory cache with thread-safe access.
         # Store the round-tripped value, not the original object, so that a
@@ -336,11 +338,11 @@ class CacheManager:
             _cache_store[full_key] = (self._deserialize(serialized), expiry)
             logger.debug(f"Cache set (memory): {full_key}, TTL: {ttl}s")
         return True
-    
+
     async def delete(
         self,
         key: str,
-        namespace: Optional[str] = None
+        namespace: str | None = None
     ) -> bool:
         """
         Delete a value from the cache.
@@ -367,7 +369,7 @@ class CacheManager:
                     logger.debug(f"Cache delete (Redis): {full_key}")
                     deleted = True
             except Exception as e:
-                logger.error(f"Redis error in delete: {str(e)}")
+                logger.error(f"Redis error in delete: {e!s}")
 
         # Also delete from in-memory cache with thread-safe access
         async with _cache_lock:
@@ -377,8 +379,8 @@ class CacheManager:
                 deleted = True
 
         return deleted
-    
-    async def clear(self, namespace: Optional[str] = None) -> bool:
+
+    async def clear(self, namespace: str | None = None) -> bool:
         """
         Clear all values from the cache or a specific namespace.
 
@@ -405,7 +407,7 @@ class CacheManager:
                     await redis_manager.delete(*keys)
                     logger.debug(f"Cache clear (Redis): {len(keys)} keys")
             except Exception as e:
-                logger.error(f"Redis error in clear: {str(e)}")
+                logger.error(f"Redis error in clear: {e!s}")
 
         # Clear in-memory cache with thread-safe access
         async with _cache_lock:
@@ -421,12 +423,12 @@ class CacheManager:
                 logger.debug(f"Cache clear (memory): {count} keys")
 
         return True
-    
+
     def cached(
         self,
-        ttl: Optional[int] = None,
-        namespace: Optional[str] = None,
-        key_builder: Optional[Callable[..., str]] = None
+        ttl: int | None = None,
+        namespace: str | None = None,
+        key_builder: Callable[..., str] | None = None
     ):
         """
         Decorator for caching function results.
@@ -444,44 +446,44 @@ class CacheManager:
             async def wrapper(*args, **kwargs):
                 if not self.enabled:
                     return await func(*args, **kwargs)
-                
+
                 # Build cache key
                 if key_builder:
                     key = key_builder(*args, **kwargs)
                 else:
                     # Default key builder: function name + args + kwargs
                     key_parts = [func.__name__]
-                    
+
                     # Add args to key
                     for arg in args:
                         key_parts.append(str(arg))
-                    
+
                     # Add kwargs to key (sorted for consistency)
                     for k, v in sorted(kwargs.items()):
                         key_parts.append(f"{k}={v}")
-                    
+
                     # Join and hash if too long
                     key_str = ":".join(key_parts)
                     if len(key_str) > 250:  # Redis keys are limited to 512 bytes
                         key = hashlib.md5(key_str.encode()).hexdigest()
                     else:
                         key = key_str
-                
+
                 # Try to get from cache
                 cached_value = await self.get(key, namespace)
                 if cached_value is not None:
                     return cached_value
-                
+
                 # Call the function
                 result = await func(*args, **kwargs)
-                
+
                 # Cache the result
                 await self.set(key, result, ttl, namespace)
-                
+
                 return result
-            
+
             return wrapper
-        
+
         return decorator
 
 
@@ -516,7 +518,7 @@ async def cleanup_cache_store():
             logger.info("Cache cleanup task cancelled")
             break
         except Exception as e:
-            logger.error(f"Error in cache store cleanup: {str(e)}")
+            logger.error(f"Error in cache store cleanup: {e!s}")
 
         # Sleep for a while
         await asyncio.sleep(60)  # Clean up every minute
@@ -559,7 +561,7 @@ cache_manager = CacheManager()
 # Convenience functions
 async def get_from_cache(
     key: str,
-    namespace: Optional[str] = None,
+    namespace: str | None = None,
     default: Any = None
 ) -> Any:
     """
@@ -579,8 +581,8 @@ async def get_from_cache(
 async def set_in_cache(
     key: str,
     value: Any,
-    ttl: Optional[int] = None,
-    namespace: Optional[str] = None
+    ttl: int | None = None,
+    namespace: str | None = None
 ) -> bool:
     """
     Set a value in the cache.
@@ -599,7 +601,7 @@ async def set_in_cache(
 
 async def delete_from_cache(
     key: str,
-    namespace: Optional[str] = None
+    namespace: str | None = None
 ) -> bool:
     """
     Delete a value from the cache.
@@ -614,7 +616,7 @@ async def delete_from_cache(
     return await cache_manager.delete(key, namespace)
 
 
-async def clear_cache(namespace: Optional[str] = None) -> bool:
+async def clear_cache(namespace: str | None = None) -> bool:
     """
     Clear all values from the cache or a specific namespace.
     
@@ -628,9 +630,9 @@ async def clear_cache(namespace: Optional[str] = None) -> bool:
 
 
 def cached(
-    ttl: Optional[int] = None,
-    namespace: Optional[str] = None,
-    key_builder: Optional[Callable[..., str]] = None
+    ttl: int | None = None,
+    namespace: str | None = None,
+    key_builder: Callable[..., str] | None = None
 ):
     """
     Decorator for caching function results.
@@ -659,10 +661,10 @@ def generate_cache_key(base_key: str, **kwargs) -> str:
     """
     # Sort kwargs for consistent key generation
     sorted_kwargs = sorted(kwargs.items())
-    
+
     # Build key components
     key_parts = [base_key]
-    
+
     for key, value in sorted_kwargs:
         if value is not None:
             # Convert value to string and handle special cases
@@ -671,18 +673,18 @@ def generate_cache_key(base_key: str, **kwargs) -> str:
             else:
                 value_str = str(value)
             key_parts.append(f"{key}={value_str}")
-    
+
     # Join parts with colons
     full_key = ":".join(key_parts)
-    
+
     # If key is too long, hash it
     if len(full_key) > 250:  # Redis key limit is 512 bytes, be conservative
         full_key = hashlib.md5(full_key.encode()).hexdigest()
-    
+
     return full_key
 
 
-async def get_cached_or_fetch(cache_key: str, fetch_func: Callable[[], Any], ttl: Optional[int] = None) -> Any:
+async def get_cached_or_fetch(cache_key: str, fetch_func: Callable[[], Any], ttl: int | None = None) -> Any:
     """
     Get data from cache or fetch and cache it if not found.
     
@@ -699,16 +701,16 @@ async def get_cached_or_fetch(cache_key: str, fetch_func: Callable[[], Any], ttl
     if cached_data is not None:
         logger.debug(f"Cache hit for key: {cache_key}")
         return cached_data
-    
+
     # Cache miss - fetch the data
     logger.debug(f"Cache miss for key: {cache_key}, fetching data")
     try:
         data = await fetch_func()
-        
+
         # Cache the result
         await cache_manager.set(cache_key, data, ttl)
         logger.debug(f"Cached data for key: {cache_key}")
-        
+
         return data
     except Exception as e:
         logger.error(f"Error fetching data for cache key {cache_key}: {e}")

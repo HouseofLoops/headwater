@@ -4,34 +4,32 @@ Google Trends API Router.
 Provides endpoints for Google Trends data including trending topics,
 interest over time, and related queries.
 """
-from fastapi import APIRouter, Query, HTTPException, Depends
+import asyncio
+import json
+import logging
+import random
+from datetime import date
+
+import numpy as np
+import pandas as pd
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel, Field
-from datetime import date
-import logging
-import asyncio
-import pandas as pd
-import numpy as np
-from typing import List, Optional, Union
-from trendspy import Trends, BatchPeriod
-from app.core.proxy import get_proxy, mask_proxy
+from trendspy import BatchPeriod, Trends
+
 from app.core.cache_manager import generate_cache_key, get_cached_or_fetch
+from app.core.constants import REFERER_LIST, USER_AGENT_LIST
+from app.core.proxy import get_proxy, mask_proxy
 from app.core.rate_limiter import rate_limit
-from app.core.http_client import get_http_client_manager
-from app.core.constants import USER_AGENT_LIST, REFERER_LIST
 from app.schemas.enums import (
-    TimeframeEnum,
     HumanFriendlyBatchPeriod,
-    StandardTimeframe,
-    CustomIntervalTimeframe,
 )
-import random
-import json
+
 
 # Pydantic model for date range
 class DateRangeTimeframeModel(BaseModel):
     start_date: date = Field(..., description="Start date in YYYY-MM-DD format.")
-    end_date: Optional[date] = Field(None, description="End date in YYYY-MM-DD format.")
+    end_date: date | None = Field(None, description="End date in YYYY-MM-DD format.")
 
 # Create the router
 google_trends_router = APIRouter()
@@ -234,12 +232,12 @@ async def run_trends_call(operation: str, call):
     loop = asyncio.get_event_loop()
     try:
         return await loop.run_in_executor(None, call)
-    except Exception as exc:  # noqa: BLE001 - re-raised as UpstreamUnavailable
+    except Exception as exc:
         logger.error("Google Trends call %s failed: %s", operation, exc, exc_info=True)
         raise UpstreamUnavailable(operation) from exc
 
 
-async def cached_trends_response(cache_key: str, fetch_func, ttl: Optional[int] = None):
+async def cached_trends_response(cache_key: str, fetch_func, ttl: int | None = None):
     """Serve a Trends endpoint from cache, mapping upstream failure to 502.
 
     ``get_cached_or_fetch`` re-raises instead of caching when ``fetch_func``
@@ -284,7 +282,7 @@ def encode_trends_payload(operation: str, raw):
     """
     try:
         return jsonable_encoder(to_jsonable(raw))
-    except Exception as exc:  # noqa: BLE001 - re-raised as UpstreamUnavailable
+    except Exception as exc:
         logger.error(
             "Could not serialise Google Trends %s response: %s",
             operation, exc, exc_info=True,
@@ -370,13 +368,13 @@ async def get_trends_instance():
 @google_trends_router.get("/interest-over-time", summary="Interest Over Time")
 async def interest_over_time(
     # === REQUIRED ===
-    keywords: str = Query(..., description="Comma-separated keywords", example="python,javascript"),
+    keywords: str = Query(..., description="Comma-separated keywords", examples=["python,javascript"]),
     # === COMMONLY USED ===
     timeframe: str = Query("today 12-m", description="Time range: now 1-H, now 4-H, today 1-m, today 3-m, today 12-m"),
-    geo: Optional[str] = Query(None, description="Location code (US, US-NY, GB)", example="US"),
+    geo: str | None = Query(None, description="Location code (US, US-NY, GB)", examples=["US"]),
     # === FILTERS ===
-    cat: Optional[str] = Query(None, description="Category ID (e.g., 13=Computers)"),
-    gprop: Optional[str] = Query(None, description="Property: images, youtube, news, froogle"),
+    cat: str | None = Query(None, description="Category ID (e.g., 13=Computers)"),
+    gprop: str | None = Query(None, description="Property: images, youtube, news, froogle"),
     # === AUTH ===
     rate_limit: None = Depends(rate_limit)
 ):
@@ -429,13 +427,13 @@ async def interest_over_time(
 @google_trends_router.get("/interest-by-region", summary="Interest By Region")
 async def interest_by_region(
     # === REQUIRED ===
-    keyword: str = Query(..., description="Single keyword", example="python"),
+    keyword: str = Query(..., description="Single keyword", examples=["python"]),
     # === COMMONLY USED ===
-    geo: Optional[str] = Query(None, description="Location code (US, GB)", example="US"),
+    geo: str | None = Query(None, description="Location code (US, GB)", examples=["US"]),
     resolution: str = Query("COUNTRY", description="Detail level: COUNTRY, REGION, CITY, DMA"),
     timeframe: str = Query("today 12-m", description="Time range"),
     # === FILTERS ===
-    cat: Optional[str] = Query(None, description="Category ID"),
+    cat: str | None = Query(None, description="Category ID"),
     # === AUTH ===
     rate_limit: None = Depends(rate_limit)
 ):
@@ -483,13 +481,13 @@ async def interest_by_region(
 @google_trends_router.get("/related-queries", summary="Related Queries")
 async def related_queries(
     # === REQUIRED ===
-    keyword: str = Query(..., description="Single keyword", example="python"),
+    keyword: str = Query(..., description="Single keyword", examples=["python"]),
     # === COMMONLY USED ===
-    geo: Optional[str] = Query(None, description="Location code (US, GB)", example="US"),
+    geo: str | None = Query(None, description="Location code (US, GB)", examples=["US"]),
     timeframe: str = Query("today 12-m", description="Time range"),
     # === FILTERS ===
-    cat: Optional[str] = Query(None, description="Category ID"),
-    gprop: Optional[str] = Query(None, description="Property: images, youtube, news, froogle"),
+    cat: str | None = Query(None, description="Category ID"),
+    gprop: str | None = Query(None, description="Property: images, youtube, news, froogle"),
     # === AUTH ===
     rate_limit: None = Depends(rate_limit)
 ):
@@ -537,13 +535,13 @@ async def related_queries(
 @google_trends_router.get("/related-topics", summary="Related Topics")
 async def related_topics(
     # === REQUIRED ===
-    keyword: str = Query(..., description="Single keyword", example="python"),
+    keyword: str = Query(..., description="Single keyword", examples=["python"]),
     # === COMMONLY USED ===
-    geo: Optional[str] = Query(None, description="Location code (US, GB)", example="US"),
+    geo: str | None = Query(None, description="Location code (US, GB)", examples=["US"]),
     timeframe: str = Query("today 12-m", description="Time range"),
     # === FILTERS ===
-    cat: Optional[str] = Query(None, description="Category ID"),
-    gprop: Optional[str] = Query(None, description="Property: images, youtube, news, froogle"),
+    cat: str | None = Query(None, description="Category ID"),
+    gprop: str | None = Query(None, description="Property: images, youtube, news, froogle"),
     # === AUTH ===
     rate_limit: None = Depends(rate_limit)
 ):
@@ -591,7 +589,7 @@ async def related_topics(
 @google_trends_router.get("/trending-now", summary="Trending Now")
 async def trending_now(
     # === COMMONLY USED ===
-    geo: Optional[str] = Query("US", description="Location code (US, GB)", example="US"),
+    geo: str | None = Query("US", description="Location code (US, GB)", examples=["US"]),
     # === AUTH ===
     rate_limit: None = Depends(rate_limit)
 ):
@@ -632,7 +630,7 @@ async def trending_now(
 @google_trends_router.get("/trending-now-by-rss", summary="Trending Now (RSS)")
 async def trending_now_by_rss(
     # === COMMONLY USED ===
-    geo: Optional[str] = Query("US", description="Location code (US, GB)", example="US"),
+    geo: str | None = Query("US", description="Location code (US, GB)", examples=["US"]),
     # === AUTH ===
     rate_limit: None = Depends(rate_limit)
 ):
@@ -675,7 +673,7 @@ async def trending_now_news_by_ids(
     # === REQUIRED ===
     news_tokens: str = Query(..., description="Comma-separated news tokens from trending topic"),
     # === OPTIONS ===
-    max_news: int = Query(3, description="Max articles to retrieve", example=3),
+    max_news: int = Query(3, description="Max articles to retrieve", examples=[3]),
     # === AUTH ===
     rate_limit: None = Depends(rate_limit)
 ):
@@ -730,7 +728,7 @@ async def trending_now_news_by_ids(
 @google_trends_router.get("/trending-now-showcase-timeline", summary="Trending Timeline")
 async def trending_now_showcase_timeline(
     # === REQUIRED ===
-    keywords: str = Query(..., description="Comma-separated keywords", example="python,javascript"),
+    keywords: str = Query(..., description="Comma-separated keywords", examples=["python,javascript"]),
     timeframe: HumanFriendlyBatchPeriod = Query(..., description="Time range: past_4h, past_24h, past_48h, past_7d"),
     # === AUTH ===
     rate_limit: None = Depends(rate_limit)
@@ -793,8 +791,8 @@ async def trending_now_showcase_timeline(
 @google_trends_router.get("/categories", summary="Categories")
 async def get_categories(
     # === SEARCH OPTIONS ===
-    find: Optional[str] = Query(None, description="Search category names", example="tech"),
-    root: Optional[str] = Query(None, description="Root category ID for subcategories"),
+    find: str | None = Query(None, description="Search category names", examples=["tech"]),
+    root: str | None = Query(None, description="Root category ID for subcategories"),
     # === AUTH ===
     rate_limit: None = Depends(rate_limit)
 ):
@@ -836,7 +834,7 @@ async def get_categories(
 @google_trends_router.get("/geo", summary="Geolocations")
 async def get_geo(
     # === SEARCH OPTIONS ===
-    find: Optional[str] = Query(None, description="Search location names", example="york"),
+    find: str | None = Query(None, description="Search location names", examples=["york"]),
     # === AUTH ===
     rate_limit: None = Depends(rate_limit)
 ):

@@ -6,17 +6,14 @@ This module provides a FastAPI endpoint for accessing Google's Autocomplete API
 with support for all available parameters and output formats.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel, Field, field_validator
-from typing import Optional
-import asyncio
-import httpx
 import json
 import logging
 import time
 import xml.etree.ElementTree as ET
 from datetime import datetime
 
+from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, Field, field_validator
 
 from app.core.auth import get_api_key
 from app.core.cache_manager import generate_cache_key, get_cached_or_fetch
@@ -34,9 +31,9 @@ logging.basicConfig(level=logging.INFO)
 
 # Import enums from central schema
 from app.schemas.enums import (
-    OutputFormat,
     ClientType,
     DataSource,
+    OutputFormat,
     SafeSearch,
     SearchClient,
 )
@@ -53,84 +50,84 @@ class GoogleAutocompleteParams(BaseModel):
     # Core Parameters
     q: str = Field(..., description="Search query string (URL encoded)")
     output: OutputFormat = Field(
-        OutputFormat.TOOLBAR, 
+        OutputFormat.TOOLBAR,
         description="Response format (toolbar, firefox, chrome, etc.)"
     )
-    client: Optional[ClientType] = Field(
-        None, 
+    client: ClientType | None = Field(
+        None,
         description="Client identifier (firefox, chrome, safari, opera)"
     )
-    
+
     # Geographic & Language Parameters
     gl: str = Field(
-        "US", 
+        "US",
         description="Geographic location (country) using ISO country codes"
     )
     hl: str = Field(
-        "en", 
+        "en",
         description="Host language using ISO language codes"
     )
-    cr: Optional[str] = Field(
-        None, 
+    cr: str | None = Field(
+        None,
         description="Country restrict (e.g., countryUS, countryUK)"
     )
-    
+
     # Data Source Parameters
-    ds: Optional[DataSource] = Field(
-        None, 
+    ds: DataSource | None = Field(
+        None,
         description="Data source for suggestions (yt, i, n, s, v, b, p, etc.)"
     )
-    
+
     # Search Enhancement Parameters
-    spell: Optional[int] = Field(
-        1, 
+    spell: int | None = Field(
+        1,
         description="Enable spell correction (0=disabled, 1=enabled)"
     )
-    cp: Optional[int] = Field(
-        None, 
+    cp: int | None = Field(
+        None,
         description="Cursor position in query (character position)"
     )
-    gs_rn: Optional[int] = Field(
-        None, 
+    gs_rn: int | None = Field(
+        None,
         description="Request number for sequential numbering"
     )
-    gs_id: Optional[str] = Field(
-        None, 
+    gs_id: str | None = Field(
+        None,
         description="Session ID for tracking"
     )
-    
+
     # Response Parameters
-    callback: Optional[str] = Field(
-        None, 
+    callback: str | None = Field(
+        None,
         description="JSONP callback function name"
     )
-    jsonp: Optional[str] = Field(
-        None, 
+    jsonp: str | None = Field(
+        None,
         description="JSONP wrapper (alternative to callback)"
     )
-    
+
     # Advanced Parameters
-    psi: Optional[int] = Field(
-        None, 
+    psi: int | None = Field(
+        None,
         description="Personalized search (0=disabled, 1=enabled)"
     )
-    pq: Optional[str] = Field(
-        None, 
+    pq: str | None = Field(
+        None,
         description="Previous query for query refinement"
     )
-    complete: Optional[int] = Field(
-        None, 
+    complete: int | None = Field(
+        None,
         description="Completion type affecting completion logic"
     )
-    suggid: Optional[str] = Field(
-        None, 
+    suggid: str | None = Field(
+        None,
         description="Suggestion ID for internal tracking"
     )
-    gs_l: Optional[str] = Field(
-        None, 
+    gs_l: str | None = Field(
+        None,
         description="Google search location (internal parameter)"
     )
-    
+
     @field_validator('q')
     @classmethod
     def query_must_not_be_empty(cls, v: str) -> str:
@@ -171,44 +168,44 @@ router = APIRouter(tags=["Google Autocomplete API"])
 )
 async def get_autocomplete(
     # === ESSENTIAL (Required/Primary) ===
-    q: str = Query(..., min_length=1, description="Search query", example="python"),
+    q: str = Query(..., min_length=1, description="Search query", examples=["python"]),
     output: OutputFormat = Query(OutputFormat.TOOLBAR, description="Response format (chrome/firefox=JSON with metadata, toolbar/xml=basic XML)"),
-    gl: str = Query("US", description="Country code (ISO)", example="US"),
-    hl: str = Query("en", description="Language code (ISO)", example="en"),
-    ds: Optional[DataSource] = Query(None, description="Data source: yt=YouTube, i=Images, n=News, s=Shopping, b=Books, fin=Finance"),
-    variations: Optional[bool] = Query(False, description="Return keyword variations instead of raw suggestions"),
+    gl: str = Query("US", description="Country code (ISO)", examples=["US"]),
+    hl: str = Query("en", description="Language code (ISO)", examples=["en"]),
+    ds: DataSource | None = Query(None, description="Data source: yt=YouTube, i=Images, n=News, s=Shopping, b=Books, fin=Finance"),
+    variations: bool | None = Query(False, description="Return keyword variations instead of raw suggestions"),
     # === COMMONLY USED ===
-    client: Optional[ClientType] = Query(None, description="Client type (chrome, firefox, safari, opera)"),
-    safe: Optional[SafeSearch] = Query(None, description="SafeSearch filtering (active=filter, off=show all)"),
-    spell: Optional[int] = Query(None, description="Spell correction (0=off, 1=on)"),
+    client: ClientType | None = Query(None, description="Client type (chrome, firefox, safari, opera)"),
+    safe: SafeSearch | None = Query(None, description="SafeSearch filtering (active=filter, off=show all)"),
+    spell: int | None = Query(None, description="Spell correction (0=off, 1=on)"),
     # === GEOGRAPHIC/LANGUAGE ===
-    cr: Optional[str] = Query(None, description="Country restrict (e.g., countryUS)"),
-    lr: Optional[str] = Query(None, description="Language restrict (e.g., lang_en)"),
+    cr: str | None = Query(None, description="Country restrict (e.g., countryUS)"),
+    lr: str | None = Query(None, description="Language restrict (e.g., lang_en)"),
     # === PERSONALIZATION ===
-    psi: Optional[int] = Query(None, description="Personalized search (0=off, 1=on)"),
-    pws: Optional[int] = Query(None, description="Personalized web search (0=off, 1=on)"),
-    authuser: Optional[int] = Query(None, description="Google account index (0, 1, 2...)"),
+    psi: int | None = Query(None, description="Personalized search (0=off, 1=on)"),
+    pws: int | None = Query(None, description="Personalized web search (0=off, 1=on)"),
+    authuser: int | None = Query(None, description="Google account index (0, 1, 2...)"),
     # === CONTENT FILTERING ===
-    nfpr: Optional[int] = Query(None, description="Disable auto-correct (0=on, 1=off)"),
-    filter: Optional[int] = Query(None, description="Filter duplicates (0=off, 1=on)"),
+    nfpr: int | None = Query(None, description="Disable auto-correct (0=on, 1=off)"),
+    filter: int | None = Query(None, description="Filter duplicates (0=off, 1=on)"),
     # === RESPONSE FORMAT ===
-    callback: Optional[str] = Query(None, description="JSONP callback function name"),
-    jsonp: Optional[str] = Query(None, description="JSONP wrapper (alt to callback)"),
-    xssi: Optional[str] = Query(None, description="XSSI protection (t=on, f=off)"),
+    callback: str | None = Query(None, description="JSONP callback function name"),
+    jsonp: str | None = Query(None, description="JSONP wrapper (alt to callback)"),
+    xssi: str | None = Query(None, description="XSSI protection (t=on, f=off)"),
     # === ENCODING ===
-    ie: Optional[str] = Query("UTF-8", description="Input encoding"),
-    oe: Optional[str] = Query("UTF-8", description="Output encoding"),
+    ie: str | None = Query("UTF-8", description="Input encoding"),
+    oe: str | None = Query("UTF-8", description="Output encoding"),
     # === ADVANCED/ANALYTICS (rarely needed) ===
-    pq: Optional[str] = Query(None, description="Previous query for refinement"),
-    cp: Optional[int] = Query(None, description="Cursor position in query"),
-    complete: Optional[int] = Query(None, description="Completion type"),
-    oq: Optional[str] = Query(None, description="Original typed query"),
-    sclient: Optional[SearchClient] = Query(None, description="Search client ID"),
-    aqs: Optional[str] = Query(None, description="Assisted query stats"),
-    gs_rn: Optional[int] = Query(None, description="Request sequence number"),
-    gs_id: Optional[str] = Query(None, description="Session ID"),
-    suggid: Optional[str] = Query(None, description="Suggestion tracking ID"),
-    gs_l: Optional[str] = Query(None, description="Google location codes"),
+    pq: str | None = Query(None, description="Previous query for refinement"),
+    cp: int | None = Query(None, description="Cursor position in query"),
+    complete: int | None = Query(None, description="Completion type"),
+    oq: str | None = Query(None, description="Original typed query"),
+    sclient: SearchClient | None = Query(None, description="Search client ID"),
+    aqs: str | None = Query(None, description="Assisted query stats"),
+    gs_rn: int | None = Query(None, description="Request sequence number"),
+    gs_id: str | None = Query(None, description="Session ID"),
+    suggid: str | None = Query(None, description="Suggestion tracking ID"),
+    gs_l: str | None = Query(None, description="Google location codes"),
     # === AUTH ===
     api_key: str = Depends(get_api_key),
     rate_limit_check: None = Depends(rate_limit)
@@ -531,7 +528,7 @@ async def get_autocomplete(
                             # Unknown JSON format, return as is
                             return {"raw_response": data, "response_type": "json"}
                 except ValueError as e:
-                    logger.warning(f"JSON parsing failed, falling back to XML: {str(e)}")
+                    logger.warning(f"JSON parsing failed, falling back to XML: {e!s}")
                     # If client is specified but JSON parsing failed, log a warning about parameter conflict
                     if client is not None:
                         logger.warning(f"Parameter conflict: client={client.value} specified but response is not valid JSON")
@@ -555,7 +552,7 @@ async def get_autocomplete(
                                     suggestions.append(data)
                             return {"suggestions": suggestions}
                         except ET.ParseError as e:
-                            logger.error(f"XML Parse Error: {str(e)}")
+                            logger.error(f"XML Parse Error: {e!s}")
                             logger.error(f"Response content: {response_text[:500]}...")
                             raise HTTPException(
                                 status_code=500,
@@ -587,14 +584,14 @@ async def get_autocomplete(
                             suggestions.append(data)
                     return {"suggestions": suggestions}
                 except ET.ParseError as e:
-                    logger.warning(f"XML parsing failed, trying JSON: {str(e)}")
+                    logger.warning(f"XML parsing failed, trying JSON: {e!s}")
 
                     # Fall back to JSON parsing - try to parse response_text as JSON
                     try:
                         data = json.loads(response_text)
                         return {"raw_response": data}
                     except ValueError as e2:
-                        logger.error(f"Both XML and JSON parsing failed: {str(e2)}")
+                        logger.error(f"Both XML and JSON parsing failed: {e2!s}")
                         logger.error(f"Response content: {response_text[:500]}...")
                         raise HTTPException(
                             status_code=500,
@@ -605,5 +602,5 @@ async def get_autocomplete(
         return await get_cached_or_fetch(cache_key, fetch_autocomplete_suggestions)
 
     except Exception as e:
-        logger.error(f"Error in get_autocomplete: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
+        logger.error(f"Error in get_autocomplete: {e!s}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Internal Server Error: {e!s}")

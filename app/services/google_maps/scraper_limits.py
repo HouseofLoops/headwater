@@ -9,7 +9,8 @@ import asyncio
 import logging
 import os
 import weakref
-from typing import Optional, List, Any, Sequence, TypeVar
+from collections.abc import Sequence
+from typing import Any, TypeVar
 
 # Logs under the facade module's name so log routing and filters keyed on
 # ``app.services.google_maps_scraper`` are unaffected by the split.
@@ -62,7 +63,7 @@ _max_fanout = _env_int("GOOGLE_MAPS_MAX_FANOUT", DEFAULT_MAX_FANOUT)
 # Semaphores are per event loop: a single module-level Semaphore binds to the
 # first loop that awaits it, and reusing it from another loop (pytest creates
 # one per test, uvicorn one per worker) raises or silently fails to bound.
-_browser_semaphores: "weakref.WeakKeyDictionary[Any, asyncio.Semaphore]" = (
+_browser_semaphores: weakref.WeakKeyDictionary[Any, asyncio.Semaphore] = (
     weakref.WeakKeyDictionary()
 )
 
@@ -79,8 +80,8 @@ def get_max_fanout() -> int:
 
 def configure_limits(
     *,
-    max_concurrent_browsers: Optional[int] = None,
-    max_fanout: Optional[int] = None,
+    max_concurrent_browsers: int | None = None,
+    max_fanout: int | None = None,
 ) -> None:
     """Override the concurrency limits (startup configuration and tests).
 
@@ -109,7 +110,7 @@ def _browser_semaphore() -> asyncio.Semaphore:
     return sem
 
 
-def cap_fanout(items: Sequence[T], *, kind: str = "fan-out") -> List[T]:
+def cap_fanout(items: Sequence[T], *, kind: str = "fan-out") -> list[T]:
     """Clamp a fan-out list (grid points, bulk queries) to the hard ceiling.
 
     Callers that build a work list -- ``grid_search``, ``bulk_search`` -- must

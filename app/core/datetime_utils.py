@@ -4,13 +4,11 @@ Datetime formatting and parsing helpers.
 Split out of app.core.utils, which still re-exports every name here.
 """
 
-from typing import Optional
 import datetime
 
 
-
 def format_datetime(
-    dt: Optional[datetime.datetime] = None,
+    dt: datetime.datetime | None = None,
     format_str: str = "%Y-%m-%d %H:%M:%S"
 ) -> str:
     """
@@ -25,7 +23,7 @@ def format_datetime(
     """
     if dt is None:
         dt = datetime.datetime.now()
-    
+
     return dt.strftime(format_str)
 
 

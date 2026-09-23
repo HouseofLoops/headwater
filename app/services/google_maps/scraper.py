@@ -7,16 +7,16 @@ in via PlaceDetailsMixin.
 import asyncio
 import contextlib
 import logging
-from typing import Optional, List, Dict, Any
+from typing import Any
 
-from app.services.google_maps.scraper_limits import _browser_semaphore
 from app.services.google_maps.scraper_errors import (
     CORE_PLACE_FIELDS,
-    PlaceExtractionError,
     REQUIRED_PLACE_FIELDS,
+    PlaceExtractionError,
     ScraperError,
     SelectorsStaleError,
 )
+from app.services.google_maps.scraper_limits import _browser_semaphore
 from app.services.google_maps.scraper_place_details import PlaceDetailsMixin
 
 # Logs under the facade module's name so log routing and filters keyed on
@@ -38,7 +38,7 @@ class GoogleMapsScraper(PlaceDetailsMixin):
     MAPS_URL = "https://www.google.com/maps"
     SEARCH_URL = "https://www.google.com/maps/search/"
 
-    def __init__(self, proxy: Optional[str] = None, headless: bool = True):
+    def __init__(self, proxy: str | None = None, headless: bool = True):
         """
         Initialize the scraper.
 
@@ -50,7 +50,7 @@ class GoogleMapsScraper(PlaceDetailsMixin):
         self.headless = headless
         self._browser = None
         self._playwright = None
-        self._semaphore: Optional[asyncio.Semaphore] = None
+        self._semaphore: asyncio.Semaphore | None = None
         self._init_lock = asyncio.Lock()
         # Per-search extraction bookkeeping; see _assert_selectors_fresh.
         self._candidates = 0
@@ -58,10 +58,10 @@ class GoogleMapsScraper(PlaceDetailsMixin):
         self._attempted = 0
         self._extracted = 0
         self._partial = 0
-        self._required_misses: List[str] = []
+        self._required_misses: list[str] = []
 
     @contextlib.contextmanager
-    def _optional(self, misses: List[str], field_name: str):
+    def _optional(self, misses: list[str], field_name: str):
         """Run an optional-field extraction, recording rather than hiding misses.
 
         This replaces 23 bare ``except Exception: pass`` blocks. The behaviour
@@ -197,8 +197,8 @@ class GoogleMapsScraper(PlaceDetailsMixin):
         language: str = "en",
         max_results: int = 20,
         zoom: int = 15,
-        geo_coordinates: Optional[str] = None
-    ) -> List[Dict[str, Any]]:
+        geo_coordinates: str | None = None
+    ) -> list[dict[str, Any]]:
         """
         Search Google Maps for businesses.
 
@@ -223,7 +223,7 @@ class GoogleMapsScraper(PlaceDetailsMixin):
         self._attempted = 0
         self._extracted = 0
         self._partial = 0
-        self._required_misses: List[str] = []
+        self._required_misses: list[str] = []
 
         try:
             # Build search URL
@@ -389,7 +389,7 @@ class GoogleMapsScraper(PlaceDetailsMixin):
                 missing=list(CORE_PLACE_FIELDS),
             )
 
-    async def _extract_from_place_links(self, page, place_links, max_results: int) -> List[Dict[str, Any]]:
+    async def _extract_from_place_links(self, page, place_links, max_results: int) -> list[dict[str, Any]]:
         """Extract places from direct place links on the page."""
         results = []
         seen_names = set()
@@ -438,7 +438,7 @@ class GoogleMapsScraper(PlaceDetailsMixin):
 
         return results
 
-    async def _extract_search_results(self, page, max_results: int) -> List[Dict[str, Any]]:
+    async def _extract_search_results(self, page, max_results: int) -> list[dict[str, Any]]:
         """Extract places from search results list.
 
         Raises:

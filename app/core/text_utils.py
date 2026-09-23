@@ -4,11 +4,9 @@ String manipulation, identifier generation, and text validation/extraction helpe
 Split out of app.core.utils, which still re-exports every name here.
 """
 
-from typing import List
 import re
 import uuid
 from urllib.parse import urlparse
-
 
 
 def generate_uuid() -> str:
@@ -33,19 +31,19 @@ def slugify(text: str) -> str:
     """
     # Convert to lowercase
     text = text.lower()
-    
+
     # Remove non-alphanumeric characters
     text = re.sub(r'[^a-z0-9\s-]', '', text)
-    
+
     # Replace spaces with hyphens
     text = re.sub(r'\s+', '-', text)
-    
+
     # Remove consecutive hyphens
     text = re.sub(r'-+', '-', text)
-    
+
     # Remove leading and trailing hyphens
     text = text.strip('-')
-    
+
     return text
 
 
@@ -63,7 +61,7 @@ def truncate_string(text: str, max_length: int, suffix: str = "...") -> str:
     """
     if len(text) <= max_length:
         return text
-    
+
     return text[:max_length - len(suffix)] + suffix
 
 
@@ -154,12 +152,12 @@ def is_phone_number(text: str) -> bool:
     """
     # Remove non-digit characters
     digits = re.sub(r'\D', '', text)
-    
+
     # Check if the result has a valid length for a phone number
     return 7 <= len(digits) <= 15
 
 
-def extract_urls(text: str) -> List[str]:
+def extract_urls(text: str) -> list[str]:
     """
     Extract URLs from a string.
     
@@ -173,7 +171,7 @@ def extract_urls(text: str) -> List[str]:
     return re.findall(url_pattern, text)
 
 
-def extract_emails(text: str) -> List[str]:
+def extract_emails(text: str) -> list[str]:
     """
     Extract email addresses from a string.
     
@@ -187,7 +185,7 @@ def extract_emails(text: str) -> List[str]:
     return re.findall(email_pattern, text)
 
 
-def extract_hashtags(text: str) -> List[str]:
+def extract_hashtags(text: str) -> list[str]:
     """
     Extract hashtags from a string.
     
@@ -201,7 +199,7 @@ def extract_hashtags(text: str) -> List[str]:
     return re.findall(hashtag_pattern, text)
 
 
-def extract_mentions(text: str) -> List[str]:
+def extract_mentions(text: str) -> list[str]:
     """
     Extract mentions from a string.
     

@@ -9,14 +9,16 @@ SSRF sink.
 Moved verbatim out of app.api.google_news.google_news_api, which keeps the
 route handler and still re-exports every public name defined here.
 """
-import logging
 import asyncio
-import httpx
+import logging
 import os
-from app.core.proxy import get_proxy
+
+import httpx
+
 from app.core.constants import USER_AGENTS
+from app.core.proxy import get_proxy
 from app.core.url_guard import NEWS_ALLOWED_HOSTS, UrlNotAllowed, validate_outbound_url
-from typing import Tuple
+
 # nltk is OPTIONAL and is deliberately not in requirements.txt.
 #
 # nltk 3.10.3 carries PYSEC-2026-3740 / GHSA-8mgp-746c-j5xp (path traversal in
@@ -52,7 +54,7 @@ async def setup_nltk():
         nltk_data_dir = os.path.join(os.getcwd(), "nltk_data")
         os.makedirs(nltk_data_dir, exist_ok=True)
         nltk.data.path.insert(0, nltk_data_dir)
-        
+
         # Check if 'punkt_tab' is already downloaded
         try:
             nltk.data.find('tokenizers/punkt_tab')
@@ -62,14 +64,14 @@ async def setup_nltk():
             logger.info("NLTK 'punkt_tab' resource not found. Downloading...")
             nltk.download('punkt_tab', nltk_data_dir, quiet=True)
             logger.info("NLTK 'punkt_tab' resource downloaded successfully.")
-            
+
         # Also download 'punkt' as fallback
         try:
             nltk.data.find('tokenizers/punkt')
         except LookupError:
             logger.info("Downloading fallback 'punkt' resource...")
             nltk.download('punkt', nltk_data_dir, quiet=True)
-            
+
     except Exception as e:
         # Handle any other exceptions during NLTK setup
         logger.error(f"An error occurred during NLTK setup: {e}")
@@ -98,13 +100,13 @@ async def ensure_nltk_setup():
 # of publisher hosts (a leading dot matches subdomains, e.g. ".bbc.co.uk").
 # Until they do, only Google News itself is reachable.
 # -----------------------------------------------------------------------------
-def _configured_article_hosts() -> Tuple[str, ...]:
+def _configured_article_hosts() -> tuple[str, ...]:
     """Read the operator-supplied publisher allow-list from the environment."""
     raw = os.environ.get("NEWS_ARTICLE_ALLOWED_HOSTS", "")
     return tuple(entry.strip().lower() for entry in raw.split(",") if entry.strip())
 
 
-ARTICLE_DETAILS_ALLOWED_HOSTS: Tuple[str, ...] = (
+ARTICLE_DETAILS_ALLOWED_HOSTS: tuple[str, ...] = (
     NEWS_ALLOWED_HOSTS + _configured_article_hosts()
 )
 
@@ -144,7 +146,7 @@ def validate_article_url(raw_url: str):
     )
 
 
-async def fetch_allow_listed_html(validated_url: str) -> Tuple[str, str]:
+async def fetch_allow_listed_html(validated_url: str) -> tuple[str, str]:
     """Fetch ``validated_url``, re-validating every redirect it is sent on.
 
     Validating once and then handing the URL to a library that follows

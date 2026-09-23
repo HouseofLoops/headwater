@@ -8,7 +8,6 @@ which was ever declared in any requirements file -- and it ``await``-ed
 ``app/core/database.py`` and the check were deleted; these tests fail loudly
 if either is reintroduced.
 """
-import asyncio
 import importlib
 import pathlib
 

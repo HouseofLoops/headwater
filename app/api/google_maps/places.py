@@ -6,7 +6,6 @@ declared here are relative to the ``/google-maps`` prefix applied there.
 """
 import logging
 from datetime import datetime
-from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
 
@@ -19,9 +18,9 @@ from app.api.google_maps.schemas import (
     PlaceLookupRequest,
 )
 from app.core.auth import get_api_key
+from app.core.log_safety import scrub
 from app.core.rate_limiter import rate_limit
 from app.services.google_maps_service import google_maps_service
-from app.core.log_safety import scrub
 
 logger = logging.getLogger(__name__)
 
@@ -126,7 +125,7 @@ async def get_place_reviews(
     sort_by: str = Query("most_relevant", description="Sort order"),
     limit: int = Query(50, ge=1, le=200, description="Number of reviews"),
     offset: int = Query(0, ge=0, description="Pagination offset"),
-    min_rating: Optional[int] = Query(None, ge=1, le=5, description="Minimum rating filter"),
+    min_rating: int | None = Query(None, ge=1, le=5, description="Minimum rating filter"),
     include_owner_responses: bool = Query(True, description="Include owner responses"),
     api_key: str = Depends(get_api_key),
     rate_limit_check: None = Depends(rate_limit)
@@ -191,7 +190,7 @@ async def get_place_photos(
     place_id: str = Path(..., description="Place ID"),
     max_photos: int = Query(20, ge=1, le=100, description="Maximum photos"),
     size: str = Query("large", description="Photo size (thumbnail, medium, large, original)"),
-    category: Optional[str] = Query(None, description="Photo category filter"),
+    category: str | None = Query(None, description="Photo category filter"),
     api_key: str = Depends(get_api_key),
     rate_limit_check: None = Depends(rate_limit)
 ):
@@ -395,9 +394,9 @@ async def get_place_attributes(
 )
 async def get_place_history(
     place_id: str = Path(..., description="Place ID"),
-    field: Optional[str] = Query(None, description="Specific field to get history for"),
-    start_date: Optional[str] = Query(None, description="Start date (YYYY-MM-DD)"),
-    end_date: Optional[str] = Query(None, description="End date (YYYY-MM-DD)"),
+    field: str | None = Query(None, description="Specific field to get history for"),
+    start_date: str | None = Query(None, description="Start date (YYYY-MM-DD)"),
+    end_date: str | None = Query(None, description="End date (YYYY-MM-DD)"),
     api_key: str = Depends(get_api_key),
     rate_limit_check: None = Depends(rate_limit)
 ):

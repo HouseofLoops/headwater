@@ -1,10 +1,10 @@
 """
 Directions scraping for GoogleMapsService.
 """
-import logging
 import asyncio
-from typing import Optional, List, Dict, Any, Tuple
+import logging
 from datetime import datetime
+from typing import Any
 
 from app.core.proxy import ENABLE_PROXY, proxy_for
 from app.services.google_maps.constants import GOOGLE_MAPS_HOST
@@ -48,7 +48,7 @@ class DirectionsMixin:
     }
 
     @staticmethod
-    def _format_duration(seconds: Optional[int]) -> Optional[str]:
+    def _format_duration(seconds: int | None) -> str | None:
         """Render a duration in seconds as '1 hr 24 min'."""
         if not seconds:
             return None
@@ -61,7 +61,7 @@ class DirectionsMixin:
         return f"{minutes} min"
 
     @staticmethod
-    def _parse_duration(text: str) -> Optional[int]:
+    def _parse_duration(text: str) -> int | None:
         """Parse '1 hr 24 min' / '35 min' / '2 h' into seconds, or None."""
         import re
 
@@ -80,7 +80,7 @@ class DirectionsMixin:
         return total or None
 
     @classmethod
-    def _parse_distance(cls, text: str) -> Optional[Tuple[str, float]]:
+    def _parse_distance(cls, text: str) -> tuple[str, float] | None:
         """Parse '12.4 km' / '850 m' / '3.1 mi' into (label, metres), or None."""
         import re
 
@@ -102,7 +102,7 @@ class DirectionsMixin:
         return match.group(0).strip(), value * factor
 
     @classmethod
-    def _parse_route_card(cls, text: str) -> Optional[Dict[str, Any]]:
+    def _parse_route_card(cls, text: str) -> dict[str, Any] | None:
         """Turn a route card's rendered text into a route, or None if it is not one.
 
         Returns None when neither a duration nor a distance is present, which
@@ -134,7 +134,7 @@ class DirectionsMixin:
             "duration_seconds": duration_seconds,
         }
 
-    async def _extract_direction_routes(self, page, max_routes: int) -> List[Dict[str, Any]]:
+    async def _extract_direction_routes(self, page, max_routes: int) -> list[dict[str, Any]]:
         """Read the route cards Google rendered. Empty list means none were found."""
         nodes = []
         for selector in self._ROUTE_SELECTORS:
@@ -142,7 +142,7 @@ class DirectionsMixin:
             if nodes:
                 break
 
-        routes: List[Dict[str, Any]] = []
+        routes: list[dict[str, Any]] = []
         for node in nodes[:max_routes]:
             text = await node.inner_text()
             parsed = self._parse_route_card(text or "")
@@ -150,7 +150,7 @@ class DirectionsMixin:
                 routes.append(parsed)
         return routes
 
-    async def _extract_direction_steps(self, page) -> Optional[List[Dict[str, Any]]]:
+    async def _extract_direction_steps(self, page) -> list[dict[str, Any]] | None:
         """Read the turn-by-turn steps, or None if Google did not render any.
 
         None and ``[]`` mean different things and are kept apart: None is "the
@@ -165,7 +165,7 @@ class DirectionsMixin:
         if not nodes:
             return None
 
-        steps: List[Dict[str, Any]] = []
+        steps: list[dict[str, Any]] = []
         for node in nodes:
             text = (await node.inner_text()) or ""
             instruction = " ".join(text.split())
@@ -190,8 +190,8 @@ class DirectionsMixin:
         destination_lng: float,
         mode: str = "driving",
         alternatives: bool = False,
-        avoid: Optional[List[str]] = None
-    ) -> Dict[str, Any]:
+        avoid: list[str] | None = None
+    ) -> dict[str, Any]:
         """
         Get directions by scraping the Google Maps directions pane.
 

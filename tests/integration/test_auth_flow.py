@@ -4,9 +4,10 @@ Integration tests for authentication flow.
 These tests verify the API key authentication works correctly
 across the application.
 """
+import os
+
 import pytest
 from fastapi.testclient import TestClient
-import os
 
 
 @pytest.fixture
@@ -64,6 +65,7 @@ def _attach_probe(app):
     keep them off the network at the same time.
     """
     from fastapi import Depends
+
     from app.core.auth import get_api_key
 
     @app.get(PROTECTED_PROBE)

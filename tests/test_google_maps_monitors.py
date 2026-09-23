@@ -30,7 +30,6 @@ import pytest
 from app.services import google_maps_monitors as monitors
 from app.services.record_store import RecordStore
 
-
 # --------------------------------------------------------------------------
 # Offline doubles
 # --------------------------------------------------------------------------

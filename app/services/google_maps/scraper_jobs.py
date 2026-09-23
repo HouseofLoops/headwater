@@ -1,12 +1,13 @@
 """
 Scrape job model and the owner-scoped job store.
 """
-from typing import Optional, List, Dict, Any
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
-from dataclasses import dataclass, field, asdict
 from enum import Enum
+from typing import Any
 
 from app.services.record_store import RecordStore, get_record_store
+
 #: Namespace for scrape jobs in the owner-scoped record store.
 JOB_NAMESPACE = "maps:jobs"
 
@@ -35,9 +36,9 @@ class ScrapeJob:
     owner: str = ""
     status: JobStatus = JobStatus.PENDING
     created_at: datetime = field(default_factory=datetime.now)
-    completed_at: Optional[datetime] = None
-    results: List[Dict[str, Any]] = field(default_factory=list)
-    error: Optional[str] = None
+    completed_at: datetime | None = None
+    results: list[dict[str, Any]] = field(default_factory=list)
+    error: str | None = None
     #: True when the job failed because Google's markup changed rather than
     #: because of a transient error; routers should surface this as 503.
     selectors_stale: bool = False
@@ -53,10 +54,10 @@ class ScrapeJob:
     language: str = "en"
     max_results: int = 20
     zoom: int = 15
-    geo_coordinates: Optional[str] = None
+    geo_coordinates: str | None = None
     email_extraction: bool = False
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for API responses."""
         return {
             "id": self.id,
@@ -83,7 +84,7 @@ class ScrapeJob:
             }
         }
 
-    def to_record(self) -> Dict[str, Any]:
+    def to_record(self) -> dict[str, Any]:
         """Full, lossless payload for the record store.
 
         Distinct from :meth:`to_dict`, which is the lossy gosom-compatible API
@@ -100,7 +101,7 @@ class ScrapeJob:
         return payload
 
     @classmethod
-    def from_record(cls, payload: Dict[str, Any]) -> "ScrapeJob":
+    def from_record(cls, payload: dict[str, Any]) -> ScrapeJob:
         """Rebuild a job from :meth:`to_record` output."""
         data = dict(payload)
         data["status"] = JobStatus(data.get("status", JobStatus.PENDING.value))
@@ -131,7 +132,7 @@ class JobStore:
     store keeps the equivalent locking for its own memory backend.
     """
 
-    def __init__(self, store: Optional[RecordStore] = None) -> None:
+    def __init__(self, store: RecordStore | None = None) -> None:
         self._store = store if store is not None else get_record_store(JOB_NAMESPACE)
 
     @staticmethod
@@ -153,7 +154,7 @@ class JobStore:
         await self._store.put(owner, job.id, job.to_record())
         return job
 
-    async def get(self, owner: str, job_id: str) -> Optional[ScrapeJob]:
+    async def get(self, owner: str, job_id: str) -> ScrapeJob | None:
         """Return the job only if ``owner`` owns it, else None.
 
         A job belonging to someone else is indistinguishable from one that does
@@ -177,14 +178,14 @@ class JobStore:
     async def list_for_owner(
         self,
         owner: str,
-        status: Optional[str] = None,
+        status: str | None = None,
         limit: int = 50,
         offset: int = 0,
-    ) -> List[ScrapeJob]:
+    ) -> list[ScrapeJob]:
         """List ``owner``'s jobs, newest first, optionally filtered by status."""
         predicate = None
         if status:
-            predicate = lambda record: record.data.get("status") == status  # noqa: E731
+            predicate = lambda record: record.data.get("status") == status
         records = await self._store.list_for_owner(
             owner, limit=limit, offset=offset, predicate=predicate
         )

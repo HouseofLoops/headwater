@@ -6,7 +6,6 @@ to prevent duplication and ensure consistency.
 """
 from enum import Enum, IntEnum
 
-
 # =============================================================================
 # Google Trends Enums
 # =============================================================================

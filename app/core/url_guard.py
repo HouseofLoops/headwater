@@ -45,16 +45,16 @@ from __future__ import annotations
 
 import ipaddress
 import socket
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
-from typing import Iterable, Sequence
 from urllib.parse import urlsplit, urlunsplit
 
 __all__ = [
+    "MAPS_ALLOWED_HOSTS",
+    "NEWS_ALLOWED_HOSTS",
     "UrlNotAllowed",
     "ValidatedUrl",
     "validate_outbound_url",
-    "NEWS_ALLOWED_HOSTS",
-    "MAPS_ALLOWED_HOSTS",
 ]
 
 

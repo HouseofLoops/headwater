@@ -4,11 +4,11 @@ Custom exceptions and error handling utilities.
 This module provides custom exception classes and utilities for
 standardized error handling across the application.
 """
-from fastapi import HTTPException, Request, status
-from fastapi.responses import JSONResponse
-from typing import Any, Dict, List, Optional, Type, Union
-import traceback
 import logging
+from typing import Any
+
+from fastapi import HTTPException, Request
+from fastapi.responses import JSONResponse
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -25,15 +25,15 @@ class HeadwaterException(Exception):
     detail: str = "An unexpected error occurred"
     error_type: str = "server_error"
     title: str = "Internal Server Error"
-    headers: Optional[Dict[str, str]] = None
-    
+    headers: dict[str, str] | None = None
+
     def __init__(
         self,
-        detail: Optional[str] = None,
-        status_code: Optional[int] = None,
-        error_type: Optional[str] = None,
-        title: Optional[str] = None,
-        headers: Optional[Dict[str, str]] = None,
+        detail: str | None = None,
+        status_code: int | None = None,
+        error_type: str | None = None,
+        title: str | None = None,
+        headers: dict[str, str] | None = None,
         **kwargs
     ):
         """
@@ -53,14 +53,14 @@ class HeadwaterException(Exception):
         self.title = title or self.title
         self.headers = headers or self.headers or {}
         self.extra = kwargs
-        
+
         # Set Content-Type header for RFC7807
         if "Content-Type" not in self.headers:
             self.headers["Content-Type"] = "application/problem+json"
-        
+
         super().__init__(self.detail)
-    
-    def to_dict(self) -> Dict[str, Any]:
+
+    def to_dict(self) -> dict[str, Any]:
         """
         Convert the exception to a dictionary for the response.
         
@@ -73,10 +73,10 @@ class HeadwaterException(Exception):
             "status": self.status_code,
             "detail": self.detail
         }
-        
+
         # Add any additional fields
         error_dict.update(self.extra)
-        
+
         return error_dict
 
 
@@ -110,7 +110,7 @@ class AuthenticationError(HeadwaterException):
     detail = "Authentication required"
     error_type = "authentication_error"
     title = "Unauthorized"
-    
+
     def __init__(self, *args, **kwargs):
         """Initialize with WWW-Authenticate header."""
         super().__init__(*args, **kwargs)
@@ -222,7 +222,7 @@ async def headwater_exception_handler(
             "path": request.url.path
         }
     )
-    
+
     # Return RFC7807 response
     return JSONResponse(
         status_code=exc.status_code,
@@ -257,11 +257,11 @@ async def http_exception_handler(
         500: ("server_error", "Internal Server Error"),
         503: ("service_unavailable", "Service Unavailable")
     }
-    
+
     error_type, title = error_types.get(
         exc.status_code, ("error", f"HTTP Error {exc.status_code}")
     )
-    
+
     # Create RFC7807 response
     content = {
         "type": f"https://headwater.com/problems/{error_type}",
@@ -269,12 +269,12 @@ async def http_exception_handler(
         "status": exc.status_code,
         "detail": str(exc.detail)
     }
-    
+
     # Set headers
     headers = exc.headers or {}
     if "Content-Type" not in headers:
         headers["Content-Type"] = "application/problem+json"
-    
+
     # Log the exception
     logger.error(
         f"HTTPException: {exc.detail}",
@@ -283,7 +283,7 @@ async def http_exception_handler(
             "path": request.url.path
         }
     )
-    
+
     return JSONResponse(
         status_code=exc.status_code,
         content=content,
@@ -307,10 +307,10 @@ async def unhandled_exception_handler(
     """
     # Log the exception with traceback
     logger.exception(
-        f"Unhandled exception: {str(exc)}",
+        f"Unhandled exception: {exc!s}",
         extra={"path": request.url.path}
     )
-    
+
     # Create RFC7807 response
     content = {
         "type": "https://headwater.com/problems/server_error",
@@ -318,7 +318,7 @@ async def unhandled_exception_handler(
         "status": 500,
         "detail": "An unexpected error occurred"
     }
-    
+
     return JSONResponse(
         status_code=500,
         content=content,
@@ -366,7 +366,7 @@ def raise_not_found(resource: str, identifier: Any = None) -> None:
     raise NotFoundError(detail=detail)
 
 
-def raise_validation_error(message: str, field: Optional[str] = None) -> None:
+def raise_validation_error(message: str, field: str | None = None) -> None:
     """Raise a ValidationError with optional field information."""
     extra = {"field": field} if field else {}
     raise ValidationError(detail=message, **extra)
@@ -413,8 +413,12 @@ def handle_external_service_error(
         Appropriate HeadwaterException subclass
     """
     from requests.exceptions import (
-        ProxyError as RequestsProxyError,
         ConnectionError as RequestsConnectionError,
+    )
+    from requests.exceptions import (
+        ProxyError as RequestsProxyError,
+    )
+    from requests.exceptions import (
         Timeout as RequestsTimeout,
     )
 

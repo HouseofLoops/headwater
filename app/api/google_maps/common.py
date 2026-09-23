@@ -6,16 +6,17 @@ oracle, and the validator that decides which caller-supplied URLs may be
 fetched at all.
 """
 import logging
-from typing import Any, Callable, Dict, List, Optional
+from collections.abc import Callable
+from typing import Any
 
 from fastapi import HTTPException, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
 
+from app.core.log_safety import scrub
 from app.core.url_guard import MAPS_ALLOWED_HOSTS, UrlNotAllowed, validate_outbound_url
 from app.services.google_maps_service import google_maps_service
-from app.core.log_safety import scrub
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +59,7 @@ NOT_FOUND_DETAIL = "Not found."
 _PASSTHROUGH_STATUS_CODES = frozenset({400, 404})
 
 
-def upstream_error(result: Dict[str, Any], fallback: str) -> HTTPException:
+def upstream_error(result: dict[str, Any], fallback: str) -> HTTPException:
     """Build the HTTP error for a service call that reported failure.
 
     The service layer puts ``str(exc)`` into ``result["message"]``, so passing
@@ -83,7 +84,7 @@ def upstream_error(result: Dict[str, Any], fallback: str) -> HTTPException:
     return HTTPException(status_code=status_code, detail=detail)
 
 
-def places_from_result(result: Dict[str, Any], context: str) -> List[Dict[str, Any]]:
+def places_from_result(result: dict[str, Any], context: str) -> list[dict[str, Any]]:
     """Extract the place list from a service result, or fail loudly.
 
     The previous code did ``places = [] if not isinstance(raw, list)``, which
@@ -111,7 +112,7 @@ def places_from_result(result: Dict[str, Any], context: str) -> List[Dict[str, A
     return google_maps_service.process_place_data(raw_places)
 
 
-def validate_maps_url(value: Optional[str]) -> Optional[str]:
+def validate_maps_url(value: str | None) -> str | None:
     """Return ``value`` normalised, or raise if it is not a fetchable Maps URL.
 
     Shared by every request model with a caller-supplied URL that ends up in

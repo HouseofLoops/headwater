@@ -4,10 +4,10 @@ Integration tests for API endpoints.
 These tests verify the API endpoints work correctly with the full
 application stack, using minimal mocking.
 """
+import os
+
 import pytest
 from fastapi.testclient import TestClient
-from unittest.mock import patch, MagicMock
-import os
 
 
 @pytest.fixture

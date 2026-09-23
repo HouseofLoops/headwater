@@ -6,7 +6,7 @@ competitor analysis -- everything that fans out over ``search_and_wait``.
 """
 import logging
 import math
-from typing import Optional, List, Dict, Any, Tuple
+from typing import Any
 
 from app.core.log_safety import scrub
 
@@ -22,11 +22,11 @@ class AreaSearchMixin:
         latitude: float,
         longitude: float,
         radius_meters: int = 1000,
-        query: Optional[str] = None,
+        query: str | None = None,
         language: str = "en",
         max_results: int = 20,
-        timeout: Optional[int] = None
-    ) -> Dict[str, Any]:
+        timeout: int | None = None
+    ) -> dict[str, Any]:
         """
         Search for places near a location.
 
@@ -96,7 +96,7 @@ class AreaSearchMixin:
         center_lng: float,
         radius_km: float,
         grid_size: int = 5
-    ) -> List[Tuple[float, float]]:
+    ) -> list[tuple[float, float]]:
         """
         Generate a grid of coordinates around a center point.
 
@@ -144,8 +144,8 @@ class AreaSearchMixin:
         grid_size: int = 5,
         max_results_per_point: int = 10,
         language: str = "en",
-        timeout: Optional[int] = None
-    ) -> Dict[str, Any]:
+        timeout: int | None = None
+    ) -> dict[str, Any]:
         """
         Search across a grid of coordinates for comprehensive area coverage.
 
@@ -287,8 +287,8 @@ class AreaSearchMixin:
         grid_density: int = 5,
         max_results_per_point: int = 10,
         language: str = "en",
-        timeout: Optional[int] = None
-    ) -> Dict[str, Any]:
+        timeout: int | None = None
+    ) -> dict[str, Any]:
         """
         Search within a bounding box by creating a grid.
 
@@ -343,8 +343,8 @@ class AreaSearchMixin:
         grid_size: int = 5,
         max_results_per_point: int = 10,
         language: str = "en",
-        timeout: Optional[int] = None
-    ) -> Dict[str, Any]:
+        timeout: int | None = None
+    ) -> dict[str, Any]:
         """
         Search using a location name instead of coordinates.
 
@@ -408,10 +408,10 @@ class AreaSearchMixin:
 
     async def bulk_search(
         self,
-        queries: List[str],
+        queries: list[str],
         language: str = "en",
         max_results_per_query: int = 10
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Execute multiple search queries.
 
@@ -483,7 +483,7 @@ class AreaSearchMixin:
         category: str,
         radius_meters: int = 2000,
         max_competitors: int = 10
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Find and analyze competitors in an area.
         """

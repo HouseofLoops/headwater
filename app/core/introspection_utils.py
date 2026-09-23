@@ -4,15 +4,15 @@ Enum, function/class introspection, and dynamic import helpers.
 Split out of app.core.utils, which still re-exports every name here.
 """
 
-from typing import Any, Dict, List, Union, Callable
+import importlib
 import inspect
+from collections.abc import Callable
 from enum import Enum
 from pathlib import Path
-import importlib
+from typing import Any, Union
 
 
-
-def get_enum_values(enum_class: type) -> List[Any]:
+def get_enum_values(enum_class: type) -> list[Any]:
     """
     Get the values of an Enum class.
     
@@ -24,11 +24,11 @@ def get_enum_values(enum_class: type) -> List[Any]:
     """
     if not issubclass(enum_class, Enum):
         raise TypeError(f"{enum_class.__name__} is not an Enum class")
-    
+
     return [item.value for item in enum_class]
 
 
-def get_enum_names(enum_class: type) -> List[str]:
+def get_enum_names(enum_class: type) -> list[str]:
     """
     Get the names of an Enum class.
     
@@ -40,11 +40,11 @@ def get_enum_names(enum_class: type) -> List[str]:
     """
     if not issubclass(enum_class, Enum):
         raise TypeError(f"{enum_class.__name__} is not an Enum class")
-    
+
     return [item.name for item in enum_class]
 
 
-def get_enum_dict(enum_class: type) -> Dict[str, Any]:
+def get_enum_dict(enum_class: type) -> dict[str, Any]:
     """
     Get a dictionary of an Enum class.
     
@@ -56,11 +56,11 @@ def get_enum_dict(enum_class: type) -> Dict[str, Any]:
     """
     if not issubclass(enum_class, Enum):
         raise TypeError(f"{enum_class.__name__} is not an Enum class")
-    
+
     return {item.name: item.value for item in enum_class}
 
 
-def get_function_args(func: Callable) -> List[str]:
+def get_function_args(func: Callable) -> list[str]:
     """
     Get the argument names of a function.
     
@@ -73,7 +73,7 @@ def get_function_args(func: Callable) -> List[str]:
     return list(inspect.signature(func).parameters.keys())
 
 
-def get_function_defaults(func: Callable) -> Dict[str, Any]:
+def get_function_defaults(func: Callable) -> dict[str, Any]:
     """
     Get the default values of a function's arguments.
     
@@ -91,7 +91,7 @@ def get_function_defaults(func: Callable) -> Dict[str, Any]:
     }
 
 
-def get_class_methods(cls: type) -> List[str]:
+def get_class_methods(cls: type) -> list[str]:
     """
     Get the method names of a class.
     
@@ -107,7 +107,7 @@ def get_class_methods(cls: type) -> List[str]:
     ]
 
 
-def get_subclasses(cls: type) -> List[type]:
+def get_subclasses(cls: type) -> list[type]:
     """
     Get all subclasses of a class.
     
@@ -118,11 +118,11 @@ def get_subclasses(cls: type) -> List[type]:
         List[type]: List of subclasses
     """
     subclasses = []
-    
+
     for subclass in cls.__subclasses__():
         subclasses.append(subclass)
         subclasses.extend(get_subclasses(subclass))
-    
+
     return subclasses
 
 
@@ -144,19 +144,19 @@ def import_string(dotted_path: str) -> Any:
         module_path, class_name = dotted_path.rsplit('.', 1)
     except ValueError as e:
         raise ImportError(f"{dotted_path} doesn't look like a module path") from e
-    
+
     try:
         module = importlib.import_module(module_path)
     except ImportError as e:
         raise ImportError(f"Could not import {module_path}") from e
-    
+
     try:
         return getattr(module, class_name)
     except AttributeError as e:
         raise ImportError(f"Module {module_path} does not define a {class_name} attribute/class") from e
 
 
-def find_modules(directory: Union[str, Path], recursive: bool = True) -> List[str]:
+def find_modules(directory: Union[str, Path], recursive: bool = True) -> list[str]:
     """
     Find all Python modules in a directory.
     
@@ -169,7 +169,7 @@ def find_modules(directory: Union[str, Path], recursive: bool = True) -> List[st
     """
     directory = Path(directory)
     modules = []
-    
+
     for item in directory.iterdir():
         if item.is_file() and item.suffix == '.py' and item.name != '__init__.py':
             modules.append(item.stem)
@@ -177,5 +177,5 @@ def find_modules(directory: Union[str, Path], recursive: bool = True) -> List[st
             # It's a package
             sub_modules = find_modules(item, recursive)
             modules.extend(f"{item.name}.{sub_module}" for sub_module in sub_modules)
-    
+
     return modules

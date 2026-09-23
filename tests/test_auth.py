@@ -13,22 +13,21 @@ so these tests exercise that instead.
 """
 
 import os
-import pytest
 from unittest.mock import patch
+
+import pytest
 
 import app.core.auth
 from app.core.auth import (
+    _auth_snapshot,
     # Objects
     api_key_header,
-
+    authenticate_api_key,
+    get_api_key_metadata,
+    get_current_api_key,
+    initialize_api_keys,
     # Functions
     validate_api_key,
-    get_api_key_metadata,
-    initialize_api_keys,
-    authenticate_api_key,
-    get_current_api_key,
-
-    _auth_snapshot,
 )
 from app.core.config import Settings, get_settings
 

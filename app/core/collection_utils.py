@@ -4,14 +4,14 @@ Dict and list manipulation helpers (merge, flatten, deep access, chunking).
 Split out of app.core.utils, which still re-exports every name here.
 """
 
-from typing import Any, Dict, List, Union, TypeVar, Callable
-
+from collections.abc import Callable
+from typing import Any, TypeVar, Union
 
 # Type variable for generic functions
 T = TypeVar('T')
 
 
-def merge_dicts(dict1: Dict[str, Any], dict2: Dict[str, Any]) -> Dict[str, Any]:
+def merge_dicts(dict1: dict[str, Any], dict2: dict[str, Any]) -> dict[str, Any]:
     """
     Merge two dictionaries recursively.
     
@@ -23,21 +23,21 @@ def merge_dicts(dict1: Dict[str, Any], dict2: Dict[str, Any]) -> Dict[str, Any]:
         Dict[str, Any]: Merged dictionary
     """
     result = dict1.copy()
-    
+
     for key, value in dict2.items():
         if key in result and isinstance(result[key], dict) and isinstance(value, dict):
             result[key] = merge_dicts(result[key], value)
         else:
             result[key] = value
-    
+
     return result
 
 
 def flatten_dict(
-    d: Dict[str, Any],
+    d: dict[str, Any],
     parent_key: str = '',
     separator: str = '.'
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Flatten a nested dictionary.
     
@@ -50,22 +50,22 @@ def flatten_dict(
         Dict[str, Any]: Flattened dictionary
     """
     items = []
-    
+
     for k, v in d.items():
         new_key = f"{parent_key}{separator}{k}" if parent_key else k
-        
+
         if isinstance(v, dict):
             items.extend(flatten_dict(v, new_key, separator).items())
         else:
             items.append((new_key, v))
-    
+
     return dict(items)
 
 
 def unflatten_dict(
-    d: Dict[str, Any],
+    d: dict[str, Any],
     separator: str = '.'
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Unflatten a flattened dictionary.
     
@@ -77,29 +77,29 @@ def unflatten_dict(
         Dict[str, Any]: Unflattened dictionary
     """
     result = {}
-    
+
     for key, value in d.items():
         parts = key.split(separator)
-        
+
         # Start with the result dictionary
         current = result
-        
+
         # Navigate through the parts
         for part in parts[:-1]:
             # Create nested dictionaries as needed
             if part not in current:
                 current[part] = {}
             current = current[part]
-        
+
         # Set the value at the final part
         current[parts[-1]] = value
-    
+
     return result
 
 
 def deep_get(
-    d: Dict[str, Any],
-    keys: Union[str, List[str]],
+    d: dict[str, Any],
+    keys: Union[str, list[str]],
     default: Any = None,
     separator: str = '.'
 ) -> Any:
@@ -117,23 +117,23 @@ def deep_get(
     """
     if isinstance(keys, str):
         keys = keys.split(separator)
-    
+
     current = d
-    
+
     for key in keys:
         if not isinstance(current, dict) or key not in current:
             return default
         current = current[key]
-    
+
     return current
 
 
 def deep_set(
-    d: Dict[str, Any],
-    keys: Union[str, List[str]],
+    d: dict[str, Any],
+    keys: Union[str, list[str]],
     value: Any,
     separator: str = '.'
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Set a value in a nested dictionary using a dotted path.
     
@@ -148,20 +148,20 @@ def deep_set(
     """
     if isinstance(keys, str):
         keys = keys.split(separator)
-    
+
     current = d
-    
+
     for key in keys[:-1]:
         if key not in current or not isinstance(current[key], dict):
             current[key] = {}
         current = current[key]
-    
+
     current[keys[-1]] = value
-    
+
     return d
 
 
-def chunks(lst: List[T], n: int) -> List[List[T]]:
+def chunks(lst: list[T], n: int) -> list[list[T]]:
     """
     Split a list into chunks of size n.
     
@@ -176,10 +176,10 @@ def chunks(lst: List[T], n: int) -> List[List[T]]:
 
 
 def batch_process(
-    items: List[T],
-    process_func: Callable[[List[T]], List[Any]],
+    items: list[T],
+    process_func: Callable[[list[T]], list[Any]],
     batch_size: int = 100
-) -> List[Any]:
+) -> list[Any]:
     """
     Process a list of items in batches.
     
@@ -192,9 +192,9 @@ def batch_process(
         List[Any]: List of processed results
     """
     results = []
-    
+
     for batch in chunks(items, batch_size):
         batch_results = process_func(batch)
         results.extend(batch_results)
-    
+
     return results

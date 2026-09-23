@@ -4,19 +4,19 @@ Custom middleware for the Headwater application.
 This module provides middleware for CORS, logging, security headers,
 and other cross-cutting concerns.
 """
+import logging
+import time
+import uuid
+from collections.abc import Callable
+from typing import Any
+
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.types import ASGIApp
-import time
-import logging
-import uuid
-from typing import Callable, List, Optional, Dict, Any
 
-from app.core.config import get_settings, Settings
-
+from app.core.config import Settings, get_settings
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -29,7 +29,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
     This middleware logs information about each request and response,
     including method, path, status code, and processing time.
     """
-    
+
     async def dispatch(
         self, request: Request, call_next: Callable
     ) -> Response:
@@ -45,13 +45,13 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         """
         # Generate a unique request ID if not already present
         request_id = request.headers.get("X-Request-ID", str(uuid.uuid4()))
-        
+
         # Store the request ID in the request state for later use
         request.state.request_id = request_id
-        
+
         # Log the request
         logger.info(
-            f"Request started",
+            "Request started",
             extra={
                 "request_id": request_id,
                 "method": request.method,
@@ -61,23 +61,23 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
                 "user_agent": request.headers.get("User-Agent"),
             }
         )
-        
+
         # Record the start time
         start_time = time.time()
-        
+
         # Process the request
         try:
             response = await call_next(request)
-            
+
             # Calculate processing time
             process_time = time.time() - start_time
-            
+
             # Add the request ID to the response headers
             response.headers["X-Request-ID"] = request_id
-            
+
             # Log the response
             logger.info(
-                f"Request completed",
+                "Request completed",
                 extra={
                     "request_id": request_id,
                     "method": request.method,
@@ -86,15 +86,15 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
                     "process_time_ms": round(process_time * 1000, 2),
                 }
             )
-            
+
             return response
         except Exception as e:
             # Calculate processing time
             process_time = time.time() - start_time
-            
+
             # Log the error
             logger.exception(
-                f"Request failed",
+                "Request failed",
                 extra={
                     "request_id": request_id,
                     "method": request.method,
@@ -103,7 +103,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
                     "process_time_ms": round(process_time * 1000, 2),
                 }
             )
-            
+
             # Re-raise the exception
             raise
 
@@ -115,7 +115,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     This middleware adds various security headers to responses to
     improve the security of the application.
     """
-    
+
     async def dispatch(
         self, request: Request, call_next: Callable
     ) -> Response:
@@ -131,14 +131,14 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         """
         # Process the request
         response = await call_next(request)
-        
+
         # Add security headers
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["X-XSS-Protection"] = "1; mode=block"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
-        
+
         # Add Content-Security-Policy header for production
         settings = get_settings()
         if settings.ENVIRONMENT == "production":
@@ -150,11 +150,11 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
                 "font-src 'self'; "
                 "connect-src 'self'"
             )
-        
+
         # Add Strict-Transport-Security header for production
         if settings.ENVIRONMENT == "production":
             response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
-        
+
         return response
 
 
@@ -175,7 +175,7 @@ def _is_wildcard_origins(origins: Any) -> bool:
         return False
 
 
-def resolve_cors_policy(settings: Settings) -> Dict[str, Any]:
+def resolve_cors_policy(settings: Settings) -> dict[str, Any]:
     """
     Resolve a safe CORS policy from settings.
 
@@ -228,7 +228,7 @@ def resolve_cors_policy(settings: Settings) -> Dict[str, Any]:
     }
 
 
-def setup_middleware(app: FastAPI, settings: Optional[Settings] = None) -> None:
+def setup_middleware(app: FastAPI, settings: Settings | None = None) -> None:
     """
     Set up middleware for the FastAPI application.
 
@@ -248,12 +248,12 @@ def setup_middleware(app: FastAPI, settings: Optional[Settings] = None) -> None:
             TrustedHostMiddleware,
             allowed_hosts=["api.headwater.com", "headwater.com", "localhost"]
         )
-    
+
     # Add GZip compression middleware
     app.add_middleware(GZipMiddleware, minimum_size=1000)
-    
+
     # Add security headers middleware
     app.add_middleware(SecurityHeadersMiddleware)
-    
+
     # Add request logging middleware
     app.add_middleware(RequestLoggingMiddleware)

@@ -8,24 +8,26 @@ articles into responses, and the namespaced response cache.
 Moved verbatim out of app.api.google_news.google_news_api, which keeps the
 route handlers and still re-exports every name defined here.
 """
+import asyncio
+import datetime
+import hashlib
+import json
+import logging
+from collections.abc import Callable, Iterable
+from typing import Any
+from urllib.parse import quote, urlparse
+
+import httpx
 from fastapi import HTTPException
 from gnews import GNews
-from typing import List, Optional
-import logging
-import json
-import asyncio
-from urllib.parse import quote, urlparse
-import httpx
 from selectolax.parser import HTMLParser
-from app.core.proxy import get_proxy, mask_proxy
-import datetime
+
 from app.core.cache_manager import cache_manager
 from app.core.config import get_settings
-from app.core.http_client import get_http_client_manager
 from app.core.constants import USER_AGENTS
-import hashlib
-from typing import Any, Callable, Iterable
+from app.core.http_client import get_http_client_manager
 from app.core.log_safety import scrub
+from app.core.proxy import get_proxy, mask_proxy
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +49,7 @@ logger = logging.getLogger(__name__)
 import gnews.utils.utils as _gnews_utils
 
 
-def _skip_gnews_url_resolution(url: str, proxies: Optional[dict] = None) -> str:
+def _skip_gnews_url_resolution(url: str, proxies: dict | None = None) -> str:
     """Leave the URL alone; decode_google_news_url() resolves it far faster."""
     return url
 
@@ -118,7 +120,7 @@ def is_cacheable(value: Any) -> bool:
 async def get_cached_or_fetch(
     cache_key: str,
     fetch_func: Callable[[], Any],
-    ttl: Optional[int] = None,
+    ttl: int | None = None,
     should_cache: Callable[[Any], bool] = is_cacheable,
 ) -> Any:
     """Return the cached value for ``cache_key``, or fetch and store it.
@@ -149,7 +151,7 @@ async def get_cached_or_fetch(
 
 
 # Use centralized HTTP client manager for GNews operations
-async def get_gnews_http_client(proxy_url: Optional[str] = None) -> httpx.AsyncClient:
+async def get_gnews_http_client(proxy_url: str | None = None) -> httpx.AsyncClient:
     """
     Get a shared HTTP client for GNews operations using centralized HTTPClientManager.
 
@@ -204,7 +206,7 @@ async def get_base64_str(source_url):
             return {"status": True, "base64_str": path[-1]}
         return {"status": False, "message": "Invalid Google News URL format."}
     except Exception as e:
-        return {"status": False, "message": f"Error in get_base64_str: {str(e)}"}
+        return {"status": False, "message": f"Error in get_base64_str: {e!s}"}
 
 async def get_decoding_params(base64_str):
     """
@@ -236,12 +238,12 @@ async def get_decoding_params(base64_str):
     except httpx.RequestError as rss_req_err:
         return {
             "status": False,
-            "message": f"Request error in get_decoding_params with RSS URL: {str(rss_req_err)}",
+            "message": f"Request error in get_decoding_params with RSS URL: {rss_req_err!s}",
         }
     except Exception as e:
         return {
             "status": False,
-            "message": f"Unexpected error in get_decoding_params: {str(e)}",
+            "message": f"Unexpected error in get_decoding_params: {e!s}",
         }
 
 def validate_date_format(date_str):
@@ -294,20 +296,20 @@ async def decode_url(signature, timestamp, base64_str, start_date=None, end_date
         decoded_url = json.loads(parsed_data[0][2])[1]
         return {"status": True, "decoded_url": decoded_url}
     except httpx.RequestError as req_err:
-        logger.error(f"Request error in decode_url: {str(req_err)}")
+        logger.error(f"Request error in decode_url: {req_err!s}")
         return {
             "status": False,
-            "message": f"Request error in decode_url: {str(req_err)}",
+            "message": f"Request error in decode_url: {req_err!s}",
         }
     except (json.JSONDecodeError, IndexError, TypeError) as parse_err:
-        logger.error(f"Parsing error in decode_url: {str(parse_err)}")
+        logger.error(f"Parsing error in decode_url: {parse_err!s}")
         return {
             "status": False,
-            "message": f"Parsing error in decode_url: {str(parse_err)}",
+            "message": f"Parsing error in decode_url: {parse_err!s}",
         }
     except Exception as e:
-        logger.error(f"Error in decode_url: {str(e)}")
-        return {"status": False, "message": f"Error in decode_url: {str(e)}"}
+        logger.error(f"Error in decode_url: {e!s}")
+        return {"status": False, "message": f"Error in decode_url: {e!s}"}
 
 async def decode_google_news_url(source_url, interval=None):
     """
@@ -334,7 +336,7 @@ async def decode_google_news_url(source_url, interval=None):
     except Exception as e:
         return {
             "status": False,
-            "message": f"Error in decode_google_news_url: {str(e)}",
+            "message": f"Error in decode_google_news_url: {e!s}",
         }
 
 
@@ -348,9 +350,9 @@ async def get_gnews_instance(
     exclude_duplicates: bool = False,
     exact_match: bool = False,
     sort_by: str = "relevance",
-    period: Optional[str] = None,
-    start_date: Optional[tuple] = None,
-    end_date: Optional[tuple] = None,
+    period: str | None = None,
+    start_date: tuple | None = None,
+    end_date: tuple | None = None,
 ) -> GNews:
     proxy_url_val = await get_proxy()
 
@@ -436,8 +438,8 @@ class ProcessedArticles(list):
 
 
 async def decode_and_process_articles(
-    raw_articles: List[dict],
-    filter_by_domain: Optional[str] = None,
+    raw_articles: list[dict],
+    filter_by_domain: str | None = None,
     max_concurrent: int = 10
 ) -> ProcessedArticles:
     """
@@ -518,7 +520,7 @@ async def decode_and_process_articles(
     tasks = [decode_single_article(article) for article in raw_articles]
     results = await asyncio.gather(*tasks, return_exceptions=True)
 
-    processed_articles: List[dict] = []
+    processed_articles: list[dict] = []
     failed = 0
     filtered_out = 0
     for result in results:

@@ -124,6 +124,9 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]              # re-exports
+# Backward-compatible facade over app/services/google_maps/; everything it
+# imports is a deliberate re-export (tests and callers import from it).
+"app/services/google_maps_scraper.py" = ["F401"]
 "tests/**/*" = ["ARG", "SIM", "B011"] # tests get more latitude
 "scripts/**/*" = ["T201"]             # scripts are allowed to print
 

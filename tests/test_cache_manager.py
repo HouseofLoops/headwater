@@ -1,27 +1,27 @@
-import pytest
 import asyncio
 import logging
-import time
 from dataclasses import dataclass
-from datetime import date, datetime, time as dt_time, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
+from datetime import time as dt_time
 from decimal import Decimal
 from enum import Enum
+from unittest.mock import MagicMock, patch
 from uuid import UUID
-from unittest.mock import patch, MagicMock
 
+import pytest
 from pydantic import BaseModel
 
 from app.core.cache_manager import (
     CacheManager,
     CacheSerializationError,
+    cached,
+    clear_cache,
+    delete_from_cache,
     generate_cache_key,
     get_cached_or_fetch,
     get_from_cache,
     set_in_cache,
-    delete_from_cache,
-    clear_cache,
-    cached,
-    start_cleanup_task
+    start_cleanup_task,
 )
 
 
@@ -181,8 +181,9 @@ class TestCacheManager:
 
     def test_cached_decorator(self):
         """Test cached decorator."""
-        from app.core.cache_manager import CacheManager
         from unittest.mock import MagicMock
+
+        from app.core.cache_manager import CacheManager
 
         # Create a cache manager with caching enabled
         mock_settings = MagicMock()
@@ -489,8 +490,9 @@ class TestConvenienceFunctions:
 
     def test_cached_decorator_convenience(self):
         """Test cached decorator convenience function."""
-        from app.core.cache_manager import CacheManager
         from unittest.mock import MagicMock
+
+        from app.core.cache_manager import CacheManager
 
         # Create a cache manager with caching enabled and patch the global one
         mock_settings = MagicMock()
@@ -598,7 +600,7 @@ class TestSerializationRoundTrip:
         )
 
     def test_datetime_with_timezone_round_trips(self, manager):
-        value = datetime(2024, 3, 17, 12, 30, tzinfo=timezone.utc)
+        value = datetime(2024, 3, 17, 12, 30, tzinfo=UTC)
 
         result = manager._deserialize(manager._serialize(value))
 

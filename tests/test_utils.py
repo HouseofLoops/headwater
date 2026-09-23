@@ -6,91 +6,77 @@ in the utils.py module, covering datetime formatting, JSON handling,
 string manipulation, enum operations, and more.
 """
 
-import pytest
-import json
 import datetime
-import uuid
+import json
 import tempfile
-import os
-from pathlib import Path
-from unittest.mock import patch, MagicMock
+import uuid
 from enum import Enum
-from typing import Dict, List, Any
+from pathlib import Path
+from unittest.mock import patch
+
+import pytest
 
 from app.core.utils import (
-    # DateTime utilities
-    format_datetime,
-    parse_datetime,
-
-    # JSON utilities
-    to_json,
-    to_dict,
-    from_dict,
-    from_json,
-
-    # String utilities
-    generate_uuid,
-    slugify,
-    truncate_string,
+    batch_process,
+    build_url,
     camel_to_snake,
-    snake_to_camel,
-    snake_to_pascal,
-
-    # Enum utilities
-    get_enum_values,
-    get_enum_names,
-    get_enum_dict,
-
-    # Function inspection utilities
-    get_function_args,
-    get_function_defaults,
-    get_class_methods,
-    get_subclasses,
-
-    # Module utilities
-    import_string,
-    find_modules,
-
-    # Dictionary utilities
-    merge_dicts,
-    flatten_dict,
-    unflatten_dict,
-    deep_get,
-    deep_set,
-
     # List utilities
     chunks,
-    batch_process,
-
-    # Decorators
-    retry,
-    memoize,
-    timeit,
-
-    # URL utilities
-    parse_query_params,
-    build_url,
-
-    # Validation utilities
-    is_valid_json,
-    safe_json_loads,
-    is_url,
-    is_email,
-    is_phone_number,
-
-    # File utilities
-    get_file_extension,
-    is_image_file,
-    is_video_file,
-    is_audio_file,
-    get_file_size_str,
-    get_mime_type,
-
-    # Text extraction utilities
-    extract_urls,
+    deep_get,
+    deep_set,
     extract_emails,
     extract_hashtags,
     extract_mentions,
+    # Text extraction utilities
+    extract_urls,
+    find_modules,
+    flatten_dict,
+    # DateTime utilities
+    format_datetime,
+    from_dict,
+    from_json,
+    # String utilities
+    generate_uuid,
+    get_class_methods,
+    get_enum_dict,
+    get_enum_names,
+    # Enum utilities
+    get_enum_values,
+    # File utilities
+    get_file_extension,
+    get_file_size_str,
+    # Function inspection utilities
+    get_function_args,
+    get_function_defaults,
+    get_mime_type,
+    get_subclasses,
+    # Module utilities
+    import_string,
+    is_audio_file,
+    is_email,
+    is_image_file,
+    is_phone_number,
+    is_url,
+    # Validation utilities
+    is_valid_json,
+    is_video_file,
+    memoize,
+    # Dictionary utilities
+    merge_dicts,
+    parse_datetime,
+    # URL utilities
+    parse_query_params,
+    # Decorators
+    safe_json_loads,
+    slugify,
+    snake_to_camel,
+    snake_to_pascal,
+    timeit,
+    to_dict,
+    # JSON utilities
+    to_json,
+    truncate_string,
+    unflatten_dict,
 )
 
 

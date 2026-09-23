@@ -6,8 +6,9 @@ and prefix matching, including a trie implementation for O(m) lookup
 where m is the length of the search string.
 """
 import logging
-from typing import Optional, List, Dict, Any, Set, Iterator
+from collections.abc import Iterator
 from dataclasses import dataclass, field
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -15,11 +16,11 @@ logger = logging.getLogger(__name__)
 @dataclass
 class TrieNode:
     """A node in the trie data structure."""
-    children: Dict[str, "TrieNode"] = field(default_factory=dict)
+    children: dict[str, TrieNode] = field(default_factory=dict)
     is_end_of_word: bool = False
-    word: Optional[str] = None
+    word: str | None = None
     # Store additional metadata for each word
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 class Trie:
@@ -42,7 +43,7 @@ class Trie:
         self.root = TrieNode()
         self._size = 0
 
-    def insert(self, word: str, metadata: Optional[Dict[str, Any]] = None) -> None:
+    def insert(self, word: str, metadata: dict[str, Any] | None = None) -> None:
         """
         Insert a word into the trie.
 
@@ -94,7 +95,7 @@ class Trie:
         """
         return self._find_node(prefix.lower()) is not None
 
-    def find_all_with_prefix(self, prefix: str, limit: int = 100) -> List[str]:
+    def find_all_with_prefix(self, prefix: str, limit: int = 100) -> list[str]:
         """
         Find all words that start with the given prefix.
 
@@ -105,7 +106,7 @@ class Trie:
         Returns:
             List of words starting with the prefix
         """
-        results: List[str] = []
+        results: list[str] = []
         node = self._find_node(prefix.lower())
 
         if node is None:
@@ -118,7 +119,7 @@ class Trie:
         self,
         prefix: str,
         limit: int = 100
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Find all words with their metadata that start with the given prefix.
 
@@ -129,7 +130,7 @@ class Trie:
         Returns:
             List of dicts containing word and metadata
         """
-        results: List[Dict[str, Any]] = []
+        results: list[dict[str, Any]] = []
         node = self._find_node(prefix.lower())
 
         if node is None:
@@ -138,7 +139,7 @@ class Trie:
         self._collect_words_with_metadata(node, results, limit)
         return results
 
-    def find_containing(self, substring: str, limit: int = 100) -> List[str]:
+    def find_containing(self, substring: str, limit: int = 100) -> list[str]:
         """
         Find all words that contain the given substring.
 
@@ -152,7 +153,7 @@ class Trie:
         Returns:
             List of words containing the substring
         """
-        results: List[str] = []
+        results: list[str] = []
         substring_lower = substring.lower()
 
         for word in self.get_all_words():
@@ -170,7 +171,7 @@ class Trie:
         Yields:
             Each word in the trie
         """
-        stack: List[TrieNode] = [self.root]
+        stack: list[TrieNode] = [self.root]
 
         while stack:
             node = stack.pop()
@@ -178,7 +179,7 @@ class Trie:
                 yield node.word
             stack.extend(node.children.values())
 
-    def _find_node(self, prefix: str) -> Optional[TrieNode]:
+    def _find_node(self, prefix: str) -> TrieNode | None:
         """
         Find the node corresponding to the given prefix.
 
@@ -200,7 +201,7 @@ class Trie:
     def _collect_words(
         self,
         node: TrieNode,
-        results: List[str],
+        results: list[str],
         limit: int
     ) -> None:
         """
@@ -225,7 +226,7 @@ class Trie:
     def _collect_words_with_metadata(
         self,
         node: TrieNode,
-        results: List[Dict[str, Any]],
+        results: list[dict[str, Any]],
         limit: int
     ) -> None:
         """
@@ -270,13 +271,13 @@ class SuggestionIndex:
     def __init__(self):
         """Initialize the suggestion index."""
         self._trie = Trie()
-        self._categories: Dict[str, Set[str]] = {}
+        self._categories: dict[str, set[str]] = {}
 
     def add_suggestion(
         self,
         suggestion: str,
-        category: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None
+        category: str | None = None,
+        metadata: dict[str, Any] | None = None
     ) -> None:
         """
         Add a suggestion to the index.
@@ -299,8 +300,8 @@ class SuggestionIndex:
 
     def add_suggestions_batch(
         self,
-        suggestions: List[str],
-        category: Optional[str] = None
+        suggestions: list[str],
+        category: str | None = None
     ) -> None:
         """
         Add multiple suggestions to the index.
@@ -312,7 +313,7 @@ class SuggestionIndex:
         for suggestion in suggestions:
             self.add_suggestion(suggestion, category)
 
-    def search_prefix(self, prefix: str, limit: int = 100) -> List[str]:
+    def search_prefix(self, prefix: str, limit: int = 100) -> list[str]:
         """
         Search for suggestions starting with the given prefix.
 
@@ -329,7 +330,7 @@ class SuggestionIndex:
         self,
         prefix: str,
         limit: int = 100
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Search for suggestions with metadata starting with the given prefix.
 
@@ -342,7 +343,7 @@ class SuggestionIndex:
         """
         return self._trie.find_all_with_prefix_and_metadata(prefix, limit)
 
-    def search_containing(self, substring: str, limit: int = 100) -> List[str]:
+    def search_containing(self, substring: str, limit: int = 100) -> list[str]:
         """
         Search for suggestions containing the given substring.
 
@@ -362,7 +363,7 @@ class SuggestionIndex:
         prefix: str,
         category: str,
         limit: int = 100
-    ) -> List[str]:
+    ) -> list[str]:
         """
         Search for suggestions in a specific category.
 
@@ -384,7 +385,7 @@ class SuggestionIndex:
         ]
         return filtered[:limit]
 
-    def get_categories(self) -> List[str]:
+    def get_categories(self) -> list[str]:
         """
         Get all categories in the index.
 
@@ -393,7 +394,7 @@ class SuggestionIndex:
         """
         return list(self._categories.keys())
 
-    def get_suggestions_in_category(self, category: str) -> Set[str]:
+    def get_suggestions_in_category(self, category: str) -> set[str]:
         """
         Get all suggestions in a category.
 
@@ -416,7 +417,7 @@ class SuggestionIndex:
 
 
 # Module-level singleton for convenience
-_suggestion_index: Optional[SuggestionIndex] = None
+_suggestion_index: SuggestionIndex | None = None
 
 
 def get_suggestion_index() -> SuggestionIndex:

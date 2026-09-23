@@ -4,7 +4,8 @@ Central response model definitions for the Headwater API.
 This module provides base response models that can be extended
 by specific API endpoints for consistent response structure.
 """
-from typing import Any, Dict, Generic, List, Optional, TypeVar
+from typing import Any, Generic, TypeVar
+
 from pydantic import BaseModel, Field
 
 T = TypeVar("T")
@@ -18,8 +19,8 @@ class BaseAPIResponse(BaseModel):
     status, message, and optional metadata.
     """
     success: bool = Field(True, description="Whether the request was successful")
-    message: Optional[str] = Field(None, description="Optional status message")
-    data: Optional[Any] = Field(None, description="Response payload")
+    message: str | None = Field(None, description="Optional status message")
+    data: Any | None = Field(None, description="Response payload")
 
 
 class ErrorResponse(BaseModel):
@@ -30,8 +31,8 @@ class ErrorResponse(BaseModel):
     """
     success: bool = Field(False, description="Always False for errors")
     error: str = Field(..., description="Error message")
-    detail: Optional[str] = Field(None, description="Detailed error information")
-    code: Optional[str] = Field(None, description="Error code for programmatic handling")
+    detail: str | None = Field(None, description="Detailed error information")
+    code: str | None = Field(None, description="Error code for programmatic handling")
 
 
 class PaginatedResponse(BaseModel, Generic[T]):
@@ -40,7 +41,7 @@ class PaginatedResponse(BaseModel, Generic[T]):
 
     Provides consistent pagination structure for list endpoints.
     """
-    items: List[T] = Field(default_factory=list, description="List of items")
+    items: list[T] = Field(default_factory=list, description="List of items")
     total: int = Field(0, description="Total number of items")
     page: int = Field(1, description="Current page number")
     page_size: int = Field(10, description="Items per page")
@@ -58,16 +59,16 @@ class PaginatedResponse(BaseModel, Generic[T]):
 class CacheMetadata(BaseModel):
     """Metadata about cache status for a response."""
     cached: bool = Field(False, description="Whether response was from cache")
-    cache_key: Optional[str] = Field(None, description="Cache key used")
-    ttl: Optional[int] = Field(None, description="Cache TTL in seconds")
-    expires_at: Optional[str] = Field(None, description="Cache expiration time")
+    cache_key: str | None = Field(None, description="Cache key used")
+    ttl: int | None = Field(None, description="Cache TTL in seconds")
+    expires_at: str | None = Field(None, description="Cache expiration time")
 
 
 class RequestMetadata(BaseModel):
     """Metadata about the request processing."""
-    request_id: Optional[str] = Field(None, description="Unique request identifier")
-    processing_time_ms: Optional[float] = Field(None, description="Processing time in ms")
-    rate_limit_remaining: Optional[int] = Field(None, description="Remaining rate limit")
+    request_id: str | None = Field(None, description="Unique request identifier")
+    processing_time_ms: float | None = Field(None, description="Processing time in ms")
+    rate_limit_remaining: int | None = Field(None, description="Remaining rate limit")
 
 
 class EnhancedResponse(BaseModel):
@@ -77,6 +78,6 @@ class EnhancedResponse(BaseModel):
     Extends BaseAPIResponse with cache and request metadata.
     """
     success: bool = Field(True, description="Whether the request was successful")
-    data: Optional[Any] = Field(None, description="Response payload")
-    cache: Optional[CacheMetadata] = Field(None, description="Cache information")
-    metadata: Optional[RequestMetadata] = Field(None, description="Request metadata")
+    data: Any | None = Field(None, description="Response payload")
+    cache: CacheMetadata | None = Field(None, description="Cache information")
+    metadata: RequestMetadata | None = Field(None, description="Request metadata")

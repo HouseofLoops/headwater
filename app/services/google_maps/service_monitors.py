@@ -2,8 +2,7 @@
 Monitor and webhook methods for GoogleMapsService.
 """
 import logging
-from typing import Optional, List, Dict, Any
-
+from typing import Any
 
 # Logs under the facade module's name so log routing and filters keyed on
 # ``app.services.google_maps_service`` are unaffected by the split.
@@ -22,7 +21,7 @@ class MonitorsMixin:
     # =========================================================================
 
     @staticmethod
-    def _owner(api_key: Optional[str]) -> str:
+    def _owner(api_key: str | None) -> str:
         """Map an API key to the storage owner id."""
         from app.services.google_maps_monitors import owner_id_for_api_key
 
@@ -30,13 +29,13 @@ class MonitorsMixin:
 
     async def create_monitor(
         self,
-        place_id: Optional[str] = None,
-        url: Optional[str] = None,
-        webhook_url: Optional[str] = None,
+        place_id: str | None = None,
+        url: str | None = None,
+        webhook_url: str | None = None,
         check_interval_hours: int = 24,
-        track_fields: List[str] = None,
-        api_key: Optional[str] = None
-    ) -> Dict[str, Any]:
+        track_fields: list[str] = None,
+        api_key: str | None = None
+    ) -> dict[str, Any]:
         """
         Create a monitor for a place.
 
@@ -75,11 +74,11 @@ class MonitorsMixin:
 
     async def list_monitors(
         self,
-        status: Optional[str] = None,
+        status: str | None = None,
         limit: int = 50,
         offset: int = 0,
-        api_key: Optional[str] = None
-    ) -> Dict[str, Any]:
+        api_key: str | None = None
+    ) -> dict[str, Any]:
         """List this caller's monitors. Never returns another caller's."""
         from app.services import google_maps_monitors as monitors
 
@@ -91,8 +90,8 @@ class MonitorsMixin:
         self,
         monitor_id: str,
         include_history: bool = True,
-        api_key: Optional[str] = None
-    ) -> Dict[str, Any]:
+        api_key: str | None = None
+    ) -> dict[str, Any]:
         """Get one monitor, including its recorded snapshot history."""
         from app.services import google_maps_monitors as monitors
 
@@ -109,8 +108,8 @@ class MonitorsMixin:
     async def delete_monitor(
         self,
         monitor_id: str,
-        api_key: Optional[str] = None
-    ) -> Dict[str, Any]:
+        api_key: str | None = None
+    ) -> dict[str, Any]:
         """Delete one of this caller's monitors."""
         from app.services import google_maps_monitors as monitors
 
@@ -123,8 +122,8 @@ class MonitorsMixin:
     async def check_monitor_now(
         self,
         monitor_id: str,
-        api_key: Optional[str] = None
-    ) -> Dict[str, Any]:
+        api_key: str | None = None
+    ) -> dict[str, Any]:
         """Run one monitor check immediately, outside the schedule."""
         from app.services import google_maps_monitors as monitors
 
@@ -138,10 +137,10 @@ class MonitorsMixin:
     async def register_webhook(
         self,
         url: str,
-        events: List[str],
-        secret: Optional[str] = None,
-        api_key: Optional[str] = None
-    ) -> Dict[str, Any]:
+        events: list[str],
+        secret: str | None = None,
+        api_key: str | None = None
+    ) -> dict[str, Any]:
         """
         Register a webhook that is actually delivered to.
 
@@ -165,8 +164,8 @@ class MonitorsMixin:
         self,
         limit: int = 50,
         offset: int = 0,
-        api_key: Optional[str] = None
-    ) -> Dict[str, Any]:
+        api_key: str | None = None
+    ) -> dict[str, Any]:
         """List this caller's webhooks with their real delivery counters."""
         from app.services import google_maps_monitors as monitors
 
@@ -177,8 +176,8 @@ class MonitorsMixin:
     async def delete_webhook(
         self,
         webhook_id: str,
-        api_key: Optional[str] = None
-    ) -> Dict[str, Any]:
+        api_key: str | None = None
+    ) -> dict[str, Any]:
         """Delete one of this caller's webhooks."""
         from app.services import google_maps_monitors as monitors
 
