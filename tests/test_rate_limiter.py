@@ -383,7 +383,7 @@ class TestStateReset:
 
     @pytest.mark.asyncio
     async def test_reset_clears_store_and_cleanup_task(self):
-        import app.core.rate_limiter as module
+        from app.core import rate_limiter as module
 
         _rate_limit_store["leftover"] = (5, time.time())
         with patch("app.core.rate_limiter.get_settings", return_value=settings_stub()):
@@ -396,7 +396,7 @@ class TestStateReset:
         assert module._cleanup_task is None
         assert module._redis_manager is None
         with contextlib.suppress(asyncio.CancelledError):
-            await task
+            _ = await task
         assert task.cancelled()
 
 
@@ -855,7 +855,7 @@ class TestGlobalFunctions:
 
     @pytest.mark.asyncio
     async def test_rate_limit_dependency_disabled(self):
-        import app.core.rate_limiter as module
+        from app.core import rate_limiter as module
 
         original = module.limiter
         module.limiter = RateLimiter(settings=settings_stub(RATE_LIMIT_ENABLED=False))
@@ -866,7 +866,7 @@ class TestGlobalFunctions:
 
     @pytest.mark.asyncio
     async def test_rate_limit_dependency_raises_when_limited(self):
-        import app.core.rate_limiter as module
+        from app.core import rate_limiter as module
 
         original = module.limiter
         module.limiter = RateLimiter(requests=1, timeframe=60, settings=settings_stub())
@@ -917,7 +917,7 @@ class TestCleanupTask:
             finally:
                 task.cancel()
                 with pytest.raises(asyncio.CancelledError):
-                    await task
+                    _ = await task
 
         assert _rate_limit_store == {}, "cleanup task did not remove expired entries"
 
@@ -939,7 +939,7 @@ class TestCleanupTask:
                     break
             task.cancel()
             with pytest.raises(asyncio.CancelledError):
-                await task
+                _ = await task
 
         assert len(calls) >= 3, "loop must keep running after an error"
 

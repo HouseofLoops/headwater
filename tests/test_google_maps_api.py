@@ -437,7 +437,7 @@ def owner_scoped_service():
         get_job_results=get_job_results,
         delete_job=delete_job,
         list_jobs=list_jobs,
-        process_place_data=lambda raw: list(raw),
+        process_place_data=list,
     ):
         yield jobs
 
@@ -749,7 +749,7 @@ def test_malformed_results_payload_is_an_error_not_an_empty_success(client):
         google_maps_service,
         get_job_status=AsyncMock(return_value={"status": "completed"}),
         get_job_results=AsyncMock(return_value={"results": {"unexpected": "shape"}}),
-        process_place_data=lambda raw: list(raw),
+        process_place_data=list,
     ):
         response = client.get(f"/api/v1/google-maps/jobs/{JOB_OF_A}/results", headers=HEADERS_A)
 

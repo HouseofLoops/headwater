@@ -9,13 +9,12 @@ import math
 import os
 from unittest.mock import patch
 
+from app.core import config as config_module
 from app.core.config import (
     # Classes
     Settings,
     # Functions
     get_settings,
-    # Global variables
-    settings,
 )
 
 
@@ -298,20 +297,20 @@ class TestGlobalSettings:
 
     def test_global_settings_instance(self):
         """Test that global settings is a Settings instance."""
-        assert isinstance(settings, Settings)
+        assert isinstance(config_module.settings, Settings)
 
     def test_global_settings_has_expected_attributes(self):
         """Test that global settings has expected attributes."""
-        assert hasattr(settings, "API_KEYS")
-        assert hasattr(settings, "DEBUG")
-        assert hasattr(settings, "ENVIRONMENT")
-        assert hasattr(settings, "PROJECT_NAME")
+        assert hasattr(config_module.settings, "API_KEYS")
+        assert hasattr(config_module.settings, "DEBUG")
+        assert hasattr(config_module.settings, "ENVIRONMENT")
+        assert hasattr(config_module.settings, "PROJECT_NAME")
 
     def test_global_settings_default_values(self):
         """Test that global settings has correct default values."""
-        assert settings.API_KEYS == []
-        assert settings.ENABLE_API_KEY_AUTH is True
-        assert settings.DEBUG is False
+        assert config_module.settings.API_KEYS == []
+        assert config_module.settings.ENABLE_API_KEY_AUTH is True
+        assert config_module.settings.DEBUG is False
 
 
 class TestSettingsIntegration:

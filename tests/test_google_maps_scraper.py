@@ -274,10 +274,12 @@ class TestOwnerScoping:
     async def test_delete_does_not_touch_another_owners_job(self, memory_store):
         await memory_store.create(job("job-1", owner="alice"))
 
-        assert await memory_store.delete("mallory", "job-1") is False
+        deleted_by_other = await memory_store.delete("mallory", "job-1")
+        assert deleted_by_other is False
         # Alice's job is untouched, not merely un-reported.
         assert await memory_store.get("alice", "job-1") is not None
-        assert await memory_store.delete("alice", "job-1") is True
+        deleted_by_owner = await memory_store.delete("alice", "job-1")
+        assert deleted_by_owner is True
 
     async def test_list_only_returns_the_callers_own_jobs(self, memory_store):
         await memory_store.create(job("a1", owner="alice"))

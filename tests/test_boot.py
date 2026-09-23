@@ -92,7 +92,7 @@ def app_with_env(monkeypatch, env_example_dir):
         monkeypatch.setitem(Settings.model_config, "env_file", env_path)
         get_settings.cache_clear()
 
-        import app.core.auth as auth_module
+        from app.core import auth as auth_module
 
         auth_module.initialize_api_keys(get_settings())
 
@@ -106,7 +106,7 @@ def app_with_env(monkeypatch, env_example_dir):
     from app.core.config import get_settings
 
     get_settings.cache_clear()
-    import app.core.auth as auth_module
+    from app.core import auth as auth_module
 
     auth_module.initialize_api_keys(get_settings())
 
