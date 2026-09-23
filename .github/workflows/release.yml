@@ -219,8 +219,15 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      # cosign is pinned to the 2.x line deliberately. cosign v3 (the v4
+      # installer's default) stores signatures as OCI 1.1 referrers in the new
+      # Sigstore bundle format, which verifiers on cosign < 3 cannot find.
+      # Moving to v3 changes how every user verifies this image, so it should
+      # be its own release-noted change, not a side effect of an installer bump.
       - name: Install Cosign
-        uses: sigstore/cosign-installer@v3
+        uses: sigstore/cosign-installer@v4.1.2
+        with:
+          cosign-release: v2.6.5
 
       # Sign by DIGEST, not by tag. Signing a mutable tag signs whatever that
       # tag pointed at when cosign resolved it; the digest is what the build
