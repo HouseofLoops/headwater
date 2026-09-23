@@ -1,5 +1,9 @@
 # Improvement Recommendations & Complementary Projects
 
+> **Archived 2026-09-23.** Items still open after checking them against the code are tracked in the
+> "Open items" section of [ROADMAP.md](../ROADMAP.md#open-items). Compression, Prometheus metrics and
+> dependency health checks from this list have since been implemented.
+
 This document outlines recommended improvements for the Headwater API and suggests open source projects that could be integrated to extend functionality.
 
 ## Table of Contents
@@ -662,8 +666,8 @@ ANTHROPIC_API_KEY=your_anthropic_key
 
 ## Related Documentation
 
-- [API Reference](./API_REFERENCE.md)
-- [Architecture Overview](./ARCHITECTURE_OVERVIEW.md)
-- [Performance Tuning](./PERFORMANCE_TUNING.md)
-- [Security Guidelines](./SECURITY_GUIDELINES.md)
-- [Roadmap](./ROADMAP.md)
+- [API Reference](../API_REFERENCE.md)
+- [Architecture Overview](../ARCHITECTURE_OVERVIEW.md)
+- [Performance Tuning](../PERFORMANCE_TUNING.md)
+- [Security Guidelines](../SECURITY_GUIDELINES.md)
+- [Roadmap](../ROADMAP.md)

@@ -270,7 +270,7 @@ async def search_with_optimization(query: str) -> Dict[str, Any]:
 
 ```dockerfile
 # Multi-stage build for optimal image size
-FROM python:3.9-slim as builder
+FROM python:3.14-slim-trixie AS builder
 
 # Install build dependencies
 RUN apt-get update && apt-get install -y \
@@ -289,7 +289,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Production stage
-FROM python:3.9-slim as production
+FROM python:3.14-slim-trixie AS production
 
 # Install runtime dependencies only
 RUN apt-get update && apt-get install -y \

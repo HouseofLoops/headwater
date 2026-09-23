@@ -151,7 +151,7 @@ server {
 
 ```dockerfile
 # Use minimal base image
-FROM python:3.9-alpine
+FROM python:3.14-alpine
 
 # Create non-root user
 RUN addgroup -g 1001 -S appuser && \

@@ -15,7 +15,7 @@ BASE_IMAGE_NAME="python"
 BASE_IMAGE_TAG="$(
   sed -n 's|^FROM[[:space:]]\{1,\}python:\([^@[:space:]]*\).*|\1|p' Dockerfile 2>/dev/null | head -1
 )"
-BASE_IMAGE_TAG="${BASE_IMAGE_TAG:-3.12-slim-bookworm}"
+BASE_IMAGE_TAG="${BASE_IMAGE_TAG:-3.14-slim-trixie}"
 CHECK_ONLY=false
 
 # Function to display usage information
@@ -24,12 +24,12 @@ usage() {
   echo "Options:"
   echo "  -d, --dockerfile PATH     Path to Dockerfile (default: Dockerfile)"
   echo "  -i, --image NAME          Base image name (default: python)"
-  echo "  -t, --tag TAG             Base image tag (default: 3.11-slim-bookworm)"
+  echo "  -t, --tag TAG             Base image tag (default: taken from the Dockerfile FROM line)"
   echo "  -c, --check-only          Check for updates without modifying the Dockerfile"
   echo "  -h, --help                Display this help message"
   echo ""
   echo "Example:"
-  echo "  $0 --dockerfile Dockerfile.prod --image python --tag 3.11-slim-bookworm"
+  echo "  $0 --dockerfile Dockerfile.prod --image python --tag 3.14-slim-trixie"
   exit 1
 }
 

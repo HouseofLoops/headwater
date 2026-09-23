@@ -6,6 +6,31 @@ This document outlines the planned development roadmap for the Headwater API, in
 
 The Headwater API is currently in its initial release with core functionality for Google News, Autocomplete, Trends, and YouTube Transcripts.
 
+> **Note (2026-09-23):** the release plan below dates from 2024 and has not been kept current; the
+> application is at 2.1.0 (`__version__.py`). The "Open items" list is the maintained part of this page.
+
+## Open items
+
+Carried over from the earlier improvement review (now [archive/IMPROVEMENT_RECOMMENDATIONS.md](./archive/IMPROVEMENT_RECOMMENDATIONS.md)).
+Each was checked against the code on 2026-09-23 and is not implemented yet. Already done and dropped
+from this list: response compression (`GZipMiddleware`), Prometheus metrics
+(`prometheus-fastapi-instrumentator`), dependency-aware health checks, and webhooks for Google Maps monitors.
+
+- **Background task queue** for long-running work (batch transcripts, trends). Only Google Maps has async jobs today; there is no general queue (ARQ, Celery, Dramatiq).
+- **Webhook on job completion.** `POST /api/v1/google-maps/webhooks` accepts `job.completed` / `job.failed` in `events`, but only `monitor.changed` is ever delivered (`google_maps_monitors.py`); Maps jobs must still be polled.
+- **Circuit breakers** around upstream Google/YouTube calls (for example `aiobreaker`).
+- **Cursor pagination** (`next_cursor` / `has_more`) for list endpoints.
+- **Header-based API version selection** (`X-API-Version`) alongside the URL prefix.
+- **Per-key rate-limit tiers.** There is one global `RATE_LIMIT_REQUESTS` / `RATE_LIMIT_TIMEFRAME` budget.
+- **API key scopes** that restrict a key to endpoints or operations.
+- **OAuth2 / JWT** user authentication in addition to API keys.
+- **Inbound request signing** (HMAC). HMAC is used today only to sign outbound webhook deliveries.
+- **JSON structured logging.** Request IDs are propagated (`X-Request-ID`), but logs are plain text via `logging.basicConfig`.
+- **Distributed tracing** with OpenTelemetry.
+- **Generated client SDKs** from the OpenAPI schema (openapi-generator, Fern).
+- **GraphQL** query interface (low priority).
+- **New data sources** from the same review: Twitter/X, Reddit (design in [proposals/reddit-intelligence-module.md](./proposals/reddit-intelligence-module.md)), and keyword extraction (KeyBERT).
+
 ## Upcoming Releases
 
 ### v1.1.0 (Q2 2024) - Enhanced Analytics & Performance
