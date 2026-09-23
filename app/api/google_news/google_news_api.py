@@ -7,7 +7,7 @@ from urllib.parse import quote, urlparse
 from fastapi import APIRouter, Depends, HTTPException, Query, Request  # Ensure Depends is imported if not already
 from fastapi.responses import JSONResponse
 from newspaper import Article, ArticleException, Config
-from pydantic import BaseModel, ValidationError, validator
+from pydantic import BaseModel, ValidationError, field_validator
 
 from app.core.log_safety import scrub
 from app.core.rate_limiter import rate_limit
@@ -115,7 +115,8 @@ logger = logging.getLogger(__name__)
 class SourceQuery(BaseModel):
     source: str
 
-    @validator("source")
+    @field_validator("source")
+    @classmethod
     def validate_source(cls, v):
         # Optimized regex to validate domain names or full URLs
         pattern = r"^(https?://)?(www\.)?([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}$"

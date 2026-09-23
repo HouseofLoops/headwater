@@ -16,10 +16,9 @@ import time
 # table in the Python docs.
 import xml.etree.ElementTree as ET  # nosec B405
 from datetime import datetime
-from typing import Any, ClassVar
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.core.auth import get_api_key
 from app.core.cache_manager import generate_cache_key, get_cached_or_fetch
@@ -90,10 +89,8 @@ class GoogleAutocompleteParams(BaseModel):
             raise ValueError("Query cannot be empty")
         return v.strip()
 
-    class Config:
-        """Configuration for the Pydantic model."""
-
-        json_schema_extra: ClassVar[dict[str, Any]] = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "q": "chrome",
                 "output": "chrome",
@@ -104,6 +101,7 @@ class GoogleAutocompleteParams(BaseModel):
                 "spell": 1,
             }
         }
+    )
 
 
 # Create router with a specific tag to avoid duplication in documentation
