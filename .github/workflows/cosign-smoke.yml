@@ -1,0 +1,124 @@
+# Cosign smoke test
+#
+# Exercises the release signing path end to end - keyless signing through
+# GitHub OIDC, SBOM attestation, and verification - against a throwaway image,
+# without cutting a release. release.yml can only sign what it publishes, so
+# without this a cosign change is first tested by the next real release.
+#
+# Runs on demand, and on pull requests that change either signing workflow.
+# The image goes to a separate package (ghcr.io/<owner>/headwater-cosign-smoke)
+# so nothing here ever touches the published headwater tags.
+name: Cosign smoke test
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - .github/workflows/release.yml
+      - .github/workflows/cosign-smoke.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cosign-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    name: Sign, attest and verify (keyless)
+    runs-on: ubuntu-latest
+    # Fork pull requests get no OIDC token and no package write access.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    permissions:
+      contents: read
+      packages: write
+      id-token: write   # keyless signing
+    env:
+      IMAGE: ghcr.io/${{ github.repository_owner }}/headwater-cosign-smoke
+    steps:
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Must match release.yml's cosign-release, or this tests something else.
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v4.1.2
+        with:
+          cosign-release: v3.1.3
+
+      - name: Build and push a throwaway image
+        id: build
+        run: |
+          set -euo pipefail
+          mkdir ctx
+          # The run id makes every digest unique, so each run signs a fresh
+          # subject instead of piling signatures onto one digest.
+          printf 'FROM busybox:1.37\nLABEL org.opencontainers.image.source=%s\nLABEL smoke.run=%s\n' \
+            "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" "${GITHUB_RUN_ID}" > ctx/Dockerfile
+          docker buildx build --push --provenance=false -t "${IMAGE}:smoke" --metadata-file meta.json ctx
+          DIGEST=$(python3 -c "import json; print(json.load(open('meta.json'))['containerimage.digest'])")
+          echo "digest=${DIGEST}" >> "$GITHUB_OUTPUT"
+          echo "Pushed ${IMAGE}@${DIGEST}"
+
+      - name: Sign and attest
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          set -euo pipefail
+          cat > sbom.json <<'EOF'
+          {"spdxVersion": "SPDX-2.3", "dataLicense": "CC0-1.0", "SPDXID": "SPDXRef-DOCUMENT",
+           "name": "headwater-cosign-smoke", "documentNamespace": "https://example.invalid/smoke",
+           "creationInfo": {"created": "2026-01-01T00:00:00Z", "creators": ["Tool: smoke"]}, "packages": []}
+          EOF
+          cosign sign --yes "${IMAGE}@${DIGEST}"
+          cosign attest --yes --predicate sbom.json --type spdx "${IMAGE}@${DIGEST}"
+
+      # The same checks release.yml runs before publishing.
+      - name: Verify (cosign 3, as users will)
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          set -euo pipefail
+          IDENTITY="${GITHUB_SERVER_URL}/${GITHUB_WORKFLOW_REF}"
+          ISSUER="https://token.actions.githubusercontent.com"
+          cosign verify "${IMAGE}@${DIGEST}" \
+            --certificate-identity "${IDENTITY}" --certificate-oidc-issuer "${ISSUER}" > /dev/null
+          echo "signature: verified"
+          cosign verify-attestation "${IMAGE}@${DIGEST}" --type spdx \
+            --certificate-identity "${IDENTITY}" --certificate-oidc-issuer "${ISSUER}" > /dev/null
+          echo "SBOM attestation: verified"
+
+      # Informational: records whether cosign 2.x verifiers can still read what
+      # cosign 3 wrote. Expected to fail; it documents the upgrade requirement.
+      - name: Compatibility report (cosign 2.6.5)
+        if: always() && steps.build.outputs.digest != ''
+        continue-on-error: true
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          IDENTITY="${GITHUB_SERVER_URL}/${GITHUB_WORKFLOW_REF}"
+          ISSUER="https://token.actions.githubusercontent.com"
+          run() {
+            if docker run --rm -e DOCKER_CONFIG=/cfg -v "$HOME/.docker:/cfg:ro" \
+                 ghcr.io/sigstore/cosign/cosign:v2.6.5 "$@" \
+                 --certificate-identity "${IDENTITY}" --certificate-oidc-issuer "${ISSUER}" > /dev/null 2> err.txt; then
+              echo "ok"
+            else
+              echo "fails: $(grep -m1 -i error err.txt | cut -c1-120)"
+            fi
+          }
+          {
+            echo "### cosign 2.6.5 against a cosign 3.1.3 signature"
+            echo "| check | result |"
+            echo "|---|---|"
+            echo "| verify | $(run verify "${IMAGE}@${DIGEST}") |"
+            echo "| verify --new-bundle-format | $(run verify --new-bundle-format "${IMAGE}@${DIGEST}") |"
+            echo "| verify-attestation --type spdx | $(run verify-attestation --type spdx "${IMAGE}@${DIGEST}") |"
+          } | tee -a "$GITHUB_STEP_SUMMARY"
