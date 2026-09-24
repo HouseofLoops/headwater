@@ -78,7 +78,7 @@ jobs:
            "creationInfo": {"created": "2026-01-01T00:00:00Z", "creators": ["Tool: smoke"]}, "packages": []}
           EOF
           cosign sign --yes "${IMAGE}@${DIGEST}"
-          cosign attest --yes --predicate sbom.json --type spdx "${IMAGE}@${DIGEST}"
+          cosign attest --yes --predicate sbom.json --type spdxjson "${IMAGE}@${DIGEST}"
 
       # The same checks release.yml runs before publishing.
       - name: Verify (cosign 3, as users will)
@@ -91,12 +91,13 @@ jobs:
           cosign verify "${IMAGE}@${DIGEST}" \
             --certificate-identity "${IDENTITY}" --certificate-oidc-issuer "${ISSUER}" > /dev/null
           echo "signature: verified"
-          cosign verify-attestation "${IMAGE}@${DIGEST}" --type spdx \
+          cosign verify-attestation "${IMAGE}@${DIGEST}" --type spdxjson \
             --certificate-identity "${IDENTITY}" --certificate-oidc-issuer "${ISSUER}" > /dev/null
           echo "SBOM attestation: verified"
 
-      # Informational: records whether cosign 2.x verifiers can still read what
-      # cosign 3 wrote. Expected to fail; it documents the upgrade requirement.
+      # Informational: records which checks a cosign 2.x verifier can still do
+      # against what cosign 3 wrote, so the docs state the requirement from
+      # evidence rather than assumption.
       - name: Compatibility report (cosign 2.6.5)
         if: always() && steps.build.outputs.digest != ''
         continue-on-error: true
@@ -120,5 +121,5 @@ jobs:
             echo "|---|---|"
             echo "| verify | $(run verify "${IMAGE}@${DIGEST}") |"
             echo "| verify --new-bundle-format | $(run verify --new-bundle-format "${IMAGE}@${DIGEST}") |"
-            echo "| verify-attestation --type spdx | $(run verify-attestation --type spdx "${IMAGE}@${DIGEST}") |"
+            echo "| verify-attestation --type spdxjson | $(run verify-attestation --type spdxjson "${IMAGE}@${DIGEST}") |"
           } | tee -a "$GITHUB_STEP_SUMMARY"

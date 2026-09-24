@@ -246,6 +246,11 @@ jobs:
         id: syft
         uses: anchore/sbom-action/download-syft@v0
 
+      # --type spdxjson, not spdx: syft emits SPDX *JSON*, and cosign's `spdx`
+      # type means SPDX tag-value text, which it embeds as one string. Releases
+      # up to 2.2.0 carried the SBOM that way; cosign 3's bundle signing rejects
+      # a non-object predicate ("invalid attestation: decoding json"). Same
+      # predicate type URI (https://spdx.dev/Document) either way.
       - name: Generate and attest SBOM
         env:
           DIGEST: ${{ steps.build.outputs.digest }}
@@ -254,9 +259,9 @@ jobs:
         run: |
           set -euo pipefail
           "$SYFT" "${DOCKERHUB_USER}/headwater@${DIGEST}" -o spdx-json > sbom.json
-          cosign attest --yes --predicate sbom.json --type spdx \
+          cosign attest --yes --predicate sbom.json --type spdxjson \
             "${DOCKERHUB_USER}/headwater@${DIGEST}"
-          cosign attest --yes --predicate sbom.json --type spdx \
+          cosign attest --yes --predicate sbom.json --type spdxjson \
             "ghcr.io/${GITHUB_REPOSITORY}@${DIGEST}"
 
       # Prove the release is verifiable the way users will verify it, before
@@ -275,7 +280,7 @@ jobs:
             echo "::group::verify ${IMAGE}"
             cosign verify "${IMAGE}" \
               --certificate-identity "${IDENTITY}" --certificate-oidc-issuer "${ISSUER}" > /dev/null
-            cosign verify-attestation "${IMAGE}" --type spdx \
+            cosign verify-attestation "${IMAGE}" --type spdxjson \
               --certificate-identity "${IDENTITY}" --certificate-oidc-issuer "${ISSUER}" > /dev/null
             echo "::endgroup::"
             echo "Verified signature and SBOM attestation: ${IMAGE}"
