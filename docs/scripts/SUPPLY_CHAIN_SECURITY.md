@@ -56,7 +56,7 @@ Images are signed **only by CI**, in [`.github/workflows/release.yml`](../../.gi
 
 For each release, CI:
 
-1. Builds the multi-arch image (amd64, arm64) and pushes it to `rainmanjam/headwater` (Docker Hub) and `ghcr.io/rainmanjam/headwater`, with BuildKit SBOM and provenance attestations attached.
+1. Builds the multi-arch image (amd64, arm64) and pushes it to `rainmanjam/headwater` (Docker Hub) and `ghcr.io/houseofloops/headwater`, with BuildKit SBOM and provenance attestations attached.
 2. Signs the image **by digest** in both registries with `cosign sign`.
 3. Generates an SPDX JSON SBOM with Syft and attaches it with `cosign attest --type spdxjson`, again by digest.
 4. Verifies both signatures and both attestations with the same identity a user would check, before the GitHub release is published.
@@ -65,17 +65,17 @@ The signer identity to verify against is:
 
 | Field | Value |
 |---|---|
-| Certificate identity | `https://github.com/rainmanjam/headwater/.github/workflows/release.yml@refs/heads/main` |
+| Certificate identity (2.2.2 and later) | `https://github.com/HouseofLoops/headwater/.github/workflows/release.yml@refs/heads/main` |
+| Certificate identity (up to 2.2.1) | `https://github.com/rainmanjam/headwater/.github/workflows/release.yml@refs/heads/main` |
 | OIDC issuer | `https://token.actions.githubusercontent.com` |
 
-> **Repository move.** Headwater is moving from `rainmanjam` to the
-> `HouseofLoops` GitHub organisation. Each release keeps the identity it was
-> signed with: releases before the move use
-> `https://github.com/rainmanjam/headwater/.github/workflows/release.yml@refs/heads/main`,
-> and later ones use `https://github.com/HouseofLoops/headwater/...` (same path).
-> To accept either, pass
-> `--certificate-identity-regexp '^https://github\.com/(?i:rainmanjam|houseofloops)/headwater/\.github/workflows/release\.yml@refs/heads/main$'`
-> instead of `--certificate-identity`. `make docker-verify` already does.
+> **Repository move.** Headwater moved from `rainmanjam` to the `HouseofLoops`
+> GitHub organisation after 2.2.1. Each release keeps the identity it was signed
+> with, so the examples below use `--certificate-identity-regexp` accepting
+> exactly those two owners; `make docker-verify` does the same. GHCR images up to
+> 2.2.1 remain at `ghcr.io/rainmanjam/headwater`; later ones are only at
+> `ghcr.io/houseofloops/headwater`. Docker Hub (`rainmanjam/headwater`) is
+> unchanged.
 
 There is no local or key-based signing path. Images you build yourself are not signed.
 
@@ -112,7 +112,7 @@ cosign version       # 2.6 or newer (3.x recommended)
 The quickest way is the Makefile target, which checks the signature and the SPDX SBOM attestation non-interactively and fails if cosign is missing or older than 2.6:
 
 ```bash
-make docker-verify IMAGE=ghcr.io/rainmanjam/headwater TAG=<version>
+make docker-verify IMAGE=ghcr.io/houseofloops/headwater TAG=<version>
 make docker-verify IMAGE=rainmanjam/headwater DIGEST=sha256:<digest>
 ```
 
@@ -121,18 +121,18 @@ Or run Cosign directly. Pinning by digest is best practice, because a tag can be
 ```bash
 # Signature
 cosign verify \
-  --certificate-identity https://github.com/rainmanjam/headwater/.github/workflows/release.yml@refs/heads/main \
+  --certificate-identity-regexp '^https://github\.com/(?i:rainmanjam|houseofloops)/headwater/\.github/workflows/release\.yml@refs/heads/main$' \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com \
-  ghcr.io/rainmanjam/headwater@sha256:<digest>
+  ghcr.io/houseofloops/headwater@sha256:<digest>
 
 # SPDX SBOM attestation (use --type spdx with cosign 2.x for 2.1.0/2.2.0)
 cosign verify-attestation --type spdxjson \
-  --certificate-identity https://github.com/rainmanjam/headwater/.github/workflows/release.yml@refs/heads/main \
+  --certificate-identity-regexp '^https://github\.com/(?i:rainmanjam|houseofloops)/headwater/\.github/workflows/release\.yml@refs/heads/main$' \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com \
-  ghcr.io/rainmanjam/headwater@sha256:<digest>
+  ghcr.io/houseofloops/headwater@sha256:<digest>
 ```
 
-To find the digest for a tag: `docker buildx imagetools inspect ghcr.io/rainmanjam/headwater:<version>`. The release notes for each version also list the digest.
+To find the digest for a tag: `docker buildx imagetools inspect ghcr.io/houseofloops/headwater:<version>`. The release notes for each version also list the digest.
 
 ## Docker Hub Configuration
 

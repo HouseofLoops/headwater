@@ -3,13 +3,13 @@
 One self-hosted API for Google Maps, News, Trends and Autocomplete, plus YouTube
 transcripts. Normalised JSON, no per-call vendor pricing, runs in Docker.
 
-[![GitHub release](https://img.shields.io/github/v/release/rainmanjam/headwater)](https://github.com/rainmanjam/headwater/releases)
+[![GitHub release](https://img.shields.io/github/v/release/HouseofLoops/headwater)](https://github.com/HouseofLoops/headwater/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.14](https://img.shields.io/badge/python-3.14-blue.svg)](https://www.python.org/downloads/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-009688.svg?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 
 ```bash
-git clone https://github.com/rainmanjam/headwater.git && cd headwater
+git clone https://github.com/HouseofLoops/headwater.git && cd headwater
 cp .env.example .env          # set API_KEY
 docker compose up -d
 curl -H "X-API-Key: $API_KEY" \
@@ -48,7 +48,7 @@ here is an officially supported Google interface.
 ### Docker Compose (recommended)
 
 ```bash
-git clone https://github.com/rainmanjam/headwater.git && cd headwater
+git clone https://github.com/HouseofLoops/headwater.git && cd headwater
 cp .env.example .env
 docker compose up -d
 ```
@@ -61,7 +61,7 @@ restart and invisible to sibling workers. `/health/detailed` reports
 ### One-line installer
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/rainmanjam/headwater/main/scripts/install.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/HouseofLoops/headwater/main/scripts/install.sh | sudo bash
 ```
 
 Installs Docker if absent, configures Redis, sets secure defaults, optionally
@@ -81,9 +81,9 @@ the authoritative endpoint list.
 
 ### Image signatures
 
-Published images (`rainmanjam/headwater`, `ghcr.io/rainmanjam/headwater`) are
+Published images (`rainmanjam/headwater`, `ghcr.io/houseofloops/headwater`) are
 signed keylessly by CI and carry an SPDX SBOM attestation. Check one with
-`make docker-verify IMAGE=ghcr.io/rainmanjam/headwater TAG=<version>` (needs
+`make docker-verify IMAGE=ghcr.io/houseofloops/headwater TAG=<version>` (needs
 cosign 2.6 or newer), or see [Verifying images](docs/DOCKERHUB.md#verifying-images)
 for the raw `cosign` commands and notes on older releases.
 

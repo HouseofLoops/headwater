@@ -6,7 +6,7 @@
 # This script installs Headwater with Docker Compose
 # Supports: Ubuntu/Debian, CentOS/RHEL/Fedora, macOS
 #
-# Usage: curl -fsSL https://raw.githubusercontent.com/rainmanjam/headwater/main/scripts/install.sh | bash
+# Usage: curl -fsSL https://raw.githubusercontent.com/HouseofLoops/headwater/main/scripts/install.sh | bash
 #    or: ./install.sh
 #
 
@@ -17,7 +17,7 @@ set -e
 # =============================================================================
 
 INSTALL_DIR="/opt/headwater"
-GITHUB_REPO="https://github.com/rainmanjam/headwater.git"
+GITHUB_REPO="https://github.com/HouseofLoops/headwater.git"
 # rainmanjam/headwater is published and public: multi-arch (linux/amd64 and
 # linux/arm64), tags latest and 2.0.0, verified pullable anonymously.
 #
@@ -411,7 +411,7 @@ clone_repository() {
         git clone "$GITHUB_REPO" "$INSTALL_DIR/source"
     else
         log_info "Git not found, downloading archive..."
-        curl -fsSL "https://github.com/rainmanjam/headwater/archive/main.tar.gz" | tar -xz -C "$INSTALL_DIR"
+        curl -fsSL "https://github.com/HouseofLoops/headwater/archive/main.tar.gz" | tar -xz -C "$INSTALL_DIR"
         mv "$INSTALL_DIR/headwater-main" "$INSTALL_DIR/source"
     fi
 

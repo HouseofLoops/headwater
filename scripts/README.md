@@ -6,10 +6,10 @@ This directory contains installation and management scripts for Headwater.
 
 ```bash
 # One-line install (requires root/sudo on Linux)
-curl -fsSL https://raw.githubusercontent.com/rainmanjam/headwater/main/scripts/install.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/HouseofLoops/headwater/main/scripts/install.sh | sudo bash
 
 # Or clone and run locally
-git clone https://github.com/rainmanjam/headwater.git
+git clone https://github.com/HouseofLoops/headwater.git
 cd headwater/scripts
 sudo ./install.sh
 ```

@@ -3,7 +3,7 @@
 One self-hosted API for Google Maps, News, Trends and Autocomplete, plus YouTube
 transcripts. Normalised JSON, no per-call vendor pricing.
 
-**Source:** https://github.com/rainmanjam/headwater · **License:** MIT
+**Source:** https://github.com/HouseofLoops/headwater · **License:** MIT
 
 ```bash
 docker run -d --name headwater -p 8000:8000 \
@@ -120,39 +120,39 @@ source, revision, version and license of whatever you pulled.
 
 Every release is signed by CI with keyless Cosign (Sigstore, GitHub OIDC) and
 carries an SPDX SBOM attestation, on both `rainmanjam/headwater` and
-`ghcr.io/rainmanjam/headwater`. There is no public key; verify against the
+`ghcr.io/houseofloops/headwater`. There is no public key; verify against the
 signing workflow's identity:
 
-- Certificate identity: `https://github.com/rainmanjam/headwater/.github/workflows/release.yml@refs/heads/main`
+- Certificate identity: `https://github.com/HouseofLoops/headwater/.github/workflows/release.yml@refs/heads/main` (2.2.2 and later)
+  or `https://github.com/rainmanjam/headwater/.github/workflows/release.yml@refs/heads/main` (up to 2.2.1)
 - OIDC issuer: `https://token.actions.githubusercontent.com`
 
-> **Repository move.** Headwater is moving from `rainmanjam` to the
-> `HouseofLoops` GitHub organisation. Each release keeps the identity it was
-> signed with: releases before the move use
-> `https://github.com/rainmanjam/headwater/.github/workflows/release.yml@refs/heads/main`,
-> and later ones use `https://github.com/HouseofLoops/headwater/...` (same path).
-> To accept either, pass
-> `--certificate-identity-regexp '^https://github\.com/(?i:rainmanjam|houseofloops)/headwater/\.github/workflows/release\.yml@refs/heads/main$'`
-> instead of `--certificate-identity`. `make docker-verify` already does.
+> **Repository move.** Headwater moved from `rainmanjam` to the `HouseofLoops`
+> GitHub organisation after 2.2.1. Each release keeps the identity it was signed
+> with, so the examples below use `--certificate-identity-regexp` accepting
+> exactly those two owners; `make docker-verify` does the same. GHCR images up to
+> 2.2.1 remain at `ghcr.io/rainmanjam/headwater`; later ones are only at
+> `ghcr.io/houseofloops/headwater`. Docker Hub (`rainmanjam/headwater`) is
+> unchanged.
 
 ```bash
 # Signature
 cosign verify \
-  --certificate-identity https://github.com/rainmanjam/headwater/.github/workflows/release.yml@refs/heads/main \
+  --certificate-identity-regexp '^https://github\.com/(?i:rainmanjam|houseofloops)/headwater/\.github/workflows/release\.yml@refs/heads/main$' \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com \
-  ghcr.io/rainmanjam/headwater:<version>
+  ghcr.io/houseofloops/headwater:<version>
 
 # SPDX SBOM attestation
 cosign verify-attestation --type spdxjson \
-  --certificate-identity https://github.com/rainmanjam/headwater/.github/workflows/release.yml@refs/heads/main \
+  --certificate-identity-regexp '^https://github\.com/(?i:rainmanjam|houseofloops)/headwater/\.github/workflows/release\.yml@refs/heads/main$' \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com \
-  ghcr.io/rainmanjam/headwater:<version>
+  ghcr.io/houseofloops/headwater:<version>
 ```
 
 Tags can move, so prefer pinning the digest (listed in each GitHub release, or
-from `docker buildx imagetools inspect ghcr.io/rainmanjam/headwater:<version>`):
+from `docker buildx imagetools inspect ghcr.io/houseofloops/headwater:<version>`):
 replace `:<version>` above with `@sha256:<digest>`. From a clone of the repo,
-`make docker-verify IMAGE=ghcr.io/rainmanjam/headwater TAG=<version>` (or
+`make docker-verify IMAGE=ghcr.io/houseofloops/headwater TAG=<version>` (or
 `DIGEST=sha256:<digest>`) runs both checks.
 
 Which cosign to use (tested against real images, keyless, on both registries):
@@ -169,4 +169,4 @@ predicate to be a JSON object and rejects it. From 2.2.1 the
 SBOM is attested with `--type spdxjson`, as a real JSON object.
 
 Full documentation, including deployment, performance tuning and troubleshooting
-guides: https://github.com/rainmanjam/headwater
+guides: https://github.com/HouseofLoops/headwater

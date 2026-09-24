@@ -5,6 +5,20 @@ All notable changes to the Headwater API will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- **The repository moved to the `HouseofLoops` organisation**:
+  https://github.com/HouseofLoops/headwater (old URLs redirect).
+- **GHCR images are now published to `ghcr.io/houseofloops/headwater`.** Images
+  up to 2.2.1 stay at `ghcr.io/rainmanjam/headwater`, which receives no new
+  releases. Docker Hub (`rainmanjam/headwater`) is unchanged.
+- Signer identity for new releases:
+  `https://github.com/HouseofLoops/headwater/.github/workflows/release.yml@refs/heads/main`.
+  Releases up to 2.2.1 keep the `rainmanjam` identity. `make docker-verify` and
+  the documented commands accept both.
+
 ## [2.2.1] - 2026-09-23
 
 Supply-chain release. The application code is the same as 2.2.0; only image
