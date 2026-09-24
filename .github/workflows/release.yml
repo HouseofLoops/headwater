@@ -219,15 +219,16 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # cosign is pinned to the 2.x line deliberately. cosign v3 (the v4
-      # installer's default) stores signatures as OCI 1.1 referrers in the new
-      # Sigstore bundle format, which verifiers on cosign < 3 cannot find.
-      # Moving to v3 changes how every user verifies this image, so it should
-      # be its own release-noted change, not a side effect of an installer bump.
+      # cosign v3 signs in the Sigstore bundle format and stores signatures and
+      # attestations as OCI 1.1 referrers (or the `sha256-<digest>` fallback tag
+      # where a registry has no referrers API). Verifiers need cosign >= 3;
+      # cosign 2.x cannot find them. Releases up to 2.2.0 were signed with 2.x.
+      # Pinned rather than taking the installer default, so a cosign release
+      # never changes the signature format as a side effect.
       - name: Install Cosign
         uses: sigstore/cosign-installer@v4.1.2
         with:
-          cosign-release: v2.6.5
+          cosign-release: v3.1.3
 
       # Sign by DIGEST, not by tag. Signing a mutable tag signs whatever that
       # tag pointed at when cosign resolved it; the digest is what the build
@@ -245,6 +246,11 @@ jobs:
         id: syft
         uses: anchore/sbom-action/download-syft@v0
 
+      # --type spdxjson, not spdx: syft emits SPDX *JSON*, and cosign's `spdx`
+      # type means SPDX tag-value text, which it embeds as one string. Releases
+      # up to 2.2.0 carried the SBOM that way; cosign 3's bundle signing rejects
+      # a non-object predicate ("invalid attestation: decoding json"). Same
+      # predicate type URI (https://spdx.dev/Document) either way.
       - name: Generate and attest SBOM
         env:
           DIGEST: ${{ steps.build.outputs.digest }}
@@ -253,10 +259,32 @@ jobs:
         run: |
           set -euo pipefail
           "$SYFT" "${DOCKERHUB_USER}/headwater@${DIGEST}" -o spdx-json > sbom.json
-          cosign attest --yes --predicate sbom.json --type spdx \
+          cosign attest --yes --predicate sbom.json --type spdxjson \
             "${DOCKERHUB_USER}/headwater@${DIGEST}"
-          cosign attest --yes --predicate sbom.json --type spdx \
+          cosign attest --yes --predicate sbom.json --type spdxjson \
             "ghcr.io/${GITHUB_REPOSITORY}@${DIGEST}"
+
+      # Prove the release is verifiable the way users will verify it, before
+      # the GitHub release is published. Both registries, signature and SBOM
+      # attestation, pinned to this workflow's own OIDC identity. A signing or
+      # storage problem fails here instead of shipping unverifiable images.
+      - name: Verify signatures and SBOM attestation
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+          DOCKERHUB_USER: ${{ secrets.DOCKERHUB_USERNAME }}
+        run: |
+          set -euo pipefail
+          IDENTITY="${GITHUB_SERVER_URL}/${GITHUB_WORKFLOW_REF}"
+          ISSUER="https://token.actions.githubusercontent.com"
+          for IMAGE in "${DOCKERHUB_USER}/headwater@${DIGEST}" "ghcr.io/${GITHUB_REPOSITORY}@${DIGEST}"; do
+            echo "::group::verify ${IMAGE}"
+            cosign verify "${IMAGE}" \
+              --certificate-identity "${IDENTITY}" --certificate-oidc-issuer "${ISSUER}" > /dev/null
+            cosign verify-attestation "${IMAGE}" --type spdxjson \
+              --certificate-identity "${IDENTITY}" --certificate-oidc-issuer "${ISSUER}" > /dev/null
+            echo "::endgroup::"
+            echo "Verified signature and SBOM attestation: ${IMAGE}"
+          done
 
       - name: Upload SBOM artifact
         if: always()

@@ -116,5 +116,48 @@ non-root user, with Debian security updates applied at build time. Carries
 standard `org.opencontainers.image.*` labels, so `docker inspect` tells you the
 source, revision, version and license of whatever you pulled.
 
+## Verifying images
+
+Every release is signed by CI with keyless Cosign (Sigstore, GitHub OIDC) and
+carries an SPDX SBOM attestation, on both `rainmanjam/headwater` and
+`ghcr.io/rainmanjam/headwater`. There is no public key; verify against the
+signing workflow's identity:
+
+- Certificate identity: `https://github.com/rainmanjam/headwater/.github/workflows/release.yml@refs/heads/main`
+- OIDC issuer: `https://token.actions.githubusercontent.com`
+
+```bash
+# Signature
+cosign verify \
+  --certificate-identity https://github.com/rainmanjam/headwater/.github/workflows/release.yml@refs/heads/main \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  ghcr.io/rainmanjam/headwater:<version>
+
+# SPDX SBOM attestation
+cosign verify-attestation --type spdxjson \
+  --certificate-identity https://github.com/rainmanjam/headwater/.github/workflows/release.yml@refs/heads/main \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  ghcr.io/rainmanjam/headwater:<version>
+```
+
+Tags can move, so prefer pinning the digest (listed in each GitHub release, or
+from `docker buildx imagetools inspect ghcr.io/rainmanjam/headwater:<version>`):
+replace `:<version>` above with `@sha256:<digest>`. From a clone of the repo,
+`make docker-verify IMAGE=ghcr.io/rainmanjam/headwater TAG=<version>` (or
+`DIGEST=sha256:<digest>`) runs both checks.
+
+Which cosign to use (tested against real images, keyless, on both registries):
+
+| Release | Signature | SBOM attestation |
+|---|---|---|
+| After 2.2.0 (signed with cosign 3) | cosign 2.6+ or 3.x | cosign 2.6+ or 3.x, `--type spdxjson` |
+| 2.1.0, 2.2.0 (signed with cosign 2) | cosign 2.6+ or 3.x | **cosign 2.x only**, `--type spdx` or `spdxjson` |
+| 2.0.0 and 1.x | not signed | none |
+
+The 2.1.0/2.2.0 exception: their SBOM was attested with `--type spdx`, which
+made cosign embed the SPDX JSON as a single string. cosign 3 requires the
+predicate to be a JSON object and rejects it. From the release after 2.2.0 the
+SBOM is attested with `--type spdxjson`, as a real JSON object.
+
 Full documentation, including deployment, performance tuning and troubleshooting
 guides: https://github.com/rainmanjam/headwater

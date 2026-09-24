@@ -79,6 +79,14 @@ Interactive docs are at `/api/docs` (Swagger) and `/api/redoc`, and the raw
 schema at `/openapi.json`. Those are generated from the code, so they are always
 the authoritative endpoint list.
 
+### Image signatures
+
+Published images (`rainmanjam/headwater`, `ghcr.io/rainmanjam/headwater`) are
+signed keylessly by CI and carry an SPDX SBOM attestation. Check one with
+`make docker-verify IMAGE=ghcr.io/rainmanjam/headwater TAG=<version>` (needs
+cosign 2.6 or newer), or see [Verifying images](docs/DOCKERHUB.md#verifying-images)
+for the raw `cosign` commands and notes on older releases.
+
 ## What you get back
 
 Every example below is a real response from a running instance, trimmed for
