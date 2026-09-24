@@ -24,40 +24,29 @@ FROM python:3.14-slim-trixie@sha256:<digest> AS builder
 
 ## 2. Missing Supply Chain Attestation(s)
 
-Supply chain attestations provide cryptographic verification of your Docker images. We've implemented a comprehensive solution:
+Supply chain attestations provide cryptographic verification of your Docker images. They are produced entirely by CI (`.github/workflows/release.yml`); there is no manual signing step and no signing key.
 
-### Steps to Implement Supply Chain Attestations
+### What CI attaches to each release
 
-1. **Generate a Cosign Key Pair**:
-   ```bash
-   cosign generate-key-pair
-   ```
+1. **BuildKit SBOM and provenance attestations** (`sbom: true`, `provenance: mode=max`), which are what Docker Scout reads for this check.
+2. **A keyless Cosign signature**, by digest, in both Docker Hub and GHCR (Sigstore/Fulcio, GitHub OIDC).
+3. **A keyless Cosign SPDX SBOM attestation** (`cosign attest --type spdx`), by digest.
 
-2. **Sign Your Docker Images**:
-   ```bash
-   # Basic signing
-   make docker-sign
-   
-   # With SBOM attestation (recommended)
-   make docker-sign-sbom
-   
-   # With vulnerability attestation
-   make docker-sign-vuln
-   ```
+### Configure Docker Hub
 
-3. **Configure Docker Hub**:
-   - Log in to Docker Hub
-   - Navigate to your repository
-   - Go to "Settings" > "Security & Vulnerability Scanning"
-   - Enable "Use Docker Scout"
-   - Under "Trusted Publishers", add your public key (`cosign.pub`)
+- Log in to Docker Hub and open the repository
+- Go to "Settings" and enable Docker Scout image analysis
+- No public key needs to be registered: signing is keyless
 
-4. **Verify Your Attestations**:
-   ```bash
-   make docker-verify
-   ```
+### Verify a published image
 
-For more detailed information, see [scripts/SUPPLY_CHAIN_SECURITY.md](SUPPLY_CHAIN_SECURITY.md).
+Requires cosign >= 3 for releases after 2.2.0:
+
+```bash
+make docker-verify IMAGE=ghcr.io/rainmanjam/headwater TAG=<version>
+```
+
+For the manual `cosign` commands, the signer identity, and notes on older releases, see [SUPPLY_CHAIN_SECURITY.md](SUPPLY_CHAIN_SECURITY.md#verifying-an-image).
 
 ## 3. No Outdated Base Images
 
@@ -122,9 +111,8 @@ To achieve a high Docker Hub Scout health score:
    - Keep base images up-to-date
 
 2. **Implement Supply Chain Attestations**:
-   - Sign your images with Cosign
-   - Create SBOM attestations
-   - Configure Docker Hub to recognize your attestations
+   - CI signs images keylessly with Cosign and attaches SBOM/provenance attestations
+   - Enable Docker Scout on the Docker Hub repository
 
 3. **Run as Non-Root User**:
    - We've already updated the Dockerfile to use a non-root user
@@ -132,7 +120,7 @@ To achieve a high Docker Hub Scout health score:
 
 4. **Regular Maintenance**:
    - Check for base image updates regularly
-   - Rebuild and re-sign images when base images are updated
+   - Rebuild images when base images are updated (a new CI release re-signs them)
    - Monitor for vulnerabilities in your dependencies
 
 ## References

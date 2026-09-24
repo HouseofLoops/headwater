@@ -1,4 +1,4 @@
-.PHONY: help install run test lint docker-build docker-run docker-compose-up docker-compose-down docker-compose-dev dev prod clean-start update test-and-build ci logs restart rebuild check-env debug-docker docker-push version version-patch version-minor version-major docker-buildx docker-buildx-no-cache docker-pushx docker-pushx-no-cache docker-sign docker-sign-sbom docker-sign-vuln docker-verify update-base-image check-base-image test-proxy test-apis clear-cache health-check
+.PHONY: help install run test lint docker-build docker-run docker-compose-up docker-compose-down docker-compose-dev dev prod clean-start update test-and-build ci logs restart rebuild check-env debug-docker docker-push version version-patch version-minor version-major docker-buildx docker-buildx-no-cache docker-pushx docker-pushx-no-cache docker-verify update-base-image check-base-image test-proxy test-apis clear-cache health-check
 
 help:
 	@echo "Available commands:"
@@ -42,11 +42,8 @@ help:
 	@echo "  make docker-pushx       - Build and push multi-arch Docker image to Docker Hub"
 	@echo "  make docker-pushx-no-cache - Build and push multi-arch Docker image without cache"
 	@echo ""
-	@echo "Docker image signing commands:"
-	@echo "  make docker-sign        - Sign Docker image with Cosign"
-	@echo "  make docker-sign-sbom   - Sign Docker image and create SBOM attestation"
-	@echo "  make docker-sign-vuln   - Sign Docker image and create vulnerability attestation"
-	@echo "  make docker-verify      - Verify Docker image signatures and attestations"
+	@echo "Image verification (images are signed keylessly by CI; needs cosign >= 3):"
+	@echo "  make docker-verify      - Verify CI signature + SBOM attestation (IMAGE=... TAG=...)"
 	@echo ""
 	@echo "Base image management:"
 	@echo "  make update-base-image  - Update base image to latest digest"
@@ -195,48 +192,60 @@ docker-pushx-no-cache:
 	@echo "Enter your Docker Hub username:"
 	@read DOCKER_USER && ./scripts/docker_multiarch.sh push-no-cache $$DOCKER_USER
 
-# Docker image signing
-# The private signing key lives OUTSIDE the repo so it can never enter the
-# Docker build context (Dockerfile ends in `COPY . .`). Override with:
-#   make docker-sign COSIGN_KEY=/path/to/cosign.key
-COSIGN_KEY ?= $(HOME)/.secrets/headwater/cosign.key
-COSIGN_PUB ?= cosign.pub
-
-docker-sign:
-	@echo "Signing Docker image with Cosign..."
-	@echo "Enter your Docker Hub username:"
-	@read DOCKER_USER && \
-	echo "Enter image tag (default: latest):" && \
-	read IMAGE_TAG && \
-	IMAGE_TAG=$${IMAGE_TAG:-latest} && \
-	./scripts/sign_image.sh --image $$DOCKER_USER/headwater --tag $$IMAGE_TAG --key $(COSIGN_KEY)
-
-docker-sign-sbom:
-	@echo "Signing Docker image and creating SBOM attestation..."
-	@echo "Enter your Docker Hub username:"
-	@read DOCKER_USER && \
-	echo "Enter image tag (default: latest):" && \
-	read IMAGE_TAG && \
-	IMAGE_TAG=$${IMAGE_TAG:-latest} && \
-	./scripts/sign_image.sh --image $$DOCKER_USER/headwater --tag $$IMAGE_TAG --key $(COSIGN_KEY) --attestation sbom
-
-docker-sign-vuln:
-	@echo "Signing Docker image and creating vulnerability attestation..."
-	@echo "Enter your Docker Hub username:"
-	@read DOCKER_USER && \
-	echo "Enter image tag (default: latest):" && \
-	read IMAGE_TAG && \
-	IMAGE_TAG=$${IMAGE_TAG:-latest} && \
-	./scripts/sign_image.sh --image $$DOCKER_USER/headwater --tag $$IMAGE_TAG --key $(COSIGN_KEY) --attestation vulnerability
+# Docker image verification
+# Published images are signed KEYLESSLY by CI (.github/workflows/release.yml,
+# Sigstore/Fulcio + GitHub OIDC) and carry an SPDX SBOM attestation. There is
+# no signing key: verification pins the signer's certificate identity instead.
+# Releases after 2.2.0 use the cosign v3 bundle format, so cosign >= 3 is
+# required. Examples:
+#   make docker-verify IMAGE=ghcr.io/rainmanjam/headwater TAG=2.2.0
+#   make docker-verify IMAGE=rainmanjam/headwater DIGEST=sha256:<digest>
+# DIGEST, when set, takes precedence over TAG (pinning by digest is stronger).
+IMAGE ?= ghcr.io/rainmanjam/headwater
+TAG ?= latest
+DIGEST ?=
+COSIGN ?= cosign
+COSIGN_IDENTITY ?= https://github.com/rainmanjam/headwater/.github/workflows/release.yml@refs/heads/main
+COSIGN_OIDC_ISSUER ?= https://token.actions.githubusercontent.com
+VERIFY_REF = $(if $(DIGEST),$(IMAGE)@$(DIGEST),$(IMAGE):$(TAG))
 
 docker-verify:
-	@echo "Verifying Docker image signatures and attestations..."
-	@echo "Enter your Docker Hub username:"
-	@read DOCKER_USER && \
-	echo "Enter image tag (default: latest):" && \
-	read IMAGE_TAG && \
-	IMAGE_TAG=$${IMAGE_TAG:-latest} && \
-	./scripts/verify_attestations.sh --image $$DOCKER_USER/headwater --tag $$IMAGE_TAG --key $(COSIGN_PUB)
+	@command -v $(COSIGN) >/dev/null 2>&1 || { \
+		echo "ERROR: cosign not found. Install cosign >= 3: https://docs.sigstore.dev/cosign/system_config/installation/"; \
+		exit 1; }
+	@major=$$($(COSIGN) version 2>&1 | sed -n 's/^GitVersion:[[:space:]]*v*\([0-9][0-9]*\).*/\1/p' | head -n 1); \
+	if [ -z "$$major" ]; then \
+		echo "ERROR: could not determine the cosign version from '$(COSIGN) version'."; \
+		exit 1; \
+	elif [ "$$major" -lt 3 ]; then \
+		echo "ERROR: cosign $$major.x found; cosign >= 3 is required (releases after 2.2.0 use the v3 bundle format)."; \
+		echo "       (Only the 2.1.0/2.2.0 SBOM attestations need cosign 2.x; see docs/DOCKERHUB.md.)"; \
+		exit 1; \
+	fi
+	@echo "Verifying CI signature on $(VERIFY_REF)..."
+	@$(COSIGN) verify \
+		--certificate-identity "$(COSIGN_IDENTITY)" \
+		--certificate-oidc-issuer "$(COSIGN_OIDC_ISSUER)" \
+		"$(VERIFY_REF)" >/dev/null || { \
+		echo "ERROR: signature verification FAILED for $(VERIFY_REF)."; \
+		echo "       (Releases before 2.1.0 were never signed.)"; \
+		exit 1; }
+	@echo "OK: signature verified (signer: $(COSIGN_IDENTITY))"
+	@echo "Verifying SPDX SBOM attestation on $(VERIFY_REF)..."
+	@$(COSIGN) verify-attestation --type spdx \
+		--certificate-identity "$(COSIGN_IDENTITY)" \
+		--certificate-oidc-issuer "$(COSIGN_OIDC_ISSUER)" \
+		"$(VERIFY_REF)" >/dev/null || { \
+		echo "ERROR: SBOM attestation verification FAILED for $(VERIFY_REF)."; \
+		echo "       If this is release 2.1.0 or 2.2.0 (pre-2.3), that is expected under cosign 3:"; \
+		echo "       those attestations use the legacy .att format, which cosign 3 cannot match by --type."; \
+		echo "       Verify them with cosign 2.x instead:"; \
+		echo "         cosign verify-attestation --type spdx \\"; \
+		echo "           --certificate-identity '$(COSIGN_IDENTITY)' \\"; \
+		echo "           --certificate-oidc-issuer '$(COSIGN_OIDC_ISSUER)' \\"; \
+		echo "           $(VERIFY_REF)"; \
+		exit 1; }
+	@echo "OK: SPDX SBOM attestation verified"
 
 # Base image management
 update-base-image:
