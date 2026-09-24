@@ -76,13 +76,13 @@ Which cosign to use (tested against real images, keyless, on both registries):
 
 | Release | Signature | SBOM attestation |
 |---|---|---|
-| After 2.2.0 (signed with cosign 3) | cosign 2.6+ or 3.x | cosign 2.6+ or 3.x, `--type spdxjson` |
+| 2.2.1 and later (signed with cosign 3) | cosign 2.6+ or 3.x | cosign 2.6+ or 3.x, `--type spdxjson` |
 | 2.1.0, 2.2.0 (signed with cosign 2) | cosign 2.6+ or 3.x | **cosign 2.x only**, `--type spdx` or `spdxjson` |
 | 2.0.0 and 1.x | not signed | none |
 
 The 2.1.0/2.2.0 exception: their SBOM was attested with `--type spdx`, which
 made cosign embed the SPDX JSON as a single string. cosign 3 requires the
-predicate to be a JSON object and rejects it. From the release after 2.2.0 the
+predicate to be a JSON object and rejects it. From 2.2.1 the
 SBOM is attested with `--type spdxjson`, as a real JSON object.
 
 CI signs with cosign v3, which writes the Sigstore bundle format and stores it
