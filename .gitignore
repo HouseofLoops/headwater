@@ -94,7 +94,8 @@ htmlcov/
 # Testing outputs
 test_output/
 
-# Cosign keys
+# Cosign keys: images are signed keylessly in CI and no key is used, but keep
+# these ignored so a stray key pair can never be committed.
 cosign.key
 cosign.pub
 
