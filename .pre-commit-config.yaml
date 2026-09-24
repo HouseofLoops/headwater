@@ -43,7 +43,7 @@ repos:
 
   # Same rule set and format check the CI lint job uses (see _verify.yml).
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.16.4
+    rev: v0.16.8
     hooks:
       - id: ruff
         name: ruff (full rule set)
