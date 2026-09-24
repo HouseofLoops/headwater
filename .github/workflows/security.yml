@@ -241,19 +241,59 @@ jobs:
   gitleaks:
     name: Gitleaks Secret Scan
     runs-on: ubuntu-latest
+    # The gitleaks CLI (MIT), not gitleaks/gitleaks-action: the Action requires a
+    # paid license key for repositories owned by an organisation. Same scanner,
+    # same .gitleaks.toml and .gitleaksignore, same commit ranges the Action used.
+    env:
+      GITLEAKS_VERSION: 8.30.1
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
-      - name: Run Gitleaks
-        uses: gitleaks/gitleaks-action@v3
+      - name: Install gitleaks (pinned, checksum-verified)
+        run: |
+          set -euo pipefail
+          base="https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}"
+          tarball="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          cd "$RUNNER_TEMP"
+          curl -fsSLO "${base}/${tarball}"
+          curl -fsSLO "${base}/gitleaks_${GITLEAKS_VERSION}_checksums.txt"
+          grep " ${tarball}\$" "gitleaks_${GITLEAKS_VERSION}_checksums.txt" | sha256sum --check --strict -
+          tar -xzf "${tarball}" gitleaks
+          sudo install -m 0755 gitleaks /usr/local/bin/gitleaks
+          gitleaks version
+
+      # Pull requests: the PR's commits. Pushes: the pushed commits (full history
+      # for a new branch, whose "before" is all zeros). Schedule and manual runs:
+      # full history.
+      - name: Scan for secrets
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Only required for GitHub Organisation accounts. Personal repos are
-          # free and the variable can stay unset.
-          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+          EVENT: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          PUSH_AFTER: ${{ github.event.after }}
+        run: |
+          set -euo pipefail
+          range=""
+          case "$EVENT" in
+            pull_request) range="${PR_BASE}..${PR_HEAD}" ;;
+            push) [[ "$PUSH_BEFORE" =~ ^0+$ ]] || range="${PUSH_BEFORE}..${PUSH_AFTER}" ;;
+          esac
+          args=(git --redact --verbose --report-format sarif --report-path gitleaks.sarif)
+          [ -n "$range" ] && args+=(--log-opts "--no-merges ${range}")
+          echo "Scanning ${range:-full history}"
+          gitleaks "${args[@]}" .
+
+      - name: Upload report
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: gitleaks-report
+          path: gitleaks.sarif
+          if-no-files-found: ignore
 
   security-summary:
     name: Security Summary

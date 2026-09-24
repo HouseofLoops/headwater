@@ -145,6 +145,13 @@ jobs:
       VERSION: ${{ needs.tag-release.outputs.version }}
       TAG: ${{ needs.tag-release.outputs.tag }}
     steps:
+      # OCI repository names must be lowercase, but GITHUB_REPOSITORY keeps the
+      # owner's casing (e.g. an org named "HouseofLoops"). metadata-action
+      # lowercases on its own; cosign does not, and would reject the reference
+      # after the images were already pushed. Derive the GHCR path once.
+      - name: Resolve GHCR image name
+        run: echo "GHCR_IMAGE=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
+
       # Check out the TAG the bump job just pushed, not the pre-bump SHA that
       # triggered this run - otherwise the published image would not contain the
       # version it claims.
@@ -176,7 +183,7 @@ jobs:
         with:
           images: |
             ${{ secrets.DOCKERHUB_USERNAME }}/headwater
-            ghcr.io/${{ github.repository }}
+            ${{ env.GHCR_IMAGE }}
           tags: |
             type=raw,value=${{ env.VERSION }}
             type=raw,value=latest
@@ -240,7 +247,7 @@ jobs:
         run: |
           set -euo pipefail
           cosign sign --yes "${DOCKERHUB_USER}/headwater@${DIGEST}"
-          cosign sign --yes "ghcr.io/${GITHUB_REPOSITORY}@${DIGEST}"
+          cosign sign --yes "${GHCR_IMAGE}@${DIGEST}"
 
       - name: Install Syft
         id: syft
@@ -262,7 +269,7 @@ jobs:
           cosign attest --yes --predicate sbom.json --type spdxjson \
             "${DOCKERHUB_USER}/headwater@${DIGEST}"
           cosign attest --yes --predicate sbom.json --type spdxjson \
-            "ghcr.io/${GITHUB_REPOSITORY}@${DIGEST}"
+            "${GHCR_IMAGE}@${DIGEST}"
 
       # Prove the release is verifiable the way users will verify it, before
       # the GitHub release is published. Both registries, signature and SBOM
@@ -276,7 +283,7 @@ jobs:
           set -euo pipefail
           IDENTITY="${GITHUB_SERVER_URL}/${GITHUB_WORKFLOW_REF}"
           ISSUER="https://token.actions.githubusercontent.com"
-          for IMAGE in "${DOCKERHUB_USER}/headwater@${DIGEST}" "ghcr.io/${GITHUB_REPOSITORY}@${DIGEST}"; do
+          for IMAGE in "${DOCKERHUB_USER}/headwater@${DIGEST}" "${GHCR_IMAGE}@${DIGEST}"; do
             echo "::group::verify ${IMAGE}"
             cosign verify "${IMAGE}" \
               --certificate-identity "${IDENTITY}" --certificate-oidc-issuer "${ISSUER}" > /dev/null
@@ -321,16 +328,16 @@ jobs:
             echo "### Images"
             echo ""
             echo "- \`${DOCKERHUB_USER}/headwater:${VERSION}\`"
-            echo "- \`ghcr.io/${GITHUB_REPOSITORY}:${VERSION}\`"
+            echo "- \`${GHCR_IMAGE}:${VERSION}\`"
             echo "- Digest: \`${DIGEST}\`"
             echo ""
             echo "### Verify the signature"
             echo ""
             echo '```bash'
             echo "cosign verify \\"
-            echo "  --certificate-identity-regexp 'https://github.com/${GITHUB_REPOSITORY}/.github/workflows/release.yml@.*' \\"
+            echo "  --certificate-identity '${GITHUB_SERVER_URL}/${GITHUB_WORKFLOW_REF}' \\"
             echo "  --certificate-oidc-issuer https://token.actions.githubusercontent.com \\"
-            echo "  ghcr.io/${GITHUB_REPOSITORY}@${DIGEST}"
+            echo "  ${GHCR_IMAGE}@${DIGEST}"
             echo '```'
           } > release-notes.md
 
