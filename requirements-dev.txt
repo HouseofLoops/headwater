@@ -14,7 +14,7 @@ pytest-asyncio==1.4.0
 # ruff is the only linter/formatter (config in pyproject.toml). flake8, black and
 # isort were listed here but never run by CI or pre-commit; they were removed.
 # Keep this pin in step with .github/workflows/_verify.yml and .pre-commit-config.yaml.
-ruff==0.16.4
+ruff==0.16.8
 
 # Type Checking
 mypy==2.3.1
