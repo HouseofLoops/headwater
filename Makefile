@@ -205,7 +205,10 @@ IMAGE ?= ghcr.io/rainmanjam/headwater
 TAG ?= latest
 DIGEST ?=
 COSIGN ?= cosign
-COSIGN_IDENTITY ?= https://github.com/rainmanjam/headwater/.github/workflows/release.yml@refs/heads/main
+# The signer is release.yml on main. The repository is moving from rainmanjam to
+# the HouseofLoops organisation; releases keep the identity they were signed
+# with, so accept exactly those two owners (owner part case-insensitive).
+COSIGN_IDENTITY_REGEXP ?= ^https://github\.com/(?i:rainmanjam|houseofloops)/headwater/\.github/workflows/release\.yml@refs/heads/main$$
 COSIGN_OIDC_ISSUER ?= https://token.actions.githubusercontent.com
 VERIFY_REF = $(if $(DIGEST),$(IMAGE)@$(DIGEST),$(IMAGE):$(TAG))
 
@@ -224,20 +227,20 @@ docker-verify:
 	fi
 	@echo "Verifying CI signature on $(VERIFY_REF)..."
 	@$(COSIGN) verify \
-		--certificate-identity "$(COSIGN_IDENTITY)" \
+		--certificate-identity-regexp '$(COSIGN_IDENTITY_REGEXP)' \
 		--certificate-oidc-issuer "$(COSIGN_OIDC_ISSUER)" \
 		"$(VERIFY_REF)" >/dev/null || { \
 		echo "ERROR: signature verification FAILED for $(VERIFY_REF)."; \
 		echo "       (Releases before 2.1.0 were never signed.)"; \
 		exit 1; }
-	@echo "OK: signature verified (signer: $(COSIGN_IDENTITY))"
+	@echo "OK: signature verified (signer matches $(COSIGN_IDENTITY_REGEXP))"
 	@echo "Verifying SPDX SBOM attestation on $(VERIFY_REF)..."
 	@# Releases after 2.2.0 attest SPDX JSON as --type spdxjson. 2.1.0 and 2.2.0
 	@# used --type spdx, which embedded the JSON as a string; only cosign 2.x
 	@# verifies those, so fall back to --type spdx before failing.
 	@for type in spdxjson spdx; do \
 		if $(COSIGN) verify-attestation --type $$type \
-			--certificate-identity "$(COSIGN_IDENTITY)" \
+			--certificate-identity-regexp '$(COSIGN_IDENTITY_REGEXP)' \
 			--certificate-oidc-issuer "$(COSIGN_OIDC_ISSUER)" \
 			"$(VERIFY_REF)" >/dev/null 2>&1; then \
 			echo "OK: SPDX SBOM attestation verified (--type $$type)"; exit 0; \
@@ -247,7 +250,7 @@ docker-verify:
 	echo "       For 2.1.0 and 2.2.0 under cosign 3 this is expected: their SBOM was attested"; \
 	echo "       with --type spdx as a string predicate, which cosign 3 rejects. Use cosign 2.x:"; \
 	echo "         cosign verify-attestation --type spdx \\"; \
-	echo "           --certificate-identity '$(COSIGN_IDENTITY)' \\"; \
+	echo "           --certificate-identity-regexp '$(COSIGN_IDENTITY_REGEXP)' \\"; \
 	echo "           --certificate-oidc-issuer '$(COSIGN_OIDC_ISSUER)' \\"; \
 	echo "           $(VERIFY_REF)"; \
 	exit 1

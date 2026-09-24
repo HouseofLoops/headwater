@@ -68,6 +68,15 @@ The signer identity to verify against is:
 | Certificate identity | `https://github.com/rainmanjam/headwater/.github/workflows/release.yml@refs/heads/main` |
 | OIDC issuer | `https://token.actions.githubusercontent.com` |
 
+> **Repository move.** Headwater is moving from `rainmanjam` to the
+> `HouseofLoops` GitHub organisation. Each release keeps the identity it was
+> signed with: releases before the move use
+> `https://github.com/rainmanjam/headwater/.github/workflows/release.yml@refs/heads/main`,
+> and later ones use `https://github.com/HouseofLoops/headwater/...` (same path).
+> To accept either, pass
+> `--certificate-identity-regexp '^https://github\.com/(?i:rainmanjam|houseofloops)/headwater/\.github/workflows/release\.yml@refs/heads/main$'`
+> instead of `--certificate-identity`. `make docker-verify` already does.
+
 There is no local or key-based signing path. Images you build yourself are not signed.
 
 ### Which releases are signed
