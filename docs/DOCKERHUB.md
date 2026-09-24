@@ -134,7 +134,7 @@ cosign verify \
   ghcr.io/rainmanjam/headwater:<version>
 
 # SPDX SBOM attestation
-cosign verify-attestation --type spdx \
+cosign verify-attestation --type spdxjson \
   --certificate-identity https://github.com/rainmanjam/headwater/.github/workflows/release.yml@refs/heads/main \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com \
   ghcr.io/rainmanjam/headwater:<version>
@@ -146,13 +146,18 @@ replace `:<version>` above with `@sha256:<digest>`. From a clone of the repo,
 `make docker-verify IMAGE=ghcr.io/rainmanjam/headwater TAG=<version>` (or
 `DIGEST=sha256:<digest>`) runs both checks.
 
-Which cosign to use:
+Which cosign to use (tested against real images, keyless, on both registries):
 
-- **Releases after 2.2.0** are signed in the cosign v3 bundle format and need
-  **cosign 3 or newer**; cosign 2.x will report no signatures.
-- **2.1.0 and 2.2.0**: the signature verifies with cosign 2.x or 3.x, but the
-  SBOM attestation uses the legacy format and only verifies with **cosign 2.x**.
-- **2.0.0 and 1.x** are not signed.
+| Release | Signature | SBOM attestation |
+|---|---|---|
+| After 2.2.0 (signed with cosign 3) | cosign 2.6+ or 3.x | cosign 2.6+ or 3.x, `--type spdxjson` |
+| 2.1.0, 2.2.0 (signed with cosign 2) | cosign 2.6+ or 3.x | **cosign 2.x only**, `--type spdx` or `spdxjson` |
+| 2.0.0 and 1.x | not signed | none |
+
+The 2.1.0/2.2.0 exception: their SBOM was attested with `--type spdx`, which
+made cosign embed the SPDX JSON as a single string. cosign 3 requires the
+predicate to be a JSON object and rejects it. From the release after 2.2.0 the
+SBOM is attested with `--type spdxjson`, as a real JSON object.
 
 Full documentation, including deployment, performance tuning and troubleshooting
 guides: https://github.com/rainmanjam/headwater

@@ -30,7 +30,7 @@ Supply chain attestations provide cryptographic verification of your Docker imag
 
 1. **BuildKit SBOM and provenance attestations** (`sbom: true`, `provenance: mode=max`), which are what Docker Scout reads for this check.
 2. **A keyless Cosign signature**, by digest, in both Docker Hub and GHCR (Sigstore/Fulcio, GitHub OIDC).
-3. **A keyless Cosign SPDX SBOM attestation** (`cosign attest --type spdx`), by digest.
+3. **A keyless Cosign SPDX SBOM attestation** (`cosign attest --type spdxjson`), by digest.
 
 ### Configure Docker Hub
 
@@ -40,7 +40,7 @@ Supply chain attestations provide cryptographic verification of your Docker imag
 
 ### Verify a published image
 
-Requires cosign >= 3 for releases after 2.2.0:
+Requires cosign >= 2.6 (see [Verifying images](../DOCKERHUB.md#verifying-images) for the 2.1.0/2.2.0 SBOM exception):
 
 ```bash
 make docker-verify IMAGE=ghcr.io/rainmanjam/headwater TAG=<version>

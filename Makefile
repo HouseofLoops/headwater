@@ -42,7 +42,7 @@ help:
 	@echo "  make docker-pushx       - Build and push multi-arch Docker image to Docker Hub"
 	@echo "  make docker-pushx-no-cache - Build and push multi-arch Docker image without cache"
 	@echo ""
-	@echo "Image verification (images are signed keylessly by CI; needs cosign >= 3):"
+	@echo "Image verification (images are signed keylessly by CI; needs cosign >= 2.6):"
 	@echo "  make docker-verify      - Verify CI signature + SBOM attestation (IMAGE=... TAG=...)"
 	@echo ""
 	@echo "Base image management:"
@@ -196,8 +196,8 @@ docker-pushx-no-cache:
 # Published images are signed KEYLESSLY by CI (.github/workflows/release.yml,
 # Sigstore/Fulcio + GitHub OIDC) and carry an SPDX SBOM attestation. There is
 # no signing key: verification pins the signer's certificate identity instead.
-# Releases after 2.2.0 use the cosign v3 bundle format, so cosign >= 3 is
-# required. Examples:
+# Needs cosign >= 2.6. The 2.1.0/2.2.0 SBOM attestations verify only with
+# cosign 2.x (see docs/DOCKERHUB.md#verifying-images). Examples:
 #   make docker-verify IMAGE=ghcr.io/rainmanjam/headwater TAG=2.2.0
 #   make docker-verify IMAGE=rainmanjam/headwater DIGEST=sha256:<digest>
 # DIGEST, when set, takes precedence over TAG (pinning by digest is stronger).
@@ -211,15 +211,15 @@ VERIFY_REF = $(if $(DIGEST),$(IMAGE)@$(DIGEST),$(IMAGE):$(TAG))
 
 docker-verify:
 	@command -v $(COSIGN) >/dev/null 2>&1 || { \
-		echo "ERROR: cosign not found. Install cosign >= 3: https://docs.sigstore.dev/cosign/system_config/installation/"; \
+		echo "ERROR: cosign not found. Install cosign >= 2.6: https://docs.sigstore.dev/cosign/system_config/installation/"; \
 		exit 1; }
-	@major=$$($(COSIGN) version 2>&1 | sed -n 's/^GitVersion:[[:space:]]*v*\([0-9][0-9]*\).*/\1/p' | head -n 1); \
-	if [ -z "$$major" ]; then \
+	@ver=$$($(COSIGN) version 2>&1 | sed -n 's/^GitVersion:[[:space:]]*v*\([0-9][0-9]*\.[0-9][0-9]*\).*/\1/p' | head -n 1); \
+	major=$${ver%%.*}; minor=$${ver#*.}; \
+	if [ -z "$$ver" ]; then \
 		echo "ERROR: could not determine the cosign version from '$(COSIGN) version'."; \
 		exit 1; \
-	elif [ "$$major" -lt 3 ]; then \
-		echo "ERROR: cosign $$major.x found; cosign >= 3 is required (releases after 2.2.0 use the v3 bundle format)."; \
-		echo "       (Only the 2.1.0/2.2.0 SBOM attestations need cosign 2.x; see docs/DOCKERHUB.md.)"; \
+	elif [ "$$major" -lt 2 ] || { [ "$$major" -eq 2 ] && [ "$$minor" -lt 6 ]; }; then \
+		echo "ERROR: cosign $$ver found; cosign >= 2.6 is required."; \
 		exit 1; \
 	fi
 	@echo "Verifying CI signature on $(VERIFY_REF)..."
@@ -232,20 +232,25 @@ docker-verify:
 		exit 1; }
 	@echo "OK: signature verified (signer: $(COSIGN_IDENTITY))"
 	@echo "Verifying SPDX SBOM attestation on $(VERIFY_REF)..."
-	@$(COSIGN) verify-attestation --type spdx \
-		--certificate-identity "$(COSIGN_IDENTITY)" \
-		--certificate-oidc-issuer "$(COSIGN_OIDC_ISSUER)" \
-		"$(VERIFY_REF)" >/dev/null || { \
-		echo "ERROR: SBOM attestation verification FAILED for $(VERIFY_REF)."; \
-		echo "       If this is release 2.1.0 or 2.2.0 (pre-2.3), that is expected under cosign 3:"; \
-		echo "       those attestations use the legacy .att format, which cosign 3 cannot match by --type."; \
-		echo "       Verify them with cosign 2.x instead:"; \
-		echo "         cosign verify-attestation --type spdx \\"; \
-		echo "           --certificate-identity '$(COSIGN_IDENTITY)' \\"; \
-		echo "           --certificate-oidc-issuer '$(COSIGN_OIDC_ISSUER)' \\"; \
-		echo "           $(VERIFY_REF)"; \
-		exit 1; }
-	@echo "OK: SPDX SBOM attestation verified"
+	@# Releases after 2.2.0 attest SPDX JSON as --type spdxjson. 2.1.0 and 2.2.0
+	@# used --type spdx, which embedded the JSON as a string; only cosign 2.x
+	@# verifies those, so fall back to --type spdx before failing.
+	@for type in spdxjson spdx; do \
+		if $(COSIGN) verify-attestation --type $$type \
+			--certificate-identity "$(COSIGN_IDENTITY)" \
+			--certificate-oidc-issuer "$(COSIGN_OIDC_ISSUER)" \
+			"$(VERIFY_REF)" >/dev/null 2>&1; then \
+			echo "OK: SPDX SBOM attestation verified (--type $$type)"; exit 0; \
+		fi; \
+	done; \
+	echo "ERROR: SBOM attestation verification FAILED for $(VERIFY_REF)."; \
+	echo "       For 2.1.0 and 2.2.0 under cosign 3 this is expected: their SBOM was attested"; \
+	echo "       with --type spdx as a string predicate, which cosign 3 rejects. Use cosign 2.x:"; \
+	echo "         cosign verify-attestation --type spdx \\"; \
+	echo "           --certificate-identity '$(COSIGN_IDENTITY)' \\"; \
+	echo "           --certificate-oidc-issuer '$(COSIGN_OIDC_ISSUER)' \\"; \
+	echo "           $(VERIFY_REF)"; \
+	exit 1
 
 # Base image management
 update-base-image:

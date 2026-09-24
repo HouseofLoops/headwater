@@ -5,6 +5,36 @@ All notable changes to the Headwater API will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- **Release signing moves to cosign 3.1.3** (from 2.6.5). Signatures use the
+  Sigstore bundle format. Tested keylessly: they still verify with cosign 2.6+
+  as well as 3.x.
+- **The SBOM is attested with `--type spdxjson`**, not `spdx`. The old flag made
+  cosign embed the SPDX JSON as one string. It is now a real JSON object that
+  policy engines can query, under the same predicate type
+  (`https://spdx.dev/Document`). The 2.1.0 and 2.2.0 SBOM attestations stay as
+  they are and verify only with cosign 2.x.
+- The release now **verifies its own signatures and attestations on both
+  registries before publishing** the GitHub release.
+- `make docker-verify` checks CI's keyless signature and SBOM without prompts.
+  It needs cosign 2.6 or newer.
+
+### Removed
+
+- The key-based signing path: `make docker-sign`, `docker-sign-sbom`,
+  `docker-sign-vuln`, `scripts/sign_image.sh` and `scripts/verify_attestations.sh`.
+  It pointed at a private key that did not exist, its public key was never
+  published, and no released image was ever signed with it.
+
+### Added
+
+- `.github/workflows/cosign-smoke.yml`: runs keyless sign, attest and verify on
+  a throwaway image whenever the signing workflows change, and records what
+  cosign 2.x can still verify.
+
 ## [2.2.0] - 2026-09-23
 
 Releases 2.0.0 and 2.1.0 are described in their

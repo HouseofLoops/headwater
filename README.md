@@ -84,7 +84,7 @@ the authoritative endpoint list.
 Published images (`rainmanjam/headwater`, `ghcr.io/rainmanjam/headwater`) are
 signed keylessly by CI and carry an SPDX SBOM attestation. Check one with
 `make docker-verify IMAGE=ghcr.io/rainmanjam/headwater TAG=<version>` (needs
-cosign 3 or newer), or see [Verifying images](docs/DOCKERHUB.md#verifying-images)
+cosign 2.6 or newer), or see [Verifying images](docs/DOCKERHUB.md#verifying-images)
 for the raw `cosign` commands and notes on older releases.
 
 ## What you get back

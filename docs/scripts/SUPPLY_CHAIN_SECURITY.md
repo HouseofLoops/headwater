@@ -58,7 +58,8 @@ For each release, CI:
 
 1. Builds the multi-arch image (amd64, arm64) and pushes it to `rainmanjam/headwater` (Docker Hub) and `ghcr.io/rainmanjam/headwater`, with BuildKit SBOM and provenance attestations attached.
 2. Signs the image **by digest** in both registries with `cosign sign`.
-3. Generates an SPDX SBOM with Syft and attaches it with `cosign attest --type spdx`, again by digest.
+3. Generates an SPDX JSON SBOM with Syft and attaches it with `cosign attest --type spdxjson`, again by digest.
+4. Verifies both signatures and both attestations with the same identity a user would check, before the GitHub release is published.
 
 The signer identity to verify against is:
 
@@ -71,25 +72,35 @@ There is no local or key-based signing path. Images you build yourself are not s
 
 ### Which releases are signed
 
-| Release | Signature | SBOM attestation | Cosign needed to verify |
-|---|---|---|---|
-| 1.x, 2.0.0 | none | none | n/a |
-| 2.1.0, 2.2.0 | keyless (legacy format) | keyless (legacy `.att` format) | signature: 2.x or 3.x; SBOM attestation: **2.x only** |
-| After 2.2.0 | keyless (cosign v3 bundle) | keyless (cosign v3 bundle) | **3.x or newer** |
+Which cosign to use (tested against real images, keyless, on both registries):
 
-From the release after 2.2.0, CI signs with cosign v3, which stores signatures in the new Sigstore bundle format (as OCI referrers, or a `sha256-<digest>` fallback tag). Cosign 2.x cannot find those signatures. Cosign 3 can verify the 2.1.0/2.2.0 signatures, but cannot match their legacy-format SBOM attestation by `--type`, so use cosign 2.x for that one check.
+| Release | Signature | SBOM attestation |
+|---|---|---|
+| After 2.2.0 (signed with cosign 3) | cosign 2.6+ or 3.x | cosign 2.6+ or 3.x, `--type spdxjson` |
+| 2.1.0, 2.2.0 (signed with cosign 2) | cosign 2.6+ or 3.x | **cosign 2.x only**, `--type spdx` or `spdxjson` |
+| 2.0.0 and 1.x | not signed | none |
+
+The 2.1.0/2.2.0 exception: their SBOM was attested with `--type spdx`, which
+made cosign embed the SPDX JSON as a single string. cosign 3 requires the
+predicate to be a JSON object and rejects it. From the release after 2.2.0 the
+SBOM is attested with `--type spdxjson`, as a real JSON object.
+
+CI signs with cosign v3, which writes the Sigstore bundle format and stores it
+as OCI referrers (or a `sha256-<digest>` fallback tag). Keyless v3 signatures
+remain verifiable by cosign 2.6+; `.github/workflows/cosign-smoke.yml` checks
+that on every change to the signing workflows and reports it in the run summary.
 
 ### Installing Cosign
 
 ```bash
 brew install cosign  # macOS
 # or see https://docs.sigstore.dev/cosign/system_config/installation/
-cosign version       # must report v3.x or newer for current releases
+cosign version       # 2.6 or newer (3.x recommended)
 ```
 
 ### Verifying an image
 
-The quickest way is the Makefile target, which checks the signature and the SPDX SBOM attestation non-interactively and fails if cosign is missing or older than 3:
+The quickest way is the Makefile target, which checks the signature and the SPDX SBOM attestation non-interactively and fails if cosign is missing or older than 2.6:
 
 ```bash
 make docker-verify IMAGE=ghcr.io/rainmanjam/headwater TAG=<version>
@@ -105,8 +116,8 @@ cosign verify \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com \
   ghcr.io/rainmanjam/headwater@sha256:<digest>
 
-# SPDX SBOM attestation
-cosign verify-attestation --type spdx \
+# SPDX SBOM attestation (use --type spdx with cosign 2.x for 2.1.0/2.2.0)
+cosign verify-attestation --type spdxjson \
   --certificate-identity https://github.com/rainmanjam/headwater/.github/workflows/release.yml@refs/heads/main \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com \
   ghcr.io/rainmanjam/headwater@sha256:<digest>
