@@ -95,9 +95,11 @@ You can test Docker builds locally using the provided scripts:
 # Build multi-architecture images
 ./scripts/docker_multiarch.sh push your-dockerhub-username
 
-# Sign images (requires cosign)
-./scripts/sign_image.sh -i your-dockerhub-username/headwater -t 1.0.0 -k /path/to/cosign.key
+# Verify a published image's CI signature and SBOM attestation (requires cosign >= 3)
+make docker-verify IMAGE=ghcr.io/rainmanjam/headwater TAG=<version>
 ```
+
+Images are signed only by CI, keylessly (see below); locally built images are not signed and there is no signing key.
 
 ## Release Process
 
@@ -114,8 +116,8 @@ When a PR is merged to `main`:
    - Both version tag and `latest` tag are created
 
 3. **Security & Compliance**
-   - Images are signed with Cosign
-   - SBOM is generated and attached as attestation
+   - Images are signed keylessly with Cosign by digest (Sigstore/Fulcio, GitHub OIDC; signer identity `https://github.com/rainmanjam/headwater/.github/workflows/release.yml@refs/heads/main`)
+   - SBOM is generated and attached as a keyless SPDX attestation (`cosign attest --type spdx`)
    - Cryptographic provenance is created
 
 4. **Release Creation**
