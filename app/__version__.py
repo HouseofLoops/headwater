@@ -6,7 +6,7 @@ It is used by the Makefile for version management and by the application
 to display version information.
 """
 
-__version__ = "2.2.0"
+__version__ = "2.2.1"
 __author__ = "Headwater Team"
 __email__ = "info@headwater.com"
 __description__ = "API for Google Search, News, Trends and Maps data, plus YouTube transcripts"
