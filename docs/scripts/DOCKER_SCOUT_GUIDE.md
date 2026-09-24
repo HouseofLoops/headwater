@@ -43,7 +43,7 @@ Supply chain attestations provide cryptographic verification of your Docker imag
 Requires cosign >= 2.6 (see [Verifying images](../DOCKERHUB.md#verifying-images) for the 2.1.0/2.2.0 SBOM exception):
 
 ```bash
-make docker-verify IMAGE=ghcr.io/rainmanjam/headwater TAG=<version>
+make docker-verify IMAGE=ghcr.io/houseofloops/headwater TAG=<version>
 ```
 
 For the manual `cosign` commands, the signer identity, and notes on older releases, see [SUPPLY_CHAIN_SECURITY.md](SUPPLY_CHAIN_SECURITY.md#verifying-an-image).

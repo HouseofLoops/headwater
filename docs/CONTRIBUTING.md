@@ -98,7 +98,7 @@ This includes:
 
 ### 1. Choose an Issue
 
-- Check the [GitHub Issues](https://github.com/rainmanjam/headwater/issues) for open tasks
+- Check the [GitHub Issues](https://github.com/HouseofLoops/headwater/issues) for open tasks
 - Look for issues labeled `good first issue` or `help wanted`
 - Comment on the issue to indicate you're working on it
 

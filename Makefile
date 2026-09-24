@@ -198,16 +198,16 @@ docker-pushx-no-cache:
 # no signing key: verification pins the signer's certificate identity instead.
 # Needs cosign >= 2.6. The 2.1.0/2.2.0 SBOM attestations verify only with
 # cosign 2.x (see docs/DOCKERHUB.md#verifying-images). Examples:
-#   make docker-verify IMAGE=ghcr.io/rainmanjam/headwater TAG=2.2.0
+#   make docker-verify IMAGE=ghcr.io/houseofloops/headwater TAG=2.2.0
 #   make docker-verify IMAGE=rainmanjam/headwater DIGEST=sha256:<digest>
 # DIGEST, when set, takes precedence over TAG (pinning by digest is stronger).
-IMAGE ?= ghcr.io/rainmanjam/headwater
+IMAGE ?= ghcr.io/houseofloops/headwater
 TAG ?= latest
 DIGEST ?=
 COSIGN ?= cosign
-# The signer is release.yml on main. The repository is moving from rainmanjam to
-# the HouseofLoops organisation; releases keep the identity they were signed
-# with, so accept exactly those two owners (owner part case-insensitive).
+# The signer is release.yml on main. The repository moved from rainmanjam to the
+# HouseofLoops organisation after 2.2.1; releases keep the identity they were
+# signed with, so accept exactly those two owners (owner part case-insensitive).
 COSIGN_IDENTITY_REGEXP ?= ^https://github\.com/(?i:rainmanjam|houseofloops)/headwater/\.github/workflows/release\.yml@refs/heads/main$$
 COSIGN_OIDC_ISSUER ?= https://token.actions.githubusercontent.com
 VERIFY_REF = $(if $(DIGEST),$(IMAGE)@$(DIGEST),$(IMAGE):$(TAG))
