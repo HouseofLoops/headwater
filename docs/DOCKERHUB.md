@@ -25,7 +25,7 @@ from the code, so it is always the authoritative one.
 
 | Tag | Architectures |
 |---|---|
-| `latest`, `2.2.2` | `linux/amd64`, `linux/arm64` |
+| `latest`, `2.2.3` | `linux/amd64`, `linux/arm64` |
 | `2.0.0` | `linux/amd64`, `linux/arm64` |
 | `1.5.1`, `1.5.0`, `1.4.1` | `linux/amd64`, `linux/arm64` |
 | `1.6.0` | `linux/arm64` only |

@@ -5,7 +5,10 @@ All notable changes to the Headwater API will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [2.2.3] - 2026-09-24
+
+Fixes two bugs that broke real production deployments. Upgrade if you run
+Headwater with `ENVIRONMENT=production` or rely on the container health check.
 
 ### Fixed
 
@@ -21,10 +24,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   exceeds the default budget of 100/h. `/health` and `/ping` are now exempt
   (exact paths; `/health/detailed` stays limited).
 
+### Added
+
+- `ALLOWED_HOSTS` setting (see Fixed).
+- Logo and brand assets in `docs/assets/brand/`; the README header shows the
+  logo, switching between light and dark.
+
 ### Changed
 
 - Documentation rewritten to match the code; `docs/API_REFERENCE.md` is
   generated from the OpenAPI schema and checked in CI.
+- `make version-*` bumps every place a release reads the version, and CI
+  fails if they disagree.
 
 ## [2.2.2] - 2026-09-23
 
