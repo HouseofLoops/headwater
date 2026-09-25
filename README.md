@@ -1,4 +1,9 @@
-# Headwater
+<h1>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/brand/headwater-logo-dark.svg">
+    <img src="docs/assets/brand/headwater-logo-light.svg" alt="Headwater" height="56">
+  </picture>
+</h1>
 
 One self-hosted API for Google Maps, News, Trends and Autocomplete, plus YouTube
 transcripts. Normalised JSON, no per-call vendor pricing, runs in Docker.
