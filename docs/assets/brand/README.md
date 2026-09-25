@@ -12,7 +12,8 @@ no SVG depends on an installed font.
 | `headwater-mark-light.svg` | Mark only, light backgrounds |
 | `headwater-mark-dark.svg` | Mark only, dark backgrounds |
 | `headwater-icon.svg`, `-512.png`, `-1024.png` | App icon, avatar, favicon (rounded square) |
-| `headwater-social-preview.svg` / `.png` | 1280x640 social card (GitHub: Settings > Social preview) |
+| `headwater-social-preview.svg` / `.png` | 1280x640 social card (GitHub: Settings > Social preview): the five sources flowing into one API, a real request/response, key features |
+| `headwater-social-preview-simple.svg` / `.png` | Minimal 1280x640 card: logo, tagline, URL |
 
 ## Colours
 
