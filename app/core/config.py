@@ -122,6 +122,13 @@ class Settings(BaseSettings):
     CORS_METHODS: CsvList = ["*"]
     CORS_HEADERS: CsvList = ["*"]
 
+    # Host headers the app will answer, comma separated (e.g.
+    # "api.example.com,headwater.internal"). "*" (the default) accepts any
+    # Host. localhost and 127.0.0.1 are always added to an explicit list so
+    # the container's own health check keeps working. See
+    # middleware.resolve_allowed_hosts().
+    ALLOWED_HOSTS: CsvList = ["*"]
+
     # Autocomplete settings
     AUTOCOMPLETE_MAX_PARALLEL_REQUESTS: int = 10
     AUTOCOMPLETE_REQUEST_TIMEOUT: int = 30
@@ -184,6 +191,7 @@ class Settings(BaseSettings):
         "CORS_ORIGINS",
         "CORS_METHODS",
         "CORS_HEADERS",
+        "ALLOWED_HOSTS",
         "SUSPICIOUS_PATTERNS",
         mode="before",
     )

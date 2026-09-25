@@ -1,153 +1,52 @@
 # Google Services Integration
 
-This document provides information on how to integrate with various Google services used by the Headwater API.
+How Headwater gets its data from each Google service. None of these use an
+official Google API or a Google API key: every source is a public web endpoint
+or page, reached with the libraries below. There are no Google credentials to
+configure.
 
-## Overview of Google Services
+## Sources
 
-The Headwater API integrates with the following Google services:
+| API prefix | Upstream | How it is fetched | Code |
+|------------|----------|-------------------|------|
+| `/api/v1/google-maps` | `https://www.google.com/maps` | Headless Chromium driven by Playwright | `app/services/google_maps/`, `app/services/google_maps_service.py`, `app/services/google_maps_scraper.py`, `app/services/google_maps_monitors.py` |
+| `/api/v1/google-news` | Google News RSS and `news.google.com` | `gnews`; article bodies via `newspaper4k`; Google News redirect URLs decoded through `news.google.com` | `app/services/google_news_service.py`, `app/services/google_news_article_service.py`, `app/services/google_news_catalog.py` |
+| `/api/v1/google-trends` | Google Trends | `trendspy` | `app/api/google_trends/google_trends_api.py` |
+| `/api/v1/google-autocomplete` | `https://www.google.com/complete/search` | Direct HTTP through the shared `httpx` client | `app/services/google_autocomplete_service.py`, `app/api/google_autocomplete/google_autocomplete_api.py` |
+| `/api/v1/youtube-transcripts` | YouTube | `youtube-transcript-api` | `app/services/youtube_transcripts_service.py` |
 
-1. **Google News** - Access and search news articles
-2. **Google Trends** - Retrieve trending topics and search interest data
-3. **Google Autocomplete** - Get search suggestions and keyword variations
-4. **YouTube Transcripts** - Extract transcripts from YouTube videos
+Library versions are pinned in `requirements.txt` and, with hashes, in
+`requirements.lock`.
 
-## Authentication and Credentials
+## Upstream limits
 
-### Google API Key
+These upstreams publish no quotas for this kind of access. They throttle or block
+by IP when traffic looks automated, and the thresholds are not documented. In
+practice:
 
-Some Google services require an API key for authentication. To obtain a Google API key:
+- Datacentre IPs are throttled more readily than residential ones.
+- Headwater aims to report an upstream failure as an error response
+  (`application/problem+json`) rather than as an empty success; see
+  `tests/test_failure_honesty.py`.
+- Google page and response formats change without notice, so parsers can break
+  between releases.
 
-1. Go to the [Google Cloud Console](https://console.cloud.google.com/)
-2. Create a new project or select an existing one
-3. Navigate to "APIs & Services" > "Credentials"
-4. Click "Create Credentials" > "API Key"
-5. Restrict the API key to only the services you need
-6. Copy the API key and add it to your `.env` file
+## Reducing upstream load
 
-```
-GOOGLE_API_KEY=your_api_key_here
-```
+| Setting | Default | Effect |
+|---------|---------|--------|
+| `ENABLE_CACHE` / `CACHE_TTL` | `true` / `3600` | Identical requests within the TTL are served from cache (Redis when `REDIS_URL` is set, memory otherwise) |
+| `RATE_LIMIT_REQUESTS` / `RATE_LIMIT_TIMEFRAME` | `100` / `3600` | Caps how fast clients can drive upstream traffic |
+| `ENABLE_PROXY` / `PROXY_URLS` | `false` / unset | Rotates outbound requests round-robin across the listed proxies (`app/core/proxy.py`) |
+| `NO_PROXY_HOSTS` | unset | Hosts that always go direct. Google Maps browser navigation does not complete through some datacentre proxies, and some proxy providers refuse YouTube |
+| `AUTOCOMPLETE_MAX_PARALLEL_REQUESTS` | `10` | Parallel upstream calls when `variations=true` |
+| `GOOGLE_MAPS_MAX_CONCURRENT_BROWSERS` | `4` | Concurrent Chromium instances (environment variable, not a `Settings` field) |
 
-## Code Examples
+`make test-proxy` checks a proxy given in `PROXY_URL`; `make test-apis` checks that
+Google News, Google Trends and YouTube are reachable from the host.
 
-### Making a Google News API Request
+## Using the services
 
-```python
-import httpx
-from app.core.config import get_settings
-
-settings = get_settings()
-
-
-async def search_google_news(query: str, country: str = "US", language: str = "en", max_results: int = 10):
-    """
-    Search Google News for articles matching the query.
-
-    Args:
-        query: The search query
-        country: The country code (e.g., US, GB, CA)
-        language: The language code (e.g., en, fr, es)
-        max_results: Maximum number of results to return
-
-    Returns:
-        List of news articles
-    """
-    # Use proxy if configured
-    proxy = None
-    if settings.ENABLE_PROXY and settings.PROXY_URL:
-        proxy = settings.PROXY_URL
-
-    # Set up HTTP client
-    async with httpx.AsyncClient(proxies=proxy) as client:
-        # Construct the URL
-        url = "https://news.google.com/rss/search"
-        params = {"q": query, "hl": language, "gl": country, "ceid": f"{country}:{language}"}
-
-        # Make the request
-        response = await client.get(url, params=params)
-
-        # Parse the response
-        if response.status_code == 200:
-            # Parse XML response
-            # (Implementation details omitted for brevity)
-            pass
-        else:
-            raise Exception(f"Failed to retrieve news: {response.status_code}")
-```
-
-### Using Google Autocomplete API
-
-```python
-import httpx
-from app.core.config import get_settings
-
-settings = get_settings()
-
-
-async def get_autocomplete_suggestions(query: str, country: str = "US", language: str = "en"):
-    """
-    Get autocomplete suggestions from Google.
-
-    Args:
-        query: The search query
-        country: The country code (e.g., US, GB, CA)
-        language: The language code (e.g., en, fr, es)
-
-    Returns:
-        List of autocomplete suggestions
-    """
-    # Use proxy if configured
-    proxy = None
-    if settings.ENABLE_PROXY and settings.PROXY_URL:
-        proxy = settings.PROXY_URL
-
-    # Set up HTTP client
-    async with httpx.AsyncClient(proxies=proxy) as client:
-        # Construct the URL
-        url = "https://www.google.com/complete/search"
-        params = {"q": query, "client": "chrome", "hl": language, "gl": country}
-
-        # Make the request
-        response = await client.get(url, params=params)
-
-        # Parse the response
-        if response.status_code == 200:
-            data = response.json()
-            suggestions = data[1] if len(data) > 1 else []
-            return suggestions
-        else:
-            raise Exception(f"Failed to retrieve suggestions: {response.status_code}")
-```
-
-## Rate Limits and Quotas
-
-### Google News
-
-Google News does not have an official API, and the Headwater API uses web scraping techniques to extract data. Be aware that excessive requests may lead to temporary IP blocks.
-
-### Google Trends
-
-Google Trends does not have an official API, and the Headwater API uses the unofficial `pytrends` library. Be mindful of the following limitations:
-
-- Maximum of 5 keywords per request
-- Maximum of 5 requests per minute per IP address
-
-### Google Autocomplete
-
-Google Autocomplete does not have an official API, and the Headwater API uses direct requests to the autocomplete endpoint. Be mindful of the following limitations:
-
-- Maximum of 10 requests per minute per IP address
-
-### YouTube Transcripts
-
-YouTube Transcripts API uses the `youtube-transcript-api` library, which has the following limitations:
-
-- Maximum of 300 requests per day per IP address
-
-## Best Practices
-
-1. **Use Caching**: Implement caching to reduce the number of requests to Google services
-2. **Implement Rate Limiting**: Add rate limiting to prevent exceeding quotas
-3. **Use Proxy Rotation**: For high-volume applications, consider rotating proxies
-4. **Handle Errors Gracefully**: Implement proper error handling for API failures
-5. **Monitor Usage**: Keep track of API usage to avoid exceeding quotas
+Call the HTTP API; see [API_REFERENCE.md](API_REFERENCE.md) for parameters and
+[EXAMPLES.md](EXAMPLES.md) for requests. The interactive schema is served at
+`/docs` outside production.

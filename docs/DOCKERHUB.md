@@ -40,7 +40,7 @@ interest, a place's reviews, a news feed and a video transcript into one
 pipeline normally means four vendors, four auth schemes, four response shapes
 and four invoices that scale per call.
 
-Headwater is one service in front of all of them — 67 operations behind one key
+Headwater is one service in front of all of them — 64 API operations behind one key
 and one base URL, running on your own infrastructure with your own IP and your
 own rate limits.
 

@@ -17,6 +17,7 @@ on a running instance. Open follow-up work is tracked in [ROADMAP.md](../ROADMAP
 | [features/FEATURE_IMPROVEMENTS_GEO_WAIT_TIMES.md](features/FEATURE_IMPROVEMENTS_GEO_WAIT_TIMES.md) | Write-up of the geo-targeting and live wait-times work (implemented) | 2025-12-28 |
 | [comparisons/google_maps_service_comparison.md](comparisons/google_maps_service_comparison.md) | Google Maps extraction compared with commercial and open-source alternatives | 2025-12-28 |
 | [comparisons/headwater_vs_dataforseo_comparison.md](comparisons/headwater_vs_dataforseo_comparison.md) | Feature comparison with DataForSEO | 2025-12-28 |
+| [reddit-intelligence-module.md](reddit-intelligence-module.md) | Early design for a Reddit data source (not built; tracked in the roadmap) | 2024-12-28 |
 
 ## Adding to the archive
 

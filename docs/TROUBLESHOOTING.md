@@ -2,1729 +2,306 @@
 
 This guide helps you diagnose and resolve common issues with the Headwater API.
 
+Headwater has no database and needs no Google API key. Its only external
+dependency is Redis, which is optional but recommended. Every setting named here
+is a field on `Settings` in `app/core/config.py` unless it is marked as read
+directly from the environment. Settings are loaded once per process, so restart
+the app after changing any of them.
+
 ## Table of Contents
 
-- [Quick Start](#quick-start)
-- [Common Issues](#common-issues)
-- [API Issues](#api-issues)
-- [Authentication Issues](#authentication-issues)
-- [Performance Issues](#performance-issues)
-- [Database Issues](#database-issues)
-- [Cache Issues](#cache-issues)
-- [Container Issues](#container-issues)
-- [Network Issues](#network-issues)
-- [Monitoring and Logs](#monitoring-and-logs)
-- [Debugging Tools](#debugging-tools)
-- [Getting Help](#getting-help)
+- [First checks](#first-checks)
+- [Startup failures](#startup-failures)
+- [Status codes and what they mean](#status-codes-and-what-they-mean)
+- [Authentication](#authentication)
+- [Rate limiting](#rate-limiting)
+- [Redis and durability](#redis-and-durability)
+- [Proxies and blocked IPs](#proxies-and-blocked-ips)
+- [Service-specific issues](#service-specific-issues)
+- [Logs and metrics](#logs-and-metrics)
+- [Getting help](#getting-help)
 
-## Quick Start
-
-### Health Check
-
-First, verify the API is running and accessible:
+## First checks
 
 ```bash
-# Check if the API is responding
-curl -f http://localhost:8000/health
+# Liveness. Unauthenticated; returns {"status": "healthy"} and nothing else.
+curl http://localhost:8000/health
 
-# Check with detailed output
-curl -v http://localhost:8000/health
+# Dependency checks plus record durability. Requires a key.
+curl -H "X-API-Key: $KEY" http://localhost:8000/health/detailed
 
-# Check API documentation endpoint
-curl -f http://localhost:8000/docs
+# Version, environment and uptime. Requires a key.
+curl -H "X-API-Key: $KEY" http://localhost:8000/status
+
+# Effective rate-limit, cache and CORS configuration. Requires a key.
+curl -H "X-API-Key: $KEY" http://localhost:8000/api-config
+
+# Under Docker Compose
+docker compose ps
+docker compose logs -f web
+docker compose exec redis redis-cli -a "$REDIS_PASSWORD" ping
 ```
 
-### Basic Diagnostics
-
-```bash
-# Check if required services are running
-docker-compose ps
-
-# Check application logs
-docker-compose logs api
-
-# Check Redis connectivity
-docker-compose exec redis redis-cli ping
-
-# Check PostgreSQL connectivity
-docker-compose exec db psql -U user -d headwater -c "SELECT version();"
-```
-
-## Common Issues
-
-### Application Won't Start
-
-**Symptoms:**
-- Container exits immediately
-- Port 8000 is not accessible
-- Logs show startup errors
-
-**Solutions:**
-
-1. **Check Environment Variables**
-
-   ```bash
-   # Verify all required environment variables are set
-   echo $DATABASE_URL
-   echo $REDIS_URL
-   echo $GOOGLE_API_KEY
-   echo $SECRET_KEY
-   ```
-
-2. **Check Dependencies**
-
-   ```bash
-   # Install missing Python dependencies
-   pip install -r requirements.txt
-
-   # Check for missing system dependencies
-   apt-get update && apt-get install -y build-essential
-   ```
-
-3. **Check Database Connection**
-
-   ```python
-   # Test database connection in Python
-   import asyncpg
-   import asyncio
-
-
-   async def test_db():
-       try:
-           conn = await asyncpg.connect(os.getenv("DATABASE_URL"))
-           await conn.close()
-           print("Database connection successful")
-       except Exception as e:
-           print(f"Database connection failed: {e}")
-
-
-   asyncio.run(test_db())
-   ```
-
-4. **Check Redis Connection**
-
-   ```python
-   # Test Redis connection
-   import redis
-
-   try:
-       r = redis.from_url(os.getenv("REDIS_URL", "redis://localhost:6379"))
-       r.ping()
-       print("Redis connection successful")
-   except Exception as e:
-       print(f"Redis connection failed: {e}")
-   ```
-
-### High Memory Usage
-
-**Symptoms:**
-- Application consumes excessive memory
-- Out of memory errors
-- Slow performance
-
-**Solutions:**
-
-1. **Check Memory Leaks**
-
-   ```python
-   # Use memory profiler to identify leaks
-   from memory_profiler import profile
-   import tracemalloc
-
-   tracemalloc.start()
-
-   # Your code here
-
-   snapshot = tracemalloc.take_snapshot()
-   top_stats = snapshot.statistics("lineno")
-
-   for stat in top_stats[:10]:
-       print(stat)
-   ```
-
-2. **Optimize Cache Settings**
-
-   ```python
-   # Adjust cache settings
-   CACHE_TTL = 1800  # Reduce TTL from 1 hour to 30 minutes
-   CACHE_MAX_MEMORY = 256mb  # Reduce max memory
-   ```
-
-3. **Check for Large Data Structures**
-
-   ```python
-   # Monitor object sizes
-   import sys
-
-
-   def get_size(obj, seen=None):
-       size = sys.getsizeof(obj)
-       if seen is None:
-           seen = set()
-
-       obj_id = id(obj)
-       if obj_id in seen:
-           return 0
-
-       seen.add(obj_id)
-       if isinstance(obj, dict):
-           size += sum([get_size(v, seen) for v in obj.values()])
-           size += sum([get_size(k, seen) for k in obj.keys()])
-       elif hasattr(obj, "__dict__"):
-           size += get_size(obj.__dict__, seen)
-       elif hasattr(obj, "__iter__") and not isinstance(obj, (str, bytes, bytearray)):
-           try:
-               size += sum([get_size(i, seen) for i in obj])
-           except TypeError:
-               pass
-       return size
-
-
-   large_object = {}  # Your potentially large object
-   print(f"Object size: {get_size(large_object)} bytes")
-   ```
-
-### Slow Response Times
-
-**Symptoms:**
-- API requests take longer than expected
-- Timeout errors
-- Poor user experience
-
-**Solutions:**
-
-1. **Check External API Response Times**
-
-   ```python
-   # Monitor external API calls
-   import time
-   import httpx
-
-
-   async def monitor_external_api():
-       start_time = time.time()
-
-       # Your code here
-       await asyncio.sleep(1)
-
-       # Make HTTP request
-       async with httpx.AsyncClient() as session:
-           async with session.get("https://httpbin.org/delay/1") as response:
-               await response.text()
-
-       end_time = time.time()
-       print(f"External API response time: {end_time - start_time:.2f} seconds")
-   ```
-
-2. **Profile Database Queries**
-
-   ```sql
-   -- Check slow queries
-   SELECT query, mean_time, calls, total_time
-   FROM pg_stat_statements
-   ORDER BY mean_time DESC
-   LIMIT 10;
-   ```
-
-3. **Check Cache Hit Rate**
-
-   ```python
-   # Monitor cache performance
-   cache_hits = 0
-   cache_misses = 0
-
-
-   def get_cache_stats():
-       total_requests = cache_hits + cache_misses
-       hit_rate = cache_hits / total_requests if total_requests > 0 else 0
-       print(f"Cache hit rate: {hit_rate:.2%}")
-       print(f"Hits: {cache_hits}, Misses: {cache_misses}")
-   ```
-
-### Invalid API Responses
-
-**Symptoms:**
-- Unexpected response format
-- Missing data fields
-- Incorrect data types
-
-**Debugging Steps:**
-
-1. **Check Request Parameters**
-
-   ```python
-   # Validate request parameters
-   from pydantic import BaseModel, ValidationError
-
-
-   class NewsSearchRequest(BaseModel):
-       q: str
-       country: str = "US"
-       max_results: int = 10
-
-
-   try:
-       request = NewsSearchRequest(q="test", country="US", max_results=5)
-       print("Request validation successful")
-   except ValidationError as e:
-       print(f"Request validation failed: {e}")
-   ```
-
-2. **Inspect Raw API Responses**
-
-   ```python
-   # Log raw responses for debugging
-   import logging
-   import json
-
-   logging.basicConfig(level=logging.DEBUG)
-
-
-   async def debug_api_response(url: str):
-       async with httpx.AsyncClient() as client:
-           response = await client.get(url)
-           print(f"Status: {response.status_code}")
-           print(f"Headers: {dict(response.headers)}")
-           print(f"Content: {response.text[:500]}...")
-
-           try:
-               data = response.json()
-               print(f"Parsed JSON: {json.dumps(data, indent=2)[:500]}...")
-           except:
-               print("Response is not valid JSON")
-   ```
-
-3. **Test with Different Parameters**
-
-   ```bash
-   # Test with minimal parameters
-   curl "http://localhost:8000/api/v1/google-news/search?q=test"
-
-   # Test with all parameters
-   curl "http://localhost:8000/api/v1/google-news/search?q=test&country=US&max_results=5&sort_by=relevance"
-
-   # Test with invalid parameters
-   curl "http://localhost:8000/api/v1/google-news/search?q=&country=INVALID"
-   ```
-
-### Rate Limiting Issues
-
-**Symptoms:**
-- 429 Too Many Requests errors
-- Requests being blocked
-- Inconsistent API behavior
-
-**Solutions:**
-
-1. **Check Rate Limits**
-
-   ```python
-   # Monitor rate limiting
-   from collections import defaultdict
-   import time
-
-
-   class RateLimiter:
-       def __init__(self, requests_per_minute: int = 60):
-           self.requests_per_minute = requests_per_minute
-           self.requests = defaultdict(list)
-
-       def is_allowed(self, client_id: str) -> bool:
-           now = time.time()
-           client_requests = self.requests[client_id]
-
-           # Remove old requests
-           client_requests[:] = [req for req in client_requests if now - req < 60]
-
-           if len(client_requests) >= self.requests_per_minute:
-               return False
-
-           client_requests.append(now)
-           return True
-
-
-   limiter = RateLimiter()
-   ```
-
-2. **Implement Exponential Backoff**
-
-   ```python
-   # Retry with exponential backoff
-   import asyncio
-   import random
-
-
-   async def retry_with_backoff(func, max_retries: int = 3):
-       for attempt in range(max_retries):
-           try:
-               return await func()
-           except Exception as e:
-               if "429" in str(e) or "rate limit" in str(e).lower():
-                   wait_time = (2**attempt) + random.uniform(0, 1)
-                   print(f"Rate limited, waiting {wait_time:.2f} seconds")
-                   await asyncio.sleep(wait_time)
-               else:
-                   raise
-       raise Exception("Max retries exceeded")
-   ```
-
-3. **Check API Key Limits**
-
-   ```python
-   # Monitor API key usage
-   api_key_usage = defaultdict(int)
-
-
-   def check_api_key_limits(api_key: str) -> bool:
-       usage = api_key_usage[api_key]
-       daily_limit = 10000  # Adjust based on your limits
-
-       if usage >= daily_limit:
-           print(f"API key {api_key} has exceeded daily limit")
-           return False
-
-       api_key_usage[api_key] += 1
-       return True
-   ```
-
-### High Memory Usage
-
-**Symptoms:**
-- Application consumes excessive memory
-- Out of memory errors
-- Slow performance
-
-**Solutions:**
-
-1. **Check Memory Leaks**
-   ```python
-   # Use memory profiler to identify leaks
-   from memory_profiler import profile
-   import tracemalloc
-
-   tracemalloc.start()
-
-   # Your code here
-
-   snapshot = tracemalloc.take_snapshot()
-   top_stats = snapshot.statistics("lineno")
-
-   for stat in top_stats[:10]:
-       print(stat)
-   ```
-
-2. **Optimize Cache Settings**
-   ```python
-   # Adjust cache settings
-   CACHE_TTL = 1800  # Reduce TTL from 1 hour to 30 minutes
-   CACHE_MAX_MEMORY = 256mb  # Reduce max memory
-   ```
-
-3. **Check for Large Data Structures**
-   ```python
-   # Monitor object sizes
-   import sys
-
-
-   def get_size(obj, seen=None):
-       size = sys.getsizeof(obj)
-       if seen is None:
-           seen = set()
-
-       obj_id = id(obj)
-       if obj_id in seen:
-           return 0
-
-       seen.add(obj_id)
-       if isinstance(obj, dict):
-           size += sum([get_size(v, seen) for v in obj.values()])
-           size += sum([get_size(k, seen) for k in obj.keys()])
-       elif hasattr(obj, "__dict__"):
-           size += get_size(obj.__dict__, seen)
-       elif hasattr(obj, "__iter__") and not isinstance(obj, (str, bytes, bytearray)):
-           try:
-               size += sum([get_size(i, seen) for i in obj])
-           except TypeError:
-               pass
-       return size
-
-
-   large_object = {}  # Your potentially large object
-   print(f"Object size: {get_size(large_object)} bytes")
-   ```
-
-### Slow Response Times
-
-**Symptoms:**
-- API requests take longer than expected
-- Timeout errors
-- Poor user experience
-
-**Solutions:**
-
-1. **Check External API Response Times**
-   ```python
-   # Monitor external API calls
-   import time
-   import httpx
-
-
-   async def monitor_external_api():
-       start_time = time.time()
-
-       async with httpx.AsyncClient() as client:
-           response = await client.get("https://www.google.com/complete/search?q=test")
-
-       end_time = time.time()
-       print(f"External API response time: {end_time - start_time:.2f} seconds")
-   ```
-
-2. **Profile Database Queries**
-   ```sql
-   -- Enable query logging in PostgreSQL
-   ALTER DATABASE headwater SET log_statement = 'all';
-   ALTER DATABASE headwater SET log_duration = on;
-
-   -- Check slow queries
-   SELECT query, mean_time, calls, total_time
-   FROM pg_stat_statements
-   ORDER BY mean_time DESC
-   LIMIT 10;
-   ```
-
-3. **Check Cache Hit Rate**
-   ```python
-   # Monitor cache performance
-   cache_hits = 0
-   cache_misses = 0
-
-
-   def get_cache_stats():
-       total_requests = cache_hits + cache_misses
-       hit_rate = cache_hits / total_requests if total_requests > 0 else 0
-       print(f"Cache hit rate: {hit_rate:.2%}")
-       print(f"Total requests: {total_requests}")
-   ```
-
-## API Issues
-
-### Invalid API Responses
-
-**Symptoms:**
-- Unexpected response format
-- Missing data fields
-- Incorrect data types
-
-**Debugging Steps:**
-
-1. **Check Request Parameters**
-   ```python
-   # Validate request parameters
-   from pydantic import BaseModel, ValidationError
-
-
-   class NewsSearchRequest(BaseModel):
-       q: str
-       country: str = "US"
-       max_results: int = 10
-
-
-   try:
-       request = NewsSearchRequest(q="test", country="US", max_results=5)
-       print("Request validation successful")
-   except ValidationError as e:
-       print(f"Request validation failed: {e}")
-   ```
-
-2. **Inspect Raw API Responses**
-   ```python
-   # Log raw responses for debugging
-   import logging
-   import json
-
-   logging.basicConfig(level=logging.DEBUG)
-
-
-   async def debug_api_response(url: str):
-       async with httpx.AsyncClient() as client:
-           response = await client.get(url)
-           print(f"Status: {response.status_code}")
-           print(f"Headers: {dict(response.headers)}")
-           print(f"Content: {response.text[:500]}...")
-
-           try:
-               data = response.json()
-               print(f"Parsed JSON: {json.dumps(data, indent=2)[:500]}...")
-           except:
-               print("Response is not valid JSON")
-   ```
-
-3. **Test with Different Parameters**
-   ```bash
-   # Test with minimal parameters
-   curl "http://localhost:8000/api/v1/google-news/search?q=test"
-
-   # Test with all parameters
-   curl "http://localhost:8000/api/v1/google-news/search?q=test&country=US&max_results=5&sort_by=relevance"
-
-   # Test with invalid parameters
-   curl "http://localhost:8000/api/v1/google-news/search?q=&country=INVALID"
-   ```
-
-## Authentication Issues
-
-### API Key Authentication Problems
-
-**Symptoms:**
-
-- 401 Unauthorized errors
-- Authentication failed messages
-- Access denied to endpoints
-
-**Solutions:**
-
-1. **Verify API Key Format**
-
-   ```python
-   # Validate API key format
-   import re
-
-
-   def validate_api_key(api_key: str) -> bool:
-       # Adjust pattern based on your API key format
-       pattern = r"^[A-Za-z0-9]{32,64}$"
-       return bool(re.match(pattern, api_key))
-
-
-   api_key = "your_api_key_here"
-   if not validate_api_key(api_key):
-       print("Invalid API key format")
-   ```
-
-2. **Check API Key in Headers**
-
-   ```bash
-   # Test with API key in header
-   curl -H "x-api-key: your_api_key" http://localhost:8000/api/v1/google-news/search?q=test
-
-   # Test with different header names
-   curl -H "X-API-Key: your_api_key" http://localhost:8000/api/v1/google-news/search?q=test
-   curl -H "X-API-Key: your_api_key" http://localhost:8000/api/v1/google-news/search?q=test
-   ```
-
-3. **Verify API Key Storage**
-
-   ```python
-   # Check if API key exists in database
-   import asyncpg
-
-
-   async def check_api_key_exists(api_key: str):
-       conn = await asyncpg.connect(os.getenv("DATABASE_URL"))
-
-       result = await conn.fetchval(
-           """
-           SELECT EXISTS(
-               SELECT 1 FROM api_keys
-               WHERE key = $1 AND active = true
-           )
-       """,
-           api_key,
-       )
-
-       await conn.close()
-       return result
-
-
-   exists = await check_api_key_exists("your_api_key")
-   print(f"API key exists: {exists}")
-   ```
-
-### API Key Expiration Issues
-
-**Symptoms:**
-
-- API key was working but now fails
-- Token expired messages
-- Authentication works intermittently
-
-**Solutions:**
-
-1. **Check API Key Expiration**
-
-   ```python
-   # Verify API key expiration
-   from datetime import datetime
-
-
-   async def check_api_key_expiration(api_key: str):
-       conn = await asyncpg.connect(os.getenv("DATABASE_URL"))
-
-       result = await conn.fetchrow(
-           """
-           SELECT expires_at, active
-           FROM api_keys
-           WHERE key = $1
-       """,
-           api_key,
-       )
-
-       await conn.close()
-
-       if not result:
-           return "API key not found"
-
-       if not result["active"]:
-           return "API key is inactive"
-
-       if result["expires_at"] and result["expires_at"] < datetime.utcnow():
-           return f"API key expired on {result['expires_at']}"
-
-       return "API key is valid"
-   ```
-
-2. **Renew API Key**
-
-   ```python
-   # Generate new API key
-   import secrets
-
-
-   def generate_new_api_key(length: int = 32) -> str:
-       return secrets.token_urlsafe(length)
-
-
-   new_key = generate_new_api_key()
-   print(f"New API key: {new_key}")
-   ```
-
-## Performance Issues
-
-### Slow Database Queries
-
-**Symptoms:**
-- Database queries take too long
-- Application response times increase
-- Database CPU usage is high
-
-**Solutions:**
-
-1. **Analyze Query Performance**
-   ```sql
-   -- Find slow queries
-   SELECT
-       query,
-       mean_time,
-       calls,
-       total_time,
-       rows
-   FROM pg_stat_statements
-   ORDER BY mean_time DESC
-   LIMIT 10;
-
-   -- Check for missing indexes
-   SELECT
-       schemaname,
-       tablename,
-       attname,
-       n_distinct,
-       correlation
-   FROM pg_stats
-   WHERE schemaname = 'public'
-   ORDER BY n_distinct DESC;
-   ```
-
-2. **Add Database Indexes**
-   ```sql
-   -- Add indexes for common query patterns
-   CREATE INDEX CONCURRENTLY idx_news_search_vector ON news_articles USING gin(search_vector);
-   CREATE INDEX CONCURRENTLY idx_news_published ON news_articles(published DESC);
-   CREATE INDEX CONCURRENTLY idx_news_country ON news_articles(country);
-   CREATE INDEX CONCURRENTLY idx_api_keys_key ON api_keys(key);
-   CREATE INDEX CONCURRENTLY idx_api_keys_active_expires ON api_keys(active, expires_at);
-   ```
-
-3. **Optimize Query Structure**
-   ```python
-   # Before: Inefficient query
-   async def get_news_slow(query: str, limit: int = 10):
-       async with db_session() as session:
-           result = await session.execute(
-               """
-               SELECT * FROM news_articles
-               WHERE title ILIKE :query
-               ORDER BY published DESC
-               LIMIT :limit
-           """,
-               {"query": f"%{query}%", "limit": limit},
-           )
-           return result.fetchall()
-
-
-   # After: Optimized query with full-text search
-   async def get_news_optimized(query: str, limit: int = 10):
-       async with db_session() as session:
-           result = await session.execute(
-               """
-               SELECT id, title, link, source, published, snippet,
-                      ts_rank_cd(search_vector, plainto_tsquery(:query)) as rank
-               FROM news_articles
-               WHERE search_vector @@ plainto_tsquery(:query)
-                 AND published >= NOW() - INTERVAL '30 days'
-               ORDER BY rank DESC, published DESC
-               LIMIT :limit
-           """,
-               {"query": query, "limit": limit},
-           )
-           return result.fetchall()
-   ```
-
-### High CPU Usage
-
-**Symptoms:**
-- CPU usage consistently high
-- Application becomes unresponsive
-- Other services affected
-
-**Solutions:**
-
-1. **Profile CPU Usage**
-   ```python
-   # Profile CPU-intensive functions
-   import cProfile
-   import pstats
-
-
-   def profile_cpu_usage():
-       profiler = cProfile.Profile()
-       profiler.enable()
-
-       # Your CPU-intensive code here
-
-       profiler.disable()
-       stats = pstats.Stats(profiler)
-       stats.sort_stats("cumulative").print_stats(20)
-
-
-   profile_cpu_usage()
-   ```
-
-2. **Optimize CPU-Intensive Operations**
-   ```python
-   # Use async processing for I/O operations
-   import asyncio
-   import concurrent.futures
-
-
-   async def process_batch_async(items):
-       # Process items concurrently
-       with concurrent.futures.ThreadPoolExecutor() as executor:
-           loop = asyncio.get_event_loop()
-           tasks = [loop.run_in_executor(executor, process_item, item) for item in items]
-           return await asyncio.gather(*tasks)
-
-
-   # Use multiprocessing for CPU-bound tasks
-   from multiprocessing import Pool
-   import os
-
-
-   def cpu_intensive_task(data):
-       # CPU-intensive processing
-       return processed_data
-
-
-   def process_with_multiprocessing(items):
-       num_processes = os.cpu_count()
-       with Pool(processes=num_processes) as pool:
-           results = pool.map(cpu_intensive_task, items)
-       return results
-   ```
-
-3. **Implement Caching for Expensive Operations**
-   ```python
-   # Cache expensive computations
-   from functools import lru_cache
-   import asyncio
-
-
-   @lru_cache(maxsize=1000)
-   def expensive_computation(param: str) -> str:
-       # Expensive computation here
-       return result
-
-
-   # For async functions
-   cache = {}
-
-
-   async def cached_async_function(key: str):
-       if key in cache:
-           return cache[key]
-
-       result = await expensive_async_operation(key)
-       cache[key] = result
-       return result
-   ```
-
-## Database Issues
-
-### Connection Pool Exhaustion
-
-**Symptoms:**
-- Database connection errors
-- "Too many connections" errors
-- Application hangs when accessing database
-
-**Solutions:**
-
-1. **Check Connection Pool Settings**
-   ```python
-   # Configure connection pool
-   from sqlalchemy.ext.asyncio import create_async_engine
-
-   engine = create_async_engine(
-       DATABASE_URL,
-       pool_size=10,  # Maximum number of connections
-       max_overflow=20,  # Additional connections beyond pool_size
-       pool_timeout=30,  # Timeout for getting connection from pool
-       pool_recycle=3600,  # Recycle connections after 1 hour
-       echo=False,
-   )
-   ```
-
-2. **Monitor Connection Usage**
-   ```python
-   # Track connection usage
-   import psutil
-   import asyncpg
-
-
-   async def monitor_db_connections():
-       conn = await asyncpg.connect(DATABASE_URL)
-
-       # Get current connection count
-       result = await conn.fetchval("""
-           SELECT count(*) FROM pg_stat_activity
-           WHERE datname = current_database()
-       """)
-
-       print(f"Active connections: {result}")
-
-       # Get connection pool stats
-       pool_stats = await conn.fetch("""
-           SELECT state, count(*) as count
-           FROM pg_stat_activity
-           WHERE datname = current_database()
-           GROUP BY state
-       """)
-
-       for row in pool_stats:
-           print(f"{row['state']}: {row['count']}")
-
-       await conn.close()
-   ```
-
-3. **Implement Connection Retry Logic**
-   ```python
-   # Retry database connections
-   import asyncio
-   from sqlalchemy.exc import OperationalError
-
-
-   async def execute_with_retry(query, max_retries: int = 3):
-       for attempt in range(max_retries):
-           try:
-               async with db_session() as session:
-                   result = await session.execute(query)
-                   return result
-           except OperationalError as e:
-               if attempt == max_retries - 1:
-                   raise
-               wait_time = 2**attempt
-               print(f"Database connection failed, retrying in {wait_time}s")
-               await asyncio.sleep(wait_time)
-   ```
-
-### Database Lock Contention
-
-**Symptoms:**
-- Queries hang or take very long
-- Deadlock errors
-- Performance degrades under load
-
-**Solutions:**
-
-1. **Identify Lock Conflicts**
-   ```sql
-   -- Check for blocking queries
-   SELECT
-       blocked_locks.pid AS blocked_pid,
-       blocked_activity.usename AS blocked_user,
-       blocking_locks.pid AS blocking_pid,
-       blocking_activity.usename AS blocking_user,
-       blocked_activity.query AS blocked_query,
-       blocking_activity.query AS blocking_query
-   FROM pg_locks blocked_locks
-   JOIN pg_stat_activity blocked_activity ON blocked_activity.pid = blocked_locks.pid
-   JOIN pg_locks blocking_locks
-       ON blocking_locks.locktype = blocked_locks.locktype
-       AND blocking_locks.database IS NOT DISTINCT FROM blocked_locks.database
-       AND blocking_locks.relation IS NOT DISTINCT FROM blocked_locks.relation
-       AND blocking_locks.page IS NOT DISTINCT FROM blocked_locks.page
-       AND blocking_locks.tuple IS NOT DISTINCT FROM blocked_locks.tuple
-       AND blocking_locks.virtualxid IS NOT DISTINCT FROM blocked_locks.virtualxid
-       AND blocking_locks.transactionid IS NOT DISTINCT FROM blocked_locks.transactionid
-       AND blocking_locks.classid IS NOT DISTINCT FROM blocked_locks.classid
-       AND blocking_locks.objid IS NOT DISTINCT FROM blocked_locks.objid
-       AND blocking_locks.objsubid IS NOT DISTINCT FROM blocked_locks.objsubid
-       AND blocking_locks.pid != blocked_locks.pid
-   JOIN pg_stat_activity blocking_activity ON blocking_activity.pid = blocking_locks.pid
-   WHERE NOT blocked_locks.granted;
-   ```
-
-2. **Optimize Transaction Scope**
-   ```python
-   # Before: Long-running transaction
-   async def problematic_transaction():
-       async with db_session() as session:
-           # Multiple operations in one transaction
-           await session.execute("UPDATE users SET last_login = NOW() WHERE id = 1")
-           await asyncio.sleep(1)  # Some processing
-           await session.execute("INSERT INTO logs VALUES (...)")
-           await session.commit()
-
-
-   # After: Shorter transactions
-   async def optimized_transaction():
-       # Update in separate transaction
-       async with db_session() as session:
-           await session.execute("UPDATE users SET last_login = NOW() WHERE id = 1")
-           await session.commit()
-
-       # Some processing
-       await asyncio.sleep(1)
-
-       # Insert in separate transaction
-       async with db_session() as session:
-           await session.execute("INSERT INTO logs VALUES (...)")
-           await session.commit()
-   ```
-
-3. **Use Appropriate Isolation Levels**
-   ```python
-   # Set appropriate isolation level
-   from sqlalchemy import IsolationLevel
-
-
-   async def execute_with_isolation():
-       async with db_session() as session:
-           # Use READ COMMITTED for most cases
-           await session.execute(text("SET TRANSACTION ISOLATION LEVEL READ COMMITTED"))
-
-           # Your queries here
-           await session.commit()
-   ```
-
-## Cache Issues
-
-### Cache Misses
-
-**Symptoms:**
-- High cache miss rate
-- Slow response times
-- Increased load on external APIs
-
-**Solutions:**
-
-1. **Monitor Cache Performance**
-   ```python
-   # Track cache hit/miss rates
-   cache_stats = {"hits": 0, "misses": 0}
-
-
-   async def get_with_stats(key: str):
-       if key in cache:
-           cache_stats["hits"] += 1
-           return cache[key]
-
-       cache_stats["misses"] += 1
-       value = await fetch_from_source(key)
-       cache[key] = value
-       return value
-
-
-   def print_cache_stats():
-       total = cache_stats["hits"] + cache_stats["misses"]
-       hit_rate = cache_stats["hits"] / total if total > 0 else 0
-       print(f"Cache hit rate: {hit_rate:.2%}")
-       print(f"Hits: {cache_stats['hits']}, Misses: {cache_stats['misses']}")
-   ```
-
-2. **Optimize Cache Keys**
-   ```python
-   # Generate consistent cache keys
-   def generate_cache_key(endpoint: str, **params) -> str:
-       # Sort parameters for consistency
-       sorted_params = "&".join(f"{k}={v}" for k, v in sorted(params.items()))
-       return f"{endpoint}:{sorted_params}"
-
-
-   # Normalize parameters
-   def normalize_params(**params):
-       normalized = {}
-       for key, value in params.items():
-           if isinstance(value, str):
-               normalized[key] = value.lower().strip()
-           else:
-               normalized[key] = value
-       return normalized
-   ```
-
-3. **Implement Cache Warming**
-   ```python
-   # Warm up cache with popular queries
-   async def warmup_cache():
-       popular_queries = ["artificial intelligence", "machine learning", "data science", "python programming"]
-
-       for query in popular_queries:
-           # Pre-populate cache
-           await get_news_cached(query, max_results=5)
-           await get_autocomplete_cached(query)
-   ```
-
-### Redis Connection Issues
-
-**Symptoms:**
-- Redis connection errors
-- Cache operations fail
-- Application falls back to direct API calls
-
-**Solutions:**
-
-1. **Test Redis Connectivity**
-   ```python
-   # Test Redis connection
-   import redis
-   import asyncio
-
-
-   async def test_redis_connection():
-       try:
-           r = redis.from_url(os.getenv("REDIS_URL", "redis://localhost:6379"))
-
-           # Test basic operations
-           await r.ping()
-           await r.set("test_key", "test_value")
-           value = await r.get("test_key")
-           await r.delete("test_key")
-
-           print("Redis connection successful")
-           return True
-
-       except Exception as e:
-           print(f"Redis connection failed: {e}")
-           return False
-   ```
-
-2. **Configure Redis Connection Pool**
-   ```python
-   # Configure Redis connection pool
-   import redis.asyncio as redis
-
-   redis_pool = redis.ConnectionPool.from_url(
-       REDIS_URL,
-       max_connections=20,
-       decode_responses=True,
-       retry_on_timeout=True,
-       socket_timeout=5,
-       socket_connect_timeout=5,
-       health_check_interval=30,
-   )
-
-   redis_client = redis.Redis(connection_pool=redis_pool)
-   ```
-
-3. **Implement Redis Failover**
-   ```python
-   # Redis with failover
-   import redis.asyncio as redis
-   from redis.asyncio.sentinel import Sentinel
-
-
-   async def create_redis_with_failover():
-       sentinel = Sentinel([("redis-sentinel-1", 26379), ("redis-sentinel-2", 26379)], socket_timeout=0.1)
-
-       master = sentinel.master_for("mymaster", socket_timeout=0.1)
-       return master
-   ```
-
-## Container Issues
-
-### Container Won't Start
-
-**Symptoms:**
-- Container exits immediately after start
-- Docker logs show errors
-- Health checks fail
-
-**Solutions:**
-
-1. **Check Container Logs**
-   ```bash
-   # View container logs
-   docker-compose logs api
-
-   # Follow logs in real-time
-   docker-compose logs -f api
-
-   # Check specific time range
-   docker-compose logs --since "1h" api
-   ```
-
-2. **Debug Container Entrypoint**
-   ```bash
-   # Run container with shell
-   docker run -it --entrypoint /bin/bash headwater/api:latest
-
-   # Check if Python is available
-   python --version
-
-   # Test imports
-   python -c "import fastapi; print('FastAPI imported successfully')"
-   ```
-
-3. **Check Environment Variables**
-   ```bash
-   # List all environment variables in container
-   docker exec -it headwater_api_1 env
-
-   # Check specific variable
-   docker exec -it headwater_api_1 echo $DATABASE_URL
-   ```
-
-### Container Resource Issues
-
-**Symptoms:**
-- Container is killed by OOM killer
-- CPU throttling
-- Slow performance
-
-**Solutions:**
-
-1. **Monitor Container Resources**
-   ```bash
-   # Check container resource usage
-   docker stats headwater_api_1
-
-   # Check container limits
-   docker inspect headwater_api_1 | grep -A 10 "Limits"
-   ```
-
-2. **Adjust Resource Limits**
-   ```yaml
-   # docker-compose.yml
-   version: '3.8'
-   services:
-     api:
-       image: headwater/api:latest
-       deploy:
-         resources:
-           limits:
-             cpus: '1.0'
-             memory: 1G
-           reservations:
-             cpus: '0.5'
-             memory: 512M
-       environment:
-         - GOMEMLIMIT=1073741824  # 1GB in bytes for Go-style memory limiting
-   ```
-
-3. **Optimize Container Configuration**
-   ```dockerfile
-   # Optimized Dockerfile
-   FROM python:3.14-slim-trixie
-
-   # Install only necessary system dependencies
-   RUN apt-get update && apt-get install -y \
-       curl \
-       && rm -rf /var/lib/apt/lists/*
-
-   # Create non-root user
-   RUN useradd --create-home --shell /bin/bash app
-
-   # Set working directory
-   WORKDIR /app
-
-   # Copy and install Python dependencies
-   COPY requirements.txt .
-   RUN pip install --no-cache-dir -r requirements.txt
-
-   # Copy application code
-   COPY --chown=app:app . .
-
-   # Switch to non-root user
-   USER app
-
-   # Expose port
-   EXPOSE 8000
-
-   # Health check
-   HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-       CMD curl -f http://localhost:8000/health || exit 1
-
-   # Run application
-   CMD ["python", "main.py"]
-   ```
-
-## Network Issues
-
-### Connection Timeouts
-
-**Symptoms:**
-- Requests to external APIs timeout
-- Intermittent connection failures
-- Slow network performance
-
-**Solutions:**
-
-1. **Configure Network Timeouts**
-   ```python
-   # Configure HTTP client timeouts
-   import httpx
-
-   timeout = httpx.Timeout(
-       connect=10.0,  # Connection timeout
-       read=30.0,  # Read timeout
-       write=10.0,  # Write timeout
-       pool=5.0,  # Pool timeout
-   )
-
-   client = httpx.AsyncClient(timeout=timeout)
-   ```
-
-2. **Implement Retry Logic**
-   ```python
-   # Retry failed requests
-   import asyncio
-   from tenacity import retry, stop_after_attempt, wait_exponential
-
-
-   @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
-   async def make_request_with_retry(url: str):
-       async with httpx.AsyncClient() as client:
-           response = await client.get(url)
-           response.raise_for_status()
-           return response.json()
-   ```
-
-3. **Check Network Connectivity**
-   ```bash
-   # Test network connectivity
-   curl -v https://www.google.com/complete/search?q=test
-
-   # Check DNS resolution
-   nslookup www.google.com
-
-   # Test with different DNS servers
-   curl --dns-servers 8.8.8.8,8.8.4.4 https://www.google.com
-
-   # Check network routes
-   traceroute www.google.com
-   ```
-
-### SSL/TLS Issues
-
-**Symptoms:**
-- SSL certificate errors
-- TLS handshake failures
-- Connection refused errors
-
-**Solutions:**
-
-1. **Check SSL Certificates**
-   ```python
-   # Verify SSL certificates
-   import ssl
-   import socket
-
-
-   def check_ssl_certificate(hostname: str, port: int = 443):
-       context = ssl.create_default_context()
-       with socket.create_connection((hostname, port)) as sock:
-           with context.wrap_socket(sock, server_hostname=hostname) as ssock:
-               cert = ssock.getpeercert()
-               print(f"Certificate for {hostname}:")
-               print(f"  Issued to: {cert['subject']}")
-               print(f"  Issued by: {cert['issuer']}")
-               print(f"  Valid from: {cert['notBefore']}")
-               print(f"  Valid until: {cert['notAfter']}")
-   ```
-
-2. **Configure SSL Context**
-   ```python
-   # Custom SSL configuration
-   import httpx
-
-   ssl_context = ssl.create_default_context()
-   ssl_context.check_hostname = True
-   ssl_context.verify_mode = ssl.CERT_REQUIRED
-
-   # Or disable SSL verification (not recommended for production)
-   client = httpx.AsyncClient(verify=False)
-   ```
-
-3. **Handle SSL Errors**
-   ```python
-   # Handle SSL-related exceptions
-   try:
-       async with httpx.AsyncClient() as client:
-           response = await client.get(url)
-   except ssl.SSLError as e:
-       print(f"SSL Error: {e}")
-       # Try with different SSL configuration
-   except httpx.ConnectError as e:
-       print(f"Connection Error: {e}")
-   ```
-
-## Monitoring and Logs
-
-### Application Logs
-
-**Symptoms:**
-- Missing log entries
-- Incorrect log levels
-- Log files growing too large
-
-**Solutions:**
-
-1. **Configure Logging**
-   ```python
-   # Configure structured logging
-   import logging
-   import json
-   from pythonjsonlogger import jsonlogger
-
-
-   class CustomJsonFormatter(jsonlogger.JsonFormatter):
-       def add_fields(self, log_record, record, message_dict):
-           super().add_fields(log_record, record, message_dict)
-           log_record["timestamp"] = record.created
-           log_record["level"] = record.levelname
-           log_record["module"] = record.module
-           log_record["function"] = record.funcName
-
-
-   logger = logging.getLogger()
-   handler = logging.StreamHandler()
-   formatter = CustomJsonFormatter()
-   handler.setFormatter(formatter)
-   logger.addHandler(handler)
-   logger.setLevel(logging.INFO)
-   ```
-
-2. **Log Key Events**
-   ```python
-   # Log important application events
-   import logging
-
-   logger = logging.getLogger(__name__)
-
-
-   async def log_api_request(request, response_time: float):
-       logger.info(
-           "API request completed",
-           extra={
-               "method": request.method,
-               "url": str(request.url),
-               "status_code": response.status_code,
-               "response_time": response_time,
-               "user_agent": request.headers.get("user-agent"),
-               "client_ip": request.client.host if request.client else None,
-           },
-       )
-
-
-   async def log_error(error: Exception, request=None):
-       logger.error(
-           "Application error occurred",
-           extra={
-               "error_type": type(error).__name__,
-               "error_message": str(error),
-               "url": str(request.url) if request else None,
-               "method": request.method if request else None,
-           },
-           exc_info=True,
-       )
-   ```
-
-3. **Log Rotation**
-   ```python
-   # Configure log rotation
-   from logging.handlers import RotatingFileHandler
-
-   handler = RotatingFileHandler(
-       "app.log",
-       maxBytes=10 * 1024 * 1024,  # 10MB
-       backupCount=5,
-   )
-   handler.setFormatter(logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s"))
-
-   logger = logging.getLogger()
-   logger.addHandler(handler)
-   ```
-
-### Performance Monitoring
-
-**Symptoms:**
-- Performance degradation over time
-- Memory leaks
-- CPU spikes
-
-**Solutions:**
-
-1. **Add Performance Metrics**
-   ```python
-   # Prometheus metrics
-   from prometheus_client import Counter, Histogram, Gauge
-
-   REQUEST_COUNT = Counter("http_requests_total", "Total number of HTTP requests", ["method", "endpoint", "status"])
-
-   REQUEST_LATENCY = Histogram("http_request_duration_seconds", "HTTP request duration", ["method", "endpoint"])
-
-   ACTIVE_CONNECTIONS = Gauge("active_connections", "Number of active connections")
-   ```
-
-2. **Monitor System Resources**
-   ```python
-   # System resource monitoring
-   import psutil
-   import time
-
-
-   def monitor_system_resources():
-       while True:
-           cpu_percent = psutil.cpu_percent(interval=1)
-           memory = psutil.virtual_memory()
-           disk = psutil.disk_usage("/")
-
-           logger.info(
-               "System resources",
-               extra={
-                   "cpu_percent": cpu_percent,
-                   "memory_percent": memory.percent,
-                   "memory_used": memory.used,
-                   "memory_total": memory.total,
-                   "disk_percent": disk.percent,
-                   "disk_free": disk.free,
-               },
-           )
-
-           time.sleep(60)  # Monitor every minute
-   ```
-
-3. **Profile Memory Usage**
-   ```python
-   # Memory profiling
-   import tracemalloc
-   import gc
-
-   tracemalloc.start()
-
-   # Your application code here
-
-   # Take memory snapshot
-   snapshot = tracemalloc.take_snapshot()
-   top_stats = snapshot.statistics("lineno")
-
-   logger.info("Memory usage statistics:")
-   for stat in top_stats[:10]:
-       logger.info(f"  {stat}")
-
-   # Force garbage collection
-   gc.collect()
-   ```
-
-## Debugging Tools
-
-### Interactive Debugging
-
-```python
-# Add debug breakpoints
-import pdb
-
-
-def debug_function():
-    # Set breakpoint
-    pdb.set_trace()
-
-    # Your code here
-    x = 1
-    y = 2
-    result = x + y
-
-    return result
-
-
-# Use IPython for enhanced debugging
-from IPython import embed
-
-
-def debug_with_ipython():
-    # Your code here
-
-    # Start IPython session
-    embed()
-```
-
-### Remote Debugging
-
-```python
-# Remote debugging with debugpy
-import debugpy
-
-# Enable remote debugging
-debugpy.listen(("0.0.0.0", 5678))
-print("Remote debugger listening on port 5678")
-
-# Your application code here
-```
-
-### Logging Debug Information
-
-```python
-# Debug logging for troubleshooting
-import logging
-
-logging.basicConfig(
-    level=logging.DEBUG,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[logging.FileHandler("debug.log"), logging.StreamHandler()],
-)
-
-logger = logging.getLogger(__name__)
-
-
-def debug_function_call(func):
-    def wrapper(*args, **kwargs):
-        logger.debug(f"Calling {func.__name__} with args={args}, kwargs={kwargs}")
-        try:
-            result = func(*args, **kwargs)
-            logger.debug(f"{func.__name__} returned {result}")
-            return result
-        except Exception as e:
-            logger.error(f"{func.__name__} raised {type(e).__name__}: {e}")
-            raise
-
-    return wrapper
-
-
-@debug_function_call
-def problematic_function():
-    # Your code here
-    pass
-```
-
-### Database Query Debugging
-
-```python
-# Log all database queries
-import logging
-from sqlalchemy import event
-from sqlalchemy.engine import Engine
-
-logging.basicConfig()
-logger = logging.getLogger("sqlalchemy.engine")
-logger.setLevel(logging.INFO)
-
-
-# Log SQL queries
-@event.listens_for(Engine, "before_cursor_execute")
-def before_cursor_execute(conn, cursor, statement, parameters, context, executemany):
-    logger.info(f"Executing: {statement}")
-    logger.info(f"Parameters: {parameters}")
-
-
-@event.listens_for(Engine, "after_cursor_execute")
-def after_cursor_execute(conn, cursor, statement, parameters, context, executemany):
-    logger.info(f"Query executed successfully")
-```
-
-## Getting Help
-
-### Community Support
-
-1. **GitHub Issues**
-   - Check existing issues for similar problems
-   - Create a new issue with detailed information
-   - Include error messages, logs, and reproduction steps
-
-2. **Documentation**
-   - Review the [API Reference](API_REFERENCE.md)
-   - Check the [Performance Tuning Guide](PERFORMANCE_TUNING.md)
-   - Read the [Security Guidelines](SECURITY_GUIDELINES.md)
-
-3. **Debugging Checklist**
-   - [ ] Verify environment variables are set correctly
-   - [ ] Check database and Redis connections
-   - [ ] Review application logs for error messages
-   - [ ] Test API endpoints with minimal parameters
-   - [ ] Monitor system resources (CPU, memory, disk)
-   - [ ] Check network connectivity to external services
-   - [ ] Verify API key validity and permissions
-   - [ ] Test with different browsers/clients
-   - [ ] Check for recent code changes that might have introduced issues
-   - [ ] Review recent deployments or configuration changes
-
-### Information to Include When Reporting Issues
-
-When creating a bug report or seeking help, please include:
-
-1. **Environment Information**
-   ```bash
-   # System information
-   uname -a
-   python --version
-   docker --version
-   docker-compose --version
-   ```
-
-2. **Application Version**
-   ```bash
-   # Check application version
-   curl http://localhost:8000/version
-   ```
-
-3. **Error Messages and Logs**
-   ```bash
-   # Recent application logs
-   docker-compose logs --tail=100 api
-
-   # System logs
-   journalctl -u docker -n 100
-   ```
-
-4. **Configuration**
-   ```bash
-   # Docker Compose configuration (redact sensitive data)
-   cat docker-compose.yml
-
-   # Environment variables (redact secrets)
-   env | grep -E "(DATABASE|REDIS|API)" | head -10
-   ```
-
-5. **Reproduction Steps**
-   - Exact commands used
-   - Input parameters
-   - Expected vs actual behavior
-   - Frequency of occurrence
-
-6. **Performance Metrics**
-   - Response times
-   - Error rates
-   - Resource usage
-   - Cache hit rates
-
----
-
-This troubleshooting guide provides comprehensive solutions for common issues with the Headwater API. For additional help, please check the [GitHub Issues](https://github.com/yourusername/headwater/issues) or create a new issue with detailed information about your problem.
+`/health/detailed` returns HTTP 200 whatever it finds. Read the body:
+
+| Field | Meaning |
+|-------|---------|
+| `status` | `healthy`, `warning`, `degraded` or `unhealthy`, the worst of the checks |
+| `checks.redis` | `skipped` when `REDIS_URL` is unset, otherwise `healthy` with a ping time |
+| `checks.system` | CPU, memory and disk percentages; each shows `warning` at 90% or above |
+| `checks.external_apis` | No upstreams are probed at present, so this is always `healthy` with an empty `apis` map |
+| `record_storage_durable` | `true` only when Maps jobs, monitors and webhooks are stored in Redis. See [Redis and durability](#redis-and-durability) |
+
+`/docs`, `/redoc`, `/openapi.json`, `/api/docs` and `/api/redoc` exist only
+when `ENVIRONMENT` is not `production`. In production they return 404 by design.
+
+## Startup failures
+
+| Message in the log | Cause | Fix |
+|--------------------|-------|-----|
+| `SettingsError: Invalid application configuration; ... REDIS_URL (url_parsing)` | `REDIS_URL` is set but empty or malformed (`REDIS_URL=` counts) | Comment the line out, or give a full `redis://` URL. The error never prints values, only field names |
+| `API_KEYS, SECRET_KEY still holds the placeholder value shipped in .env.example` | `ENVIRONMENT` is not one of `development`, `dev`, `local`, `test`, `testing`, and a credential is still the `.env.example` placeholder | Generate real values for `API_KEYS`/`API_KEY` and `SECRET_KEY` |
+| `CORSConfigurationError: CORS_ORIGINS must list explicit origins in production` | `ENVIRONMENT=production` with `CORS_ORIGINS` left at its default `*` | Set `CORS_ORIGINS` to a comma-separated allow-list, e.g. `https://app.example.com` |
+| `RateLimiterConfigurationError: Rate limiting is enabled with N worker processes but no REDIS_URL is configured` | `ENVIRONMENT` is `production`, `prod` or `staging`, more than one worker, `RATE_LIMIT_ENABLED=true`, no Redis | Set `REDIS_URL`, or run one worker |
+
+Outside production a wildcard `CORS_ORIGINS` only logs a warning, and CORS
+credentials are disabled while the wildcard is in place.
+
+The worker count is taken from `--workers`/`-w` on the command line and from
+`WEB_CONCURRENCY`, `UVICORN_WORKERS`, `GUNICORN_WORKERS` or `WORKERS`. It cannot
+see several containers behind a load balancer; those need `REDIS_URL` too.
+
+### Container starts but is unhealthy
+
+- The image runs `uvicorn main:app --host 0.0.0.0 --port 8000 --workers 1` and
+  health-checks `curl -f http://localhost:8000/health` every 30 seconds.
+- `docker-compose.yml` sets `REDIS_URL` for the `web` service itself, pointing at
+  the `redis` service. That hostname only resolves inside the compose network, so
+  do not copy it into a `.env` used for a bare `uvicorn` run.
+- If you set `ALLOWED_HOSTS`, keep in mind the health check calls
+  `http://localhost:8000/health`. `localhost` and `127.0.0.1` are always added
+  to the list, so this works unless something rewrites the Host header.
+- `/health` and `/ping` are exempt from rate limiting, so a frequent health
+  check cannot exhaust the budget.
+
+## Status codes and what they mean
+
+| Code | Where | Meaning |
+|------|-------|---------|
+| 400 `Invalid host header` | Any path, when `ALLOWED_HOSTS` is set | See [Host header rejected](#host-header-rejected) |
+| 400 | Maps search | `max_results` cannot finish within `timeout`; the message names the largest `max_results` that fits |
+| 400 | News `article-details` | The URL's host is not on the allow-list |
+| 401 | Any authenticated path | Missing or unknown `X-API-Key` |
+| 403 | YouTube | Transcripts are disabled for that video |
+| 404 | News, YouTube, Maps jobs | No results, no transcript, or a job/monitor/webhook this key cannot see |
+| 422 | Any | Request validation failed; the body lists the fields |
+| 429 | Any | Headwater's rate limit, or an upstream 429 passed through by Autocomplete (see below) |
+| 500 `API key authentication is enabled but no API keys are configured.` | Any authenticated path | `ENABLE_API_KEY_AUTH=true` with empty `API_KEYS` and `API_KEY` |
+| 502 | Trends, News `article-details`, YouTube, Autocomplete | The upstream call failed; for YouTube, `Proxy connection failed` |
+| 503 `Rate limiting is temporarily unavailable` | Any | The rate limiter could not reach its store (see [Rate limiting](#rate-limiting)) |
+| 503 | YouTube | YouTube is blocking the outbound IP |
+| 503 | Maps | `Google Maps scraper service is unavailable`: the scraper health check failed, e.g. Playwright is not installed |
+| 504 | YouTube | YouTube did not respond within the HTTP timeouts |
+
+## Authentication
+
+Send the key in the `X-API-Key` header. There is no bearer-token or query-string
+alternative.
+
+- `API_KEYS` takes `key1,key2` or `["key1","key2"]`. `API_KEY` (single key) is
+  merged into the same set.
+- `ENABLE_API_KEY_AUTH=false` makes every route public, including `/metrics`,
+  `/status`, `/api-config` and `/health/detailed`.
+- `/health` and `/ping` never need a key.
+- `401 Missing API key. Provide it in the X-API-Key header.` means the header
+  did not arrive. Check that a reverse proxy is not stripping it.
+- `401 Invalid API key provided.` means the value is not in the configured set.
+  Look for stray quotes or whitespace in `.env`.
+
+## Rate limiting
+
+A fixed window of `RATE_LIMIT_REQUESTS` (default 100) per
+`RATE_LIMIT_TIMEFRAME` seconds (default 3600). Switch it off with
+`RATE_LIMIT_ENABLED=false`.
+
+- **Buckets.** A request carrying a known API key is counted against that key.
+  Anything else (no key, or an unknown key) is counted against the client IP.
+- **Responses.** A limited request gets 429 with a `Retry-After` header and a
+  JSON body with `limit` and `reset`. Allowed responses carry
+  `X-RateLimit-Limit`, `X-RateLimit-Remaining` and `X-RateLimit-Reset`.
+- **Every path counts,** including `/health`, `/ping` and `/metrics`, and the
+  limiter runs before authentication, so a client with an exhausted IP bucket
+  gets 429 rather than 401.
+- **`/api/v1` requests count twice.** Those routes are checked by both the
+  middleware and a per-route dependency, against the same bucket, so each call
+  uses two units. The effective budget for API calls is half of
+  `RATE_LIMIT_REQUESTS`, and the `X-RateLimit-Remaining` value on the response
+  is one higher than what is left.
+- **Behind a reverse proxy.** `X-Forwarded-For` is ignored. Without it, every
+  keyless client shares the proxy's IP bucket. Terminate the header in the proxy
+  and run uvicorn with `--proxy-headers --forwarded-allow-ips=<proxy IP>`.
+- **Several workers, no Redis.** Outside production-like environments this runs,
+  but each worker keeps its own counters, so the real limit is multiplied by the
+  worker count. A warning is logged.
+- **503 on every request.** `REDIS_URL` is set but Redis is unreachable. The
+  limiter fails closed. Fix Redis, or set `RATE_LIMIT_FAIL_OPEN=true` (read
+  directly from the environment) to let requests through uncounted; each one is
+  then logged at ERROR.
+
+## Redis and durability
+
+Redis is used for three things. Without it each falls back differently:
+
+| Use | With Redis | Without Redis |
+|-----|-----------|---------------|
+| Response cache | Shared by all workers | Per-process memory; no size cap, expired entries are dropped only when read |
+| Rate limit counters | Shared | Per-process (refused in production with several workers) |
+| Maps jobs, monitors, webhooks | Survive restarts, visible to every worker (7-day expiry) | Memory only; lost on restart and invisible to sibling workers |
+
+At startup the log says either `Record storage is durable (Redis)` or
+`Record storage is NOT durable`. `record_storage_durable` in `/health/detailed`
+reports the same thing, or `"unknown"` if the check itself failed. If it is
+`false` while you expect Redis:
+
+1. Confirm `REDIS_URL` is set in the environment the app actually sees (`docker
+   compose exec web env`).
+2. Include the password: `redis://:<password>@<host>:6379`. In Compose the
+   password comes from `REDIS_PASSWORD`, which Settings does not read.
+3. Check `checks.redis` in `/health/detailed` for the connection result.
+
+The Redis client uses a 5 second connect and socket timeout; these are fixed in
+`app/core/redis_manager.py`.
+
+A `404 Job not found` for a job you just created usually means the job was
+written to memory on a different worker, the app restarted without Redis, or the
+request used a different API key. Jobs, monitors and webhooks are only visible to
+the key that created them.
+
+## Proxies and blocked IPs
+
+| Setting | Default | Notes |
+|---------|---------|-------|
+| `ENABLE_PROXY` | `false` | Nothing is proxied unless this is `true` |
+| `PROXY_URLS` | unset | Comma-separated. Malformed entries are skipped with a warning |
+| `PROXY_URL` | unset | Single proxy, merged with `PROXY_URLS` |
+| `NO_PROXY_HOSTS` | unset | Comma-separated domain suffixes that must go direct |
+
+- `Proxying is enabled but no valid proxy URLs are configured` in the log means
+  `ENABLE_PROXY=true` with nothing usable in `PROXY_URLS`/`PROXY_URL`. Requests
+  go out direct.
+- Autocomplete, Trends and News rotate through the proxies round-robin and
+  ignore `NO_PROXY_HOSTS`.
+- Maps and YouTube use the first proxy and honour `NO_PROXY_HOSTS`. Google Maps
+  browser navigation through a datacentre proxy tends not to complete; if Maps
+  requests hang only when proxying is on, add `google.com` to `NO_PROXY_HOSTS`.
+  That also bypasses the proxy for any other Maps request to `www.google.com`.
+- YouTube `503 YouTube is temporarily blocking requests` is YouTube refusing the
+  outbound IP (`IpBlocked`/`RequestBlocked`). Datacentre and cloud IPs are the
+  usual cause. Route YouTube through a residential proxy, and if the provider
+  refuses YouTube tunnels, add `youtube.com` to `NO_PROXY_HOSTS` instead.
+- YouTube `502 Proxy connection failed` means the proxy itself refused or
+  dropped the connection. Proxy credentials are masked in the logs.
+
+## Service-specific issues
+
+### Google Maps
+
+- **Slow.** A search opens each place in turn, at about 12 seconds per result.
+  The default `max_results` is 20 and the ceiling is 45; `timeout` defaults to
+  300 and can be 30 to 600 seconds. A size and timeout that cannot finish are
+  rejected up front with 400 and a suggested `max_results`.
+- For large searches, use `wait_for_results=false`. You get a `job_id` back at
+  once; poll `GET /api/v1/google-maps/jobs/{job_id}` and fetch
+  `/jobs/{job_id}/results`.
+- **Grid and bulk searches return fewer points than requested.** Fan-out is
+  capped at `GOOGLE_MAPS_MAX_FANOUT` (default 25, read directly from the
+  environment). The truncation is logged.
+- **Requests queue.** Each worker runs at most `GOOGLE_MAPS_MAX_CONCURRENT_BROWSERS`
+  Chromium instances at once (default 4, read directly from the environment).
+- **Out-of-memory kills.** Each Chromium is roughly 100 MB. The Compose file
+  gives the `web` container a 2 GB limit; keep workers x browsers within it.
+- `GET /api/v1/google-maps/health` reports whether the scraper can start.
+- A scrape failure, including Google changing its page markup so nothing can be
+  parsed, marks the job failed with the real error. It is never reported as a
+  completed job with an empty list.
+
+### Google Autocomplete
+
+- A 429 or other non-200 whose detail is `Failed to retrieve suggestions` came
+  from Google and was passed through. Headwater's own 429 has the title
+  `Too Many Requests` and a `Retry-After` header.
+- With `INPUT_SANITIZATION_ENABLED=true` (default) the query is cleaned rather
+  than rejected: it is truncated to `MAX_QUERY_LENGTH` (default 200) characters,
+  and characters outside `ALLOWED_CHARACTERS_PATTERN` are removed. The default
+  pattern is ASCII only, so accented and non-Latin queries lose characters.
+  Widen the pattern or disable sanitization if that matters to you.
+- `variations=true` fans out up to `AUTOCOMPLETE_MAX_PARALLEL_REQUESTS`
+  (default 10) requests at once.
+
+### Google News
+
+- **`summary` and `keywords` are `null`, with `nlp_available: false`.** nltk is
+  deliberately not installed (see the comment in
+  `app/services/google_news_article_service.py`). Everything else in the article
+  response still works. If nltk is installed but its corpus is missing, the
+  response also carries an `error` field and is not cached.
+- **`article-details` returns 400.** Only Google News hosts are allowed by
+  default. Add publisher hosts with `NEWS_ARTICLE_ALLOWED_HOSTS` (comma-separated;
+  a leading dot matches subdomains, e.g. `.bbc.co.uk`). Plain `http://` URLs are
+  refused unless `NEWS_ARTICLE_ALLOW_HTTP=true`. Both are read directly from the
+  environment.
+- **502 `Could not retrieve the requested article.`** The publisher fetch failed.
+  The real reason is in the log.
+- **404** means the feed had no items for those parameters.
+
+### Google Trends
+
+- 502 means the call to Google Trends failed. Failures are not cached, so the
+  next request tries again. Google Trends throttles aggressively; proxies help.
+
+### YouTube transcripts
+
+- 404: no transcript for that video, or the video is unavailable.
+- 403: transcripts are disabled for the video.
+- 504: YouTube did not answer within `HTTP_CONNECTION_TIMEOUT` (default 10.0)
+  and `HTTP_READ_TIMEOUT` (default 30.0) seconds. Raise them if your network or
+  proxy is slow.
+
+### Host header rejected
+
+When `ALLOWED_HOSTS` lists hostnames, any other `Host` header gets
+`400 Invalid host header`. Add every name clients or your reverse proxy use,
+comma separated (for example `ALLOWED_HOSTS=api.example.com,headwater.internal`).
+`localhost` and `127.0.0.1` are always allowed. The default, `*`, accepts any
+host and logs a warning in production.
+
+## Logs and metrics
+
+- Logging is fixed at INFO in `main.py`. `DEBUG=true` turns on FastAPI's debug
+  mode (and auto-reload when started with `python main.py`); it does not change
+  the log level.
+- Useful startup lines: the placeholder, CORS and rate-limiter errors above,
+  `Record storage is durable` / `NOT durable`, `Rate limiting enabled: ...`,
+  and `Metrics enabled at /metrics`.
+- `/metrics` requires `X-API-Key` when auth is enabled. It is served by
+  prometheus-fastapi-instrumentator and exposes its default series:
+  `http_requests_total`, `http_request_size_bytes`, `http_response_size_bytes`,
+  `http_request_duration_seconds` and `http_request_duration_highr_seconds`,
+  plus the standard `process_*` and `python_*` collectors. Headwater defines no
+  custom metrics.
+
+## Getting help
+
+When reporting an issue, include:
+
+- The Headwater version (`/status`) and how you run it (Compose, `docker run`,
+  bare uvicorn, number of workers).
+- The body of `/health/detailed`.
+- The failing request, the status code and the response body.
+- The relevant log lines. Proxy passwords are masked, but check for other
+  secrets before posting.
+
+Further reading: [API Reference](API_REFERENCE.md),
+[Deployment](DEPLOYMENT.md), [Performance Tuning](PERFORMANCE_TUNING.md),
+[Security Guidelines](SECURITY_GUIDELINES.md). Issues go to
+[GitHub](https://github.com/HouseofLoops/headwater/issues).

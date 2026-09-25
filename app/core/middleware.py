@@ -225,6 +225,37 @@ def resolve_cors_policy(settings: Settings) -> dict[str, Any]:
     }
 
 
+# Always accepted alongside an explicit ALLOWED_HOSTS list: the Dockerfile and
+# docker-compose health checks call http://localhost:8000/health from inside
+# the container, and would otherwise be rejected with 400 and mark it unhealthy.
+LOOPBACK_HOSTS = ("localhost", "127.0.0.1")
+
+
+def resolve_allowed_hosts(settings: Settings) -> list[str] | None:
+    """Return the Host allow-list for TrustedHostMiddleware, or None for any host.
+
+    This used to be hardcoded to api.headwater.com / headwater.com / localhost
+    in production, so every self-hosted deployment on its own domain got
+    ``400 Invalid host header`` on every request. It is now ALLOWED_HOSTS.
+
+    Args:
+        settings: Application settings.
+
+    Returns:
+        The hosts to allow, with the loopback hosts appended, or None when
+        ALLOWED_HOSTS contains "*" (no Host check).
+    """
+    hosts = [h.strip().lower() for h in settings.ALLOWED_HOSTS if h and h.strip()]
+    if not hosts or "*" in hosts:
+        if settings.ENVIRONMENT == "production":
+            logger.warning(
+                'ALLOWED_HOSTS is "*": any Host header is accepted. Set ALLOWED_HOSTS '
+                "to the hostnames this deployment serves (e.g. api.example.com)."
+            )
+        return None
+    return hosts + [h for h in LOOPBACK_HOSTS if h not in hosts]
+
+
 def setup_middleware(app: FastAPI, settings: Settings | None = None) -> None:
     """
     Set up middleware for the FastAPI application.
@@ -239,9 +270,10 @@ def setup_middleware(app: FastAPI, settings: Settings | None = None) -> None:
     # Add CORS middleware with a policy that can never pair "*" with credentials
     app.add_middleware(CORSMiddleware, **resolve_cors_policy(settings))
 
-    # Add trusted host middleware for production
-    if settings.ENVIRONMENT == "production":
-        app.add_middleware(TrustedHostMiddleware, allowed_hosts=["api.headwater.com", "headwater.com", "localhost"])
+    # Reject requests for Host headers this deployment doesn't serve.
+    allowed_hosts = resolve_allowed_hosts(settings)
+    if allowed_hosts is not None:
+        app.add_middleware(TrustedHostMiddleware, allowed_hosts=allowed_hosts)
 
     # Add GZip compression middleware
     app.add_middleware(GZipMiddleware, minimum_size=1000)
