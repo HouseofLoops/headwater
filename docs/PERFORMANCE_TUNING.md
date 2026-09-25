@@ -205,8 +205,8 @@ The defaults are conservative. When sizing them:
 
 - Requests to `/api/v1/...` count twice against the bucket (middleware and
   per-route check), so a key gets about 50 API calls per hour by default.
-- `/health` counts too. The container health check alone makes 120 requests an
-  hour from `localhost`, which exceeds the default of 100.
+- `/health` and `/ping` are exempt, so health checks and probes do not use the
+  budget.
 - Counters live in Redis when `REDIS_URL` is set. Each check is one Redis round
   trip, so keep Redis close to the app.
 
@@ -271,7 +271,7 @@ by `batch_requests` in `app/core/http_client.py`, but no endpoint calls it.
 - [ ] Clients that repeat Maps searches use `GET /api/v1/google-maps/search`
 - [ ] `GOOGLE_MAPS_MAX_CONCURRENT_BROWSERS x workers x ~100 MB` fits the memory limit
 - [ ] Large Maps searches use `wait_for_results=false`
-- [ ] `RATE_LIMIT_REQUESTS` sized for real traffic, counting `/api/v1` calls twice and the health check
+- [ ] `RATE_LIMIT_REQUESTS` sized for real traffic, counting `/api/v1` calls twice
 - [ ] Proxies configured only where upstreams block you; `NO_PROXY_HOSTS=google.com` if Maps hangs through them
 - [ ] More than one worker only with Redis, and only when one core is saturated
 

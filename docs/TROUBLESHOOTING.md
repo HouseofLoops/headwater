@@ -78,19 +78,17 @@ see several containers behind a load balancer; those need `REDIS_URL` too.
 - `docker-compose.yml` sets `REDIS_URL` for the `web` service itself, pointing at
   the `redis` service. That hostname only resolves inside the compose network, so
   do not copy it into a `.env` used for a bare `uvicorn` run.
-- `/health` is rate limited like every other path (see below). The health check
-  arrives from `localhost` with no key, so it has its own per-IP bucket. With the
-  defaults (100 requests per 3600 seconds) the check alone makes 120 requests an
-  hour, so `/health` starts answering 429 about 50 minutes into each window and
-  the container is reported unhealthy until the window resets. Raise
-  `RATE_LIMIT_REQUESTS`, lower `RATE_LIMIT_TIMEFRAME`, or lengthen the health
-  check interval.
+- If you set `ALLOWED_HOSTS`, keep in mind the health check calls
+  `http://localhost:8000/health`. `localhost` and `127.0.0.1` are always added
+  to the list, so this works unless something rewrites the Host header.
+- `/health` and `/ping` are exempt from rate limiting, so a frequent health
+  check cannot exhaust the budget.
 
 ## Status codes and what they mean
 
 | Code | Where | Meaning |
 |------|-------|---------|
-| 400 `Invalid host header` | Any path, `ENVIRONMENT=production` only | See [Host header rejected](#host-header-rejected-in-production) |
+| 400 `Invalid host header` | Any path, when `ALLOWED_HOSTS` is set | See [Host header rejected](#host-header-rejected) |
 | 400 | Maps search | `max_results` cannot finish within `timeout`; the message names the largest `max_results` that fits |
 | 400 | News `article-details` | The URL's host is not on the allow-list |
 | 401 | Any authenticated path | Missing or unknown `X-API-Key` |
@@ -269,13 +267,13 @@ the key that created them.
   and `HTTP_READ_TIMEOUT` (default 30.0) seconds. Raise them if your network or
   proxy is slow.
 
-### Host header rejected in production
+### Host header rejected
 
-With `ENVIRONMENT=production`, `TrustedHostMiddleware` accepts only the hosts
-`api.headwater.com`, `headwater.com` and `localhost`. Any other `Host` header
-gets `400 Invalid host header`. The list is fixed in `app/core/middleware.py`;
-it is not a setting. If you serve under your own domain, either edit that list
-or have your reverse proxy send a `Host` the list accepts.
+When `ALLOWED_HOSTS` lists hostnames, any other `Host` header gets
+`400 Invalid host header`. Add every name clients or your reverse proxy use,
+comma separated (for example `ALLOWED_HOSTS=api.example.com,headwater.internal`).
+`localhost` and `127.0.0.1` are always allowed. The default, `*`, accepts any
+host and logs a warning in production.
 
 ## Logs and metrics
 

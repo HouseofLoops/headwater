@@ -120,17 +120,16 @@ deploy:
 | Startup fails if `CORS_ORIGINS` is the wildcard | `app/core/middleware.py` |
 | Startup fails if rate limiting is on, more than one worker is configured and `REDIS_URL` is unset (also for `prod` and `staging`) | `app/core/rate_limiter.py` |
 | `/docs`, `/redoc`, `/openapi.json`, `/api/docs` and `/api/redoc` are not served | `main.py` |
-| `TrustedHostMiddleware` accepts only the Host headers `api.headwater.com`, `headwater.com` and `localhost` (hard-coded). Any other Host gets 400, so a reverse proxy or probe must send one of those | `app/core/middleware.py` |
+| A warning is logged if `ALLOWED_HOSTS` is `*` (the default). Set it to the hostnames you serve; any other Host then gets 400 (`localhost` and `127.0.0.1` stay allowed for health checks) | `app/core/middleware.py` |
 | `Content-Security-Policy` and `Strict-Transport-Security` headers are added | `app/core/middleware.py` |
 
 Other operational facts:
 
 - The image runs `uvicorn main:app --workers 1`. To run more workers, set
   `REDIS_URL`; the in-memory limiter is per process.
-- `/health` and `/ping` are unauthenticated but go through the rate limiter like
-  every other route, keyed by client IP. Probe traffic counts against
-  `RATE_LIMIT_REQUESTS` per `RATE_LIMIT_TIMEFRAME`; size probe intervals or the
-  limit accordingly.
+- `/health` and `/ping` are unauthenticated and exempt from rate limiting, so
+  health checks and probes can poll as often as they need. `/health/detailed`
+  needs an API key and is rate limited.
 - The limiter fails closed: if Redis is configured but unreachable, requests get
   503 unless `RATE_LIMIT_FAIL_OPEN=true`.
 - Maps jobs, monitors and webhooks live in Redis when it is reachable and in
@@ -174,6 +173,7 @@ spec:
           env:
             - {name: ENVIRONMENT, value: production}
             - {name: CORS_ORIGINS, value: "https://app.example.com"}
+            - {name: ALLOWED_HOSTS, value: "api.example.com"}
           envFrom:
             - secretRef: {name: headwater}
           livenessProbe:
@@ -181,13 +181,13 @@ spec:
               path: /ping
               port: 8000
               httpHeaders: [{name: Host, value: localhost}]
-            periodSeconds: 60
+            periodSeconds: 15
           readinessProbe:
             httpGet:
               path: /health
               port: 8000
               httpHeaders: [{name: Host, value: localhost}]
-            periodSeconds: 60
+            periodSeconds: 15
 ---
 apiVersion: v1
 kind: Service
@@ -204,11 +204,10 @@ Notes on the example:
 
 - More than one replica needs `REDIS_URL` so that replicas share rate-limit
   counters and Maps records.
-- The `Host: localhost` probe header is needed because of the production
-  `TrustedHostMiddleware` allow-list above; your ingress must also forward an
-  allowed Host.
-- The probe interval is long because probes are rate-limited (60 s gives 60 probe
-  requests per hour per probe against the default 100 per hour).
+- The kubelet sends the pod IP as the Host header, which an explicit
+  `ALLOWED_HOSTS` list rejects; `Host: localhost` is always allowed, hence the
+  probe header. Your ingress must forward a Host that is in `ALLOWED_HOSTS`.
+- Probes are exempt from rate limiting, so the interval is a normal 15 s.
 - Run Redis however you prefer (a managed service or your own deployment).
 
 ## Troubleshooting
@@ -217,9 +216,8 @@ Notes on the example:
 |---------|--------------|
 | Container exits at startup with a placeholder-credential error | `.env.example` values left in place with a non-development `ENVIRONMENT` |
 | Startup error about `CORS_ORIGINS` | Wildcard origins with `ENVIRONMENT=production` |
-| Every request returns 400 "Invalid host header" | Production mode and a Host header outside the allow-list |
+| Every request returns 400 "Invalid host header" | The request's Host is not in `ALLOWED_HOSTS` |
 | Every request returns 503 | `REDIS_URL` set but Redis unreachable (limiter fails closed) |
-| `/health` starts returning 429 | Probe or health-check traffic exceeded the rate limit |
 | 401 on `/api/v1/...` | Missing or unknown `X-API-Key` |
 | 500 "no API keys are configured" | `ENABLE_API_KEY_AUTH=true` with `API_KEYS` empty |
 

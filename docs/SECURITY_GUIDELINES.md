@@ -15,7 +15,7 @@ user account system behind it.
 | Rate-limit headers | `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset` (seconds until the window resets); 429 responses add `Retry-After` | `app/core/rate_limiter.py` |
 | CORS | Wildcard origins are refused in production; with a wildcard, credentials are disabled | `app/core/middleware.py` |
 | Security headers | `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `X-XSS-Protection`, `Referrer-Policy`, `Permissions-Policy`; in production also `Content-Security-Policy` and `Strict-Transport-Security` | `app/core/middleware.py` |
-| Trusted hosts | In production only the Host headers `api.headwater.com`, `headwater.com` and `localhost` are accepted (hard-coded) | `app/core/middleware.py` |
+| Trusted hosts | `ALLOWED_HOSTS` restricts the accepted Host headers (`localhost`/`127.0.0.1` always allowed). The default `*` accepts any host and logs a warning in production | `app/core/middleware.py` |
 | SSRF defence | Caller-supplied URLs (`/google-news/article-details/`, Maps place lookup, Maps webhooks) are checked against a scheme and host allow-list, and every address the host resolves to must be public. The validated addresses are returned so callers can pin the connection against DNS rebinding | `app/core/url_guard.py` |
 | Record ownership | Maps jobs, monitors and webhooks are scoped to the API key that created them, stored under a digest keyed with `SECRET_KEY` | `app/core/identity.py`, `app/services/record_store.py` |
 | Input sanitisation | Autocomplete queries are length-limited (`MAX_QUERY_LENGTH`, default 200) and checked against `SUSPICIOUS_PATTERNS` when `BLOCK_SUSPICIOUS_PATTERNS=true` | `app/core/input_sanitizer.py` |
@@ -33,7 +33,8 @@ user account system behind it.
 - Set a strong `REDIS_PASSWORD` and do not publish the Redis port.
   `docker-compose.yml` keeps Redis on the internal network.
 - Terminate TLS in a reverse proxy in front of port 8000. The proxy must send a
-  Host header from the production allow-list above. If you rely on per-IP
+  Host header listed in `ALLOWED_HOSTS`, and you should set `ALLOWED_HOSTS` to
+  the names you serve. If you rely on per-IP
   limits, make sure `request.client.host` is the real client (for example uvicorn
   `--proxy-headers --forwarded-allow-ips=<proxy address>`); otherwise all
   keyless clients share the proxy's bucket.
