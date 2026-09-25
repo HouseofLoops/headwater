@@ -2,8 +2,9 @@
 """
 Version increment utility for Headwater.
 
-This script increments the version number in app/__version__.py
-according to semantic versioning rules.
+Bumps the version according to semantic versioning in every place a release
+needs it. release.yml tags whatever app/__version__.py says, so the three must
+agree; tests/test_version_consistency.py fails CI if they don't.
 """
 
 import os
@@ -11,6 +12,14 @@ import re
 import sys
 
 VERSION_FILE = "app/__version__.py"
+
+# (file, pattern with one group for the version, replacement template). Every
+# pattern must match exactly once, or the bump aborts before writing anything.
+VERSION_LOCATIONS = [
+    (VERSION_FILE, r'(__version__\s*=\s*["\'])([^"\']+)(["\'])', r"\g<1>{version}\g<3>"),
+    ("Dockerfile", r'(org\.opencontainers\.image\.version=")([^"]+)(")', r"\g<1>{version}\g<3>"),
+    ("docs/DOCKERHUB.md", r"(\| `latest`, `)([^`]+)(` \|)", r"\g<1>{version}\g<3>"),
+]
 
 
 def read_version():
@@ -32,15 +41,20 @@ def read_version():
 
 
 def write_version(version):
-    """Write the new version to the version file."""
-    with open(VERSION_FILE) as f:
-        content = f.read()
+    """Write the new version to every location, or to none of them."""
+    updated = {}
+    for path, pattern, template in VERSION_LOCATIONS:
+        with open(path) as f:
+            content = f.read()
+        new_content, count = re.subn(pattern, template.format(version=version), content)
+        if count != 1:
+            print(f"Error: expected exactly one version string in {path}, found {count}. Nothing was changed.")
+            sys.exit(1)
+        updated[path] = new_content
 
-    # Replace version using regex
-    new_content = re.sub(r'__version__\s*=\s*["\']([^"\']+)["\']', f'__version__ = "{version}"', content)
-
-    with open(VERSION_FILE, "w") as f:
-        f.write(new_content)
+    for path, new_content in updated.items():
+        with open(path, "w") as f:
+            f.write(new_content)
 
 
 def increment_version(current_version, increment_type):
@@ -101,7 +115,7 @@ def main():
 
     # Write new version
     write_version(new_version)
-    print(f"Version updated in {VERSION_FILE}")
+    print("Version updated in: " + ", ".join(path for path, _, _ in VERSION_LOCATIONS))
 
 
 if __name__ == "__main__":

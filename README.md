@@ -31,7 +31,7 @@ invoices that scale per call.
 
 Headwater is the one service in front of all of them:
 
-- **One key, one base URL, one JSON convention** across 67 operations.
+- **One key, one base URL, one JSON convention** across 64 API operations.
 - **Self-hosted.** Your infrastructure, your IP, your rate limits. No per-request
   billing and no third party holding your query history.
 - **Built for pipelines, not dashboards.** Every response is flat JSON meant to be
@@ -215,12 +215,14 @@ curl -H "X-API-Key: $API_KEY" \
 
 ## Endpoints
 
-67 operations across 60 paths. The tables in this README would drift, so the
-authoritative list lives at **`/api/docs`** on your running instance.
+70 operations across 60 paths: 64 under `/api/v1`, plus 6 for health and
+configuration. The authoritative list lives at **`/api/docs`** on your running
+instance, and in [docs/API_REFERENCE.md](docs/API_REFERENCE.md), which is
+generated from the same schema.
 
 | Surface | Operations | What it covers |
 |---|---:|---|
-| `google-maps` | 36 | search, nearby, grid and bounding-box search, place details, reviews, photos, Q&A, menus, popular times, plus async jobs, monitors and webhooks |
+| `google-maps` | 39 | search, nearby, grid and bounding-box search, place details, reviews, photos, Q&A, menus, popular times, plus async jobs, monitors and webhooks |
 | `google-trends` | 10 | interest over time and by region, related queries and topics, trending now, geo and category reference data |
 | `google-news` | 9 | search, top stories, by topic, by source, by location, and full-article extraction |
 | `youtube-transcripts` | 5 | fetch, list, format, translate, batch |
