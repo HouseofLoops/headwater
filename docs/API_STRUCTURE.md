@@ -64,6 +64,7 @@ news = BaseRouter(prefix="/google-news")  # service_name derived from the prefix
 async def example():
     return {"ok": True}
 
+
 app_router = news.router  # the underlying APIRouter
 ```
 
