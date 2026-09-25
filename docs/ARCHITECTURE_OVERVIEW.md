@@ -1,219 +1,110 @@
 # Architecture Overview
 
-This document provides a high-level overview of the Headwater API architecture, including its components, data flow, and design principles.
-
-## System Architecture
-
-The Headwater API follows a layered architecture pattern with clear separation of concerns:
-
-```
-┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│                 │     │                 │     │                 │     │                 │
-│  Client         │────▶│  API Gateway    │────▶│  Core Modules   │────▶│  Service Clients│
-│  Applications   │     │  (FastAPI)      │     │                 │     │                 │
-│                 │◀────│                 │◀────│                 │◀────│                 │
-└─────────────────┘     └─────────────────┘     └─────────────────┘     └─────────────────┘
-                                                        │                        │
-                                                        ▼                        ▼
-                                               ┌─────────────────┐     ┌─────────────────┐
-                                               │                 │     │                 │
-                                               │  Data Storage   │     │  External APIs  │
-                                               │  (Redis/DB)     │     │  (Google, etc.) │
-                                               │                 │     │                 │
-                                               └─────────────────┘     └─────────────────┘
-```
-
-### Key Components
-
-1. **Client Applications**: External applications that consume the Headwater API.
-
-2. **API Gateway (FastAPI)**: The entry point for all API requests, responsible for:
-   - Request routing
-   - Authentication and authorization
-   - Rate limiting
-   - Request validation
-   - Response formatting
-
-3. **Core Modules**: Shared functionality used across the application:
-   - `auth.py`: Authentication and authorization
-   - `base_router.py`: Base router class for consistent API endpoints
-   - `cache_manager.py`: Caching layer for improved performance
-   - `config.py`: Configuration management
-   - `database.py`: Database connection and operations
-   - `exceptions.py`: Centralized exception handling
-   - `health_checks.py`: System health monitoring
-   - `middleware.py`: Request/response middleware
-   - `proxy.py`: Proxy management for external requests
-   - `rate_limiter.py`: Request rate limiting
-
-4. **Service Clients**: Modules that interact with external services:
-   - Google News client
-   - Google Trends client
-   - Google Autocomplete client
-   - YouTube Transcripts client
-
-5. **Data Storage**:
-   - Redis for caching and rate limiting
-   - PostgreSQL for persistent data storage (optional)
-
-6. **External APIs**:
-   - Google services (News, Trends, Autocomplete, Ads)
-   - YouTube API
-   - Other third-party services
-
-## Data Flow
-
-### Request Flow
-
-1. Client sends a request to the API Gateway
-2. API Gateway authenticates the request using the API key
-3. Middleware processes the request (logging, metrics, etc.)
-4. Request is routed to the appropriate endpoint
-5. Endpoint validates the request parameters
-6. Service client retrieves data from cache or external API
-7. Response is formatted and returned to the client
+Headwater is one FastAPI application (`main.py`) that exposes five Google/YouTube
+data sources under `/api/v1`. It has no database. Redis is optional: when
+`REDIS_URL` is set it backs rate limiting, caching and Maps records; otherwise
+each of those falls back to process memory.
 
 ```
-┌─────────┐     ┌─────────────┐     ┌──────────┐     ┌─────────┐     ┌───────────┐     ┌─────────────┐
-│         │     │             │     │          │     │         │     │           │     │             │
-│ Client  │────▶│ API Gateway │────▶│Middleware│────▶│ Router  │────▶│ Service   │────▶│ External API│
-│         │     │             │     │          │     │         │     │ Client    │     │             │
-│         │◀────│             │◀────│          │◀────│         │◀────│           │◀────│             │
-└─────────┘     └─────────────┘     └──────────┘     └─────────┘     └───────────┘     └─────────────┘
-                                                                          │
-                                                                          ▼
-                                                                     ┌─────────┐
-                                                                     │         │
-                                                                     │  Cache  │
-                                                                     │         │
-                                                                     └─────────┘
+Client ──HTTP──▶ FastAPI app (main.py, uvicorn :8000)
+                  │  middleware: rate limit, request log, security headers, gzip, (trusted host), CORS
+                  │  route dependency: X-API-Key check
+                  ▼
+                app/api/<service>/  (routers)
+                  ▼
+                app/services/       (fetching and parsing)
+                  │                         │
+                  ▼                         ▼
+                Redis (optional)          Google / YouTube (httpx, gnews, trendspy,
+                or process memory         youtube-transcript-api, Playwright Chromium)
 ```
 
-### Error Handling Flow
+## Code layout
 
-1. Exception is raised in any layer
-2. Exception is caught by the global exception handler
-3. Exception is converted to a standardized RFC7807 Problem Details format
-4. Error response is returned to the client
+| Path | Contents |
+|------|----------|
+| `main.py` | App factory (`create_application`), lifespan (startup/shutdown), `/health`, `/health/detailed`, `/ping`, `/status`, `/api-config`, `/config-sources`, docs routes, `/metrics`, and the `/api/v1` router |
+| `app/api/google_autocomplete/` | `google_autocomplete_api.py` |
+| `app/api/google_maps/` | Routers split by area: `search.py`, `places.py`, `geo.py`, `analytics.py`, `jobs.py`, `monitors.py`, `health.py`; request models in `schemas.py`; shared helpers in `common.py`; assembled in `__init__.py` (`google_maps_api.py` re-exports the router for `main.py`) |
+| `app/api/google_news/` | `google_news_api.py` |
+| `app/api/google_trends/` | `google_trends_api.py` (calls `trendspy` directly) |
+| `app/api/youtube_transcripts/` | `youtube_transcripts_api.py` |
+| `app/services/` | `google_autocomplete_service.py`, `google_news_service.py`, `google_news_article_service.py`, `google_news_catalog.py`, `youtube_transcripts_service.py`, `google_maps_service.py`, `google_maps_scraper.py`, `google_maps_monitors.py`, `record_store.py` |
+| `app/services/google_maps/` | Maps implementation modules: `scraper.py`, `scraper_place_details.py`, `scraper_jobs.py`, `scraper_limits.py`, `scraper_errors.py`, `service_area_search.py`, `service_directions.py`, `service_menu.py`, `service_monitors.py`, `service_place_content.py`, `service_reservations.py`, `constants.py` |
+| `app/schemas/` | `enums.py`, `responses.py` |
+| `app/core/` | Shared infrastructure (below) |
 
-```
-┌─────────┐     ┌─────────────┐     ┌──────────────────┐     ┌───────────────┐
-│         │     │             │     │                  │     │               │
-│ Client  │◀────│ API Gateway │◀────│ Exception Handler│◀────│ Any Component │
-│         │     │             │     │                  │     │               │
-└─────────┘     └─────────────┘     └──────────────────┘     └───────────────┘
-```
+### `app/core`
 
-## Design Principles
+| Module | Role |
+|--------|------|
+| `config.py` | `Settings` (pydantic-settings), `get_settings()`, placeholder-credential check |
+| `auth.py` | `X-API-Key` validation (`get_api_key`) |
+| `rate_limiter.py` | `RateLimitMiddleware`, Redis or in-memory counters, fail-closed policy |
+| `middleware.py` | CORS policy, trusted hosts, gzip, security headers, request logging (`X-Request-ID`) |
+| `exceptions.py` | Exception classes and RFC 7807 handlers |
+| `cache_manager.py`, `cache_backends.py` | Response cache (`get_cached_or_fetch`); Redis, memory and tiered backends |
+| `redis_manager.py` | Shared async Redis connection |
+| `http_client.py` | Pooled `httpx` client manager |
+| `proxy.py` | Outbound proxy selection (`PROXY_URLS`, `NO_PROXY_HOSTS`) |
+| `url_guard.py` | SSRF checks for caller-supplied URLs |
+| `identity.py` | Keyed digests (`SECRET_KEY`) used as storage keys |
+| `input_sanitizer.py` | Query length and pattern checks |
+| `log_safety.py` | Log-injection filter and `scrub()` |
+| `health_checks.py` | Redis, upstream and system checks for `/health/detailed` |
+| `dependencies.py` | FastAPI dependency helpers |
+| `base_router.py` | `BaseRouter` wrapper (API-key dependency and default error responses); the current routers use plain `APIRouter` |
+| `search.py` | Search structures for autocomplete suggestions |
+| `constants.py` | Shared constants |
+| `text_utils.py`, `datetime_utils.py`, `serialization_utils.py`, `introspection_utils.py`, `collection_utils.py`, `url_utils.py`, `decorators.py`, `file_utils.py` | Helpers; `utils.py` only re-exports them |
 
-The Headwater API is built on the following design principles:
+## Request flow
 
-### 1. Separation of Concerns
+1. `RateLimitMiddleware` (outermost) counts the request against the caller's API
+   key or client IP and returns 429 or 503 before anything else runs.
+2. Request logging, security headers, gzip, trusted-host (production only) and
+   CORS middleware run.
+3. The `/api/v1` routers carry a `get_api_key` dependency, which returns 401
+   for a missing or unknown key.
+4. FastAPI validates parameters (422 on failure).
+5. The endpoint calls its service. Cacheable responses go through
+   `get_cached_or_fetch` (used by every service's API module), so a repeat
+   request within the TTL skips the upstream call.
+6. Errors are turned into `application/problem+json` by the handlers in
+   `app/core/exceptions.py`:
 
-Each component has a single responsibility:
-- API Gateway: Request handling and routing
-- Core Modules: Shared functionality
-- Service Clients: External API integration
-- Data Storage: Persistence and caching
-
-### 2. Dependency Injection
-
-FastAPI's dependency injection system is used extensively to:
-- Provide configuration settings
-- Authenticate requests
-- Validate input
-- Manage database connections
-- Implement rate limiting
-
-### 3. Asynchronous I/O
-
-The API uses asynchronous I/O throughout to maximize performance:
-- FastAPI's async endpoints
-- httpx for async HTTP requests
-- Async database drivers
-- Async Redis client
-
-### 4. Standardized Error Handling
-
-All errors follow the RFC7807 Problem Details format:
 ```json
 {
-  "type": "https://headwater.com/problems/validation_error",
-  "title": "Bad Request",
-  "status": 400,
-  "detail": "Invalid parameter: query cannot be empty"
+  "type": "https://headwater.com/problems/not_found",
+  "title": "Not Found",
+  "status": 404,
+  "detail": "..."
 }
 ```
 
-### 5. API Versioning
+## Background work
 
-All endpoints are versioned using URL path versioning:
-- `/api/v1/google-news/search`
-- `/api/v1/google-trends/interest-over-time`
+Started in the lifespan hook in `main.py`:
 
-### 6. Comprehensive Monitoring
+- The rate limiter's cleanup task for the in-memory store.
+- The Maps monitor scheduler (`start_monitor_scheduler`), which re-scrapes
+  watched places on their interval and calls webhooks on change.
+- A startup check that logs whether Maps records are durable (Redis) or
+  memory-only.
 
-The API includes extensive monitoring capabilities:
-- Health check endpoints
-- Prometheus metrics
-- Detailed logging
-- Request tracing
+Maps searches can run as background jobs (`wait_for_results=false`); jobs,
+monitors and webhooks are stored through `RecordStore` and scoped to the API key
+that created them.
 
-## Deployment Architecture
+## Deployment shape
 
-The Headwater API is designed to be deployed in a containerized environment:
+One container (`Dockerfile`: `python:3.14-slim-trixie`, non-root, Playwright
+Chromium, `uvicorn --workers 1`) plus Redis, as in `docker-compose.yml`. Running
+several workers or replicas requires Redis so that rate-limit counters and Maps
+records are shared. See [DEPLOYMENT.md](DEPLOYMENT.md).
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                         Kubernetes Cluster                      │
-│                                                                 │
-│  ┌─────────────┐     ┌─────────────┐     ┌─────────────┐        │
-│  │             │     │             │     │             │        │
-│  │ Ingress     │────▶│ API Service │────▶│ Redis       │        │
-│  │ Controller  │     │ (Multiple   │     │ (Cache)     │        │
-│  │             │     │  Replicas)  │     │             │        │
-│  └─────────────┘     └─────────────┘     └─────────────┘        │
-│         │                   │                   │               │
-│         ▼                   ▼                   ▼               │
-│  ┌─────────────┐     ┌─────────────┐     ┌─────────────┐        │
-│  │             │     │             │     │             │        │
-│  │ Prometheus  │     │ PostgreSQL  │     │ Logging     │        │
-│  │ (Metrics)   │     │ (Optional)  │     │ (ELK Stack) │        │
-│  │             │     │             │     │             │        │
-│  └─────────────┘     └─────────────┘     └─────────────┘        │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-```
+## Security
 
-## Security Architecture
-
-The API implements multiple layers of security:
-
-1. **Network Security**:
-   - HTTPS/TLS encryption
-   - Firewall rules
-   - Network policies
-
-2. **Authentication**:
-   - API key authentication
-   - OAuth 2.0 for Google services
-
-3. **Authorization**:
-   - Role-based access control (planned)
-   - Scoped API keys (planned)
-
-4. **Data Protection**:
-   - Input validation
-   - Output sanitization
-   - Secure headers
-
-5. **Rate Limiting**:
-   - Per-client rate limits
-   - Global rate limits
-
-## Future Architecture Considerations
-
-1. **Microservices**: Split the monolithic API into microservices for each Google service
-2. **GraphQL**: Add a GraphQL layer for more flexible data querying
-3. **Event-Driven Architecture**: Implement event-driven components for asynchronous processing
-4. **Machine Learning**: Add ML capabilities for data analysis and insights
+Summarised in [SECURITY_GUIDELINES.md](SECURITY_GUIDELINES.md): API-key auth,
+per-key/per-IP rate limiting, CORS and trusted-host rules in production, security
+headers, SSRF allow-lists for caller-supplied URLs, and owner-scoped Maps records.

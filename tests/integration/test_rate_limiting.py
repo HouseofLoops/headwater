@@ -397,3 +397,41 @@ class TestRateLimitDisabled:
 
         # None should be 429
         assert 429 not in responses, "Rate limiting should be disabled"
+
+
+class TestLivenessProbesExempt:
+    """/health and /ping must never be rate limited.
+
+    The Dockerfile and docker-compose health checks poll /health every 30 s
+    (120/h) against a default budget of 100/h. Before the exemption, /health
+    started returning 429 about 50 minutes into each window and Docker marked
+    the container unhealthy.
+    """
+
+    @pytest.mark.parametrize("path", ["/health", "/ping"])
+    def test_probe_survives_exhausted_budget(self, rate_client, path):
+        from app.core.rate_limiter import _rate_limit_store
+
+        _rate_limit_store.clear()
+        for _ in range(12):  # well past the fixture's 5-request budget
+            response = rate_client.get(path)
+            assert response.status_code == 200, f"{path} was rate limited"
+
+    def test_probes_do_not_consume_the_budget(self, rate_client):
+        from app.core.rate_limiter import _rate_limit_store
+
+        _rate_limit_store.clear()
+        for _ in range(12):
+            rate_client.get("/health")
+
+        response = rate_client.get("/api-config")
+        assert response.status_code == 200
+        assert response.headers["x-ratelimit-remaining"] == "4"
+
+    def test_other_paths_are_still_limited(self, rate_client):
+        """The exemption is exact-path: /health/detailed and the rest stay limited."""
+        from app.core.rate_limiter import _rate_limit_store
+
+        _rate_limit_store.clear()
+        statuses = [rate_client.get("/health/detailed").status_code for _ in range(7)]
+        assert 429 in statuses

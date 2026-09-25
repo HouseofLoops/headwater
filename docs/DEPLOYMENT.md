@@ -1,572 +1,224 @@
 # Deployment Guide
 
-This document provides step-by-step instructions for deploying the Headwater API in various environments.
+How to run Headwater in development and production. Headwater is a single FastAPI
+process listening on port 8000. Redis is optional but recommended; there is no
+database.
 
 ## Prerequisites
 
-Before deploying the Headwater API, ensure you have the following:
+| Need | Why |
+|------|-----|
+| Docker with Compose | Recommended path: runs the API and Redis together |
+| Redis 7 (bundled in `docker-compose.yml`) | Shared rate-limit counters, cache and durable Maps jobs/monitors/webhooks |
+| Outbound HTTPS to Google and YouTube | All data is fetched from public Google pages; no Google API key is used |
+| An outbound proxy (optional) | Some upstreams throttle datacentre IPs; see `PROXY_URLS` below |
 
-- Docker and Docker Compose (for local and container-based deployments)
-- Kubernetes cluster (for production deployments)
-- Google API credentials (see [GOOGLE_SERVICES.md](GOOGLE_SERVICES.md))
-- Redis instance (optional, for caching and rate limiting)
-- PostgreSQL database (optional, for persistent storage)
-
-## Local Development Deployment
-
-### 1. Clone the Repository
+## Docker Compose with Redis (recommended)
 
 ```bash
-git clone https://github.com/yourusername/headwater.git
+git clone https://github.com/HouseofLoops/headwater.git
 cd headwater
-```
-
-### 2. Configure Environment Variables
-
-```bash
 cp .env.example .env
+# Edit .env: set API_KEYS, SECRET_KEY and REDIS_PASSWORD to real values
+docker compose up -d
+curl http://localhost:8000/health        # {"status":"healthy"}
 ```
 
-Edit the `.env` file with your configuration:
+`docker-compose.yml` defines two services:
 
-```
-# API settings
-API_KEYS=your_api_key_1,your_api_key_2
-ENABLE_API_KEY_AUTH=true
+| Service | Container | Notes |
+|---------|-----------|-------|
+| `web` | `headwater_app` | Built from the `Dockerfile`; port 8000; reads `.env` via `env_file`; health-checked with `curl -f http://localhost:8000/health` |
+| `redis` | `headwater_redis` | `redis:7-alpine`, password from `REDIS_PASSWORD` (default `changeme`), AOF persistence in the `redis_data` volume; not published on the host |
 
-# Rate limiting
-RATE_LIMIT_ENABLED=true
-RATE_LIMIT_REQUESTS=100
-RATE_LIMIT_TIMEFRAME=3600
+Compose sets `REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379` for `web` itself, so
+do not put a `redis` hostname in `.env` (it only resolves inside the Compose
+network). Write full values in `.env`; `env_file` does no `${VAR}` expansion.
 
-# Caching
-ENABLE_CACHE=true
-CACHE_TTL=3600
-REDIS_URL=redis://localhost:6379/0
+Compose builds the image locally. To run the published image instead, replace
+`build: .` under `web` with `image: ghcr.io/houseofloops/headwater:<version>`.
 
-# Application settings
-DEBUG=true
-ENVIRONMENT=development
-PROJECT_NAME=Headwater
-VERSION=1.0.0
-DESCRIPTION=API for Google Search, News, Trends and Maps data, plus YouTube transcripts
-```
+Make shortcuts: `make docker-compose-up`, `make docker-compose-down`, `make logs`,
+`make health-check`, `make check-env` (runs `scripts/check_env.py`).
 
-### 3. Build and Run with Docker Compose
+## Published images
+
+| Registry | Image |
+|----------|-------|
+| GitHub Container Registry | `ghcr.io/houseofloops/headwater` |
+| Docker Hub | `rainmanjam/headwater` |
+
+Tags are the release version (for example `2.2.2`) and `latest`. Images are built
+by `.github/workflows/release.yml` for `linux/amd64` and `linux/arm64` from
+`python:3.14-slim-trixie`, run as the non-root `appuser`, and include Playwright
+Chromium for the Maps scraper.
+
+Every release is signed keylessly with cosign (Sigstore, GitHub OIDC; there is no
+signing key) and carries an SPDX SBOM attestation. Verify before deploying:
 
 ```bash
-docker-compose up -d
+make docker-verify IMAGE=ghcr.io/houseofloops/headwater TAG=2.2.2
+make docker-verify IMAGE=rainmanjam/headwater DIGEST=sha256:<digest>
 ```
 
-This will start the following services:
-- Headwater API on port 8000
-- Redis on port 6379 (if configured)
-- PostgreSQL on port 5432 (if configured)
+`make docker-verify` needs cosign 2.6 or newer; signatures on releases after 2.2.0
+use the cosign 3 bundle format, so use cosign 3. See [DOCKERHUB.md](DOCKERHUB.md)
+for the manual `cosign verify` commands.
 
-### 4. Verify Deployment
+## Plain `docker run`
+
+Without Redis, run exactly one worker (the image default):
 
 ```bash
-curl http://localhost:8000/health
+docker run -d --name headwater -p 8000:8000 --env-file .env \
+  ghcr.io/houseofloops/headwater:2.2.2
 ```
 
-You should see a response like:
+`make docker-run` does the same with a locally built `headwater` image
+(`make docker-build`).
 
-```json
-{
-  "status": "healthy",
-  "version": "1.0.0",
-  "environment": "development",
-  "timestamp": 1622548800.123456
-}
-```
+## Configuration
 
-## Production Deployment with Docker
+All settings are read by `app/core/config.py` from the environment or `.env`.
+`.env.example` lists every one. The ones that matter for deployment:
 
-### 1. Build the Docker Image
+| Variable | Default | Notes |
+|----------|---------|-------|
+| `API_KEYS` | `[]` | Accepted keys, comma-separated or JSON list. Clients send one in `X-API-Key` |
+| `API_KEY` | unset | Single-key alias, merged into `API_KEYS` |
+| `ENABLE_API_KEY_AUTH` | `true` | `false` makes every route public |
+| `SECRET_KEY` | `development-secret-key-change-in-production` | Keys the digests that scope Maps jobs, monitors and webhooks to the API key that created them |
+| `ENVIRONMENT` | `development` | See [Production mode](#production-mode) |
+| `DEBUG` | `false` | |
+| `REDIS_URL` | unset | Enables the shared rate-limit store, Redis cache and durable Maps records |
+| `RATE_LIMIT_ENABLED` | `true` | |
+| `RATE_LIMIT_REQUESTS` / `RATE_LIMIT_TIMEFRAME` | `100` / `3600` | Requests per window (seconds), per API key, or per client IP when no known key is sent |
+| `ENABLE_CACHE` / `CACHE_TTL` | `true` / `3600` | Redis when `REDIS_URL` is set, in-process memory otherwise |
+| `CORS_ORIGINS` | `["*"]` | Must be an explicit list in production |
+| `ENABLE_PROXY` / `PROXY_URLS` | `false` / unset | Comma-separated proxies, rotated round-robin |
+| `NO_PROXY_HOSTS` | unset | Hosts that always go direct (suffix match) |
 
-```bash
-docker build -t headwater:1.0.0 .
-```
+Variables read directly from the process environment (not `Settings`):
 
-### 2. Run the Container
+| Variable | Default | Effect |
+|----------|---------|--------|
+| `RATE_LIMIT_FAIL_OPEN` | `false` | When the limiter backend is unreachable, let requests through (logged as errors) instead of returning 503 |
+| `GOOGLE_MAPS_MAX_CONCURRENT_BROWSERS` | `4` | Concurrent Playwright browsers for Maps scraping |
+| `GOOGLE_MAPS_MAX_FANOUT` | `25` | Ceiling on the points a grid or bulk Maps search actually visits |
+| `MAPS_WEBHOOK_ALLOWED_HOSTS` | unset | Comma-separated webhook target hosts. Unset: any host, but it must resolve to public addresses |
+| `NEWS_ARTICLE_ALLOWED_HOSTS` | unset | Comma-separated publisher hosts `/google-news/article-details/` may fetch (leading dot matches subdomains). Unset: Google News hosts only |
+| `NEWS_ARTICLE_ALLOW_HTTP` | unset | `1`/`true`/`yes` allows plain `http` article URLs |
 
-```bash
-docker run -d \
-  --name headwater \
-  -p 8000:8000 \
-  -e API_KEYS=your_api_key_1,your_api_key_2 \
-  -e ENABLE_API_KEY_AUTH=true \
-  -e RATE_LIMIT_ENABLED=true \
-  -e RATE_LIMIT_REQUESTS=100 \
-  -e RATE_LIMIT_TIMEFRAME=3600 \
-  -e ENABLE_CACHE=true \
-  -e CACHE_TTL=3600 \
-  -e REDIS_URL=redis://redis:6379/0 \
-  -e DEBUG=false \
-  -e ENVIRONMENT=production \
-  -e PROJECT_NAME="Headwater" \
-  -e VERSION=1.0.0 \
-  -e DESCRIPTION="API for Google Search, News, Trends and Maps data, plus YouTube transcripts" \
-  headwater:1.0.0
-```
+## Production mode
 
-## Production Deployment with Kubernetes
+Setting `ENVIRONMENT=production` changes behaviour. Check these before the first
+deploy:
 
-### 1. Create Kubernetes Secrets
+| Behaviour | Where |
+|-----------|-------|
+| Startup fails if `API_KEYS`, `API_KEY` or `SECRET_KEY` still hold the `.env.example` placeholder (applies to any `ENVIRONMENT` other than `development`, `dev`, `local`, `test`, `testing`) | `app/core/config.py` |
+| Startup fails if `CORS_ORIGINS` is the wildcard | `app/core/middleware.py` |
+| Startup fails if rate limiting is on, more than one worker is configured and `REDIS_URL` is unset (also for `prod` and `staging`) | `app/core/rate_limiter.py` |
+| `/docs`, `/redoc`, `/openapi.json`, `/api/docs` and `/api/redoc` are not served | `main.py` |
+| A warning is logged if `ALLOWED_HOSTS` is `*` (the default). Set it to the hostnames you serve; any other Host then gets 400 (`localhost` and `127.0.0.1` stay allowed for health checks) | `app/core/middleware.py` |
+| `Content-Security-Policy` and `Strict-Transport-Security` headers are added | `app/core/middleware.py` |
 
-```bash
-kubectl create namespace headwater
+Other operational facts:
 
-kubectl create secret generic headwater-secrets \
-  --namespace headwater \
-  --from-literal=API_KEYS=your_api_key_1,your_api_key_2 \
-  --from-literal=REDIS_URL=redis://redis:6379/0 \
-  --from-literal=DATABASE_URL=postgresql://user:password@postgres:5432/headwater
-```
+- The image runs `uvicorn main:app --workers 1`. To run more workers, set
+  `REDIS_URL`; the in-memory limiter is per process.
+- `/health` and `/ping` are unauthenticated and exempt from rate limiting, so
+  health checks and probes can poll as often as they need. `/health/detailed`
+  needs an API key and is rate limited.
+- The limiter fails closed: if Redis is configured but unreachable, requests get
+  503 unless `RATE_LIMIT_FAIL_OPEN=true`.
+- Maps jobs, monitors and webhooks live in Redis when it is reachable and in
+  memory otherwise. `GET /health/detailed` (authenticated) reports
+  `record_storage_durable`.
+- `/metrics` (Prometheus, via `prometheus-fastapi-instrumentator`) requires an API
+  key like any other endpoint.
 
-### 2. Create Kubernetes ConfigMap
+## Kubernetes (minimal example)
 
-```bash
-kubectl create configmap headwater-config \
-  --namespace headwater \
-  --from-literal=ENABLE_API_KEY_AUTH=true \
-  --from-literal=RATE_LIMIT_ENABLED=true \
-  --from-literal=RATE_LIMIT_REQUESTS=100 \
-  --from-literal=RATE_LIMIT_TIMEFRAME=3600 \
-  --from-literal=ENABLE_CACHE=true \
-  --from-literal=CACHE_TTL=3600 \
-  --from-literal=DEBUG=false \
-  --from-literal=ENVIRONMENT=production \
-  --from-literal=PROJECT_NAME="Headwater" \
-  --from-literal=VERSION=1.0.0 \
-  --from-literal=DESCRIPTION="API for Google Search, News, Trends and Maps data, plus YouTube transcripts"
-```
-
-### 3. Deploy Redis (if needed)
+The repository ships no manifests. This is a correct starting point for this
+app; add your own ingress and TLS.
 
 ```yaml
-# redis-deployment.yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: redis
-  namespace: headwater
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: redis
-  template:
-    metadata:
-      labels:
-        app: redis
-    spec:
-      containers:
-      - name: redis
-        image: redis:6.2-alpine
-        ports:
-        - containerPort: 6379
-        resources:
-          limits:
-            cpu: "0.5"
-            memory: "512Mi"
-          requests:
-            cpu: "0.2"
-            memory: "256Mi"
----
 apiVersion: v1
-kind: Service
+kind: Secret
 metadata:
-  name: redis
-  namespace: headwater
-spec:
-  selector:
-    app: redis
-  ports:
-  - port: 6379
-    targetPort: 6379
-```
-
-Apply the Redis deployment:
-
-```bash
-kubectl apply -f redis-deployment.yaml
-```
-
-### 4. Deploy the Headwater API
-
-```yaml
-# headwater-deployment.yaml
+  name: headwater
+stringData:
+  API_KEYS: "replace-with-a-real-key"
+  SECRET_KEY: "replace-with-at-least-32-random-characters"
+  REDIS_URL: "redis://:password@redis:6379"
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: headwater
-  namespace: headwater
 spec:
-  replicas: 3
+  replicas: 2
   selector:
-    matchLabels:
-      app: headwater
+    matchLabels: {app: headwater}
   template:
     metadata:
-      labels:
-        app: headwater
+      labels: {app: headwater}
     spec:
       containers:
-      - name: headwater
-        image: headwater:1.0.0
-        ports:
-        - containerPort: 8000
-        envFrom:
-        - configMapRef:
-            name: headwater-config
-        - secretRef:
-            name: headwater-secrets
-        resources:
-          limits:
-            cpu: "1"
-            memory: "1Gi"
-          requests:
-            cpu: "0.5"
-            memory: "512Mi"
-        livenessProbe:
-          httpGet:
-            path: /health
-            port: 8000
-          initialDelaySeconds: 30
-          periodSeconds: 10
-        readinessProbe:
-          httpGet:
-            path: /health
-            port: 8000
-          initialDelaySeconds: 5
-          periodSeconds: 5
+        - name: headwater
+          image: ghcr.io/houseofloops/headwater:2.2.2
+          ports:
+            - containerPort: 8000
+          env:
+            - {name: ENVIRONMENT, value: production}
+            - {name: CORS_ORIGINS, value: "https://app.example.com"}
+            - {name: ALLOWED_HOSTS, value: "api.example.com"}
+          envFrom:
+            - secretRef: {name: headwater}
+          livenessProbe:
+            httpGet:
+              path: /ping
+              port: 8000
+              httpHeaders: [{name: Host, value: localhost}]
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+              httpHeaders: [{name: Host, value: localhost}]
+            periodSeconds: 15
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: headwater
-  namespace: headwater
 spec:
-  selector:
-    app: headwater
+  selector: {app: headwater}
   ports:
-  - port: 80
-    targetPort: 8000
-  type: ClusterIP
+    - port: 80
+      targetPort: 8000
 ```
 
-Apply the Headwater API deployment:
+Notes on the example:
 
-```bash
-kubectl apply -f headwater-deployment.yaml
-```
+- More than one replica needs `REDIS_URL` so that replicas share rate-limit
+  counters and Maps records.
+- The kubelet sends the pod IP as the Host header, which an explicit
+  `ALLOWED_HOSTS` list rejects; `Host: localhost` is always allowed, hence the
+  probe header. Your ingress must forward a Host that is in `ALLOWED_HOSTS`.
+- Probes are exempt from rate limiting, so the interval is a normal 15 s.
+- Run Redis however you prefer (a managed service or your own deployment).
 
-### 5. Create Ingress for External Access
+## Troubleshooting
 
-```yaml
-# headwater-ingress.yaml
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: headwater-ingress
-  namespace: headwater
-  annotations:
-    kubernetes.io/ingress.class: nginx
-    nginx.ingress.kubernetes.io/ssl-redirect: "true"
-    cert-manager.io/cluster-issuer: letsencrypt-prod
-spec:
-  tls:
-  - hosts:
-    - api.headwater.com
-    secretName: headwater-tls
-  rules:
-  - host: api.headwater.com
-    http:
-      paths:
-      - path: /
-        pathType: Prefix
-        backend:
-          service:
-            name: headwater
-            port:
-              number: 80
-```
+| Symptom | Likely cause |
+|---------|--------------|
+| Container exits at startup with a placeholder-credential error | `.env.example` values left in place with a non-development `ENVIRONMENT` |
+| Startup error about `CORS_ORIGINS` | Wildcard origins with `ENVIRONMENT=production` |
+| Every request returns 400 "Invalid host header" | The request's Host is not in `ALLOWED_HOSTS` |
+| Every request returns 503 | `REDIS_URL` set but Redis unreachable (limiter fails closed) |
+| 401 on `/api/v1/...` | Missing or unknown `X-API-Key` |
+| 500 "no API keys are configured" | `ENABLE_API_KEY_AUTH=true` with `API_KEYS` empty |
 
-Apply the Ingress:
-
-```bash
-kubectl apply -f headwater-ingress.yaml
-```
-
-## Continuous Integration / Continuous Deployment (CI/CD)
-
-### GitHub Actions Workflow Example
-
-Create a file at `.github/workflows/deploy.yml`:
-
-```yaml
-name: Deploy Headwater API
-
-on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
-
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v2
-    - name: Set up Python
-      uses: actions/setup-python@v2
-      with:
-        python-version: '3.14'
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-        pip install pytest pytest-cov
-    - name: Test with pytest
-      run: |
-        pytest --cov=app tests/
-
-  build:
-    needs: test
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    steps:
-    - uses: actions/checkout@v2
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v1
-    - name: Login to DockerHub
-      uses: docker/login-action@v1
-      with:
-        username: ${{ secrets.DOCKERHUB_USERNAME }}
-        password: ${{ secrets.DOCKERHUB_TOKEN }}
-    - name: Build and push
-      uses: docker/build-push-action@v2
-      with:
-        context: .
-        push: true
-        tags: yourusername/headwater:latest,yourusername/headwater:${{ github.sha }}
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    steps:
-    - uses: actions/checkout@v2
-    - name: Set up kubectl
-      uses: azure/setup-kubectl@v1
-    - name: Set Kubernetes context
-      uses: azure/k8s-set-context@v1
-      with:
-        kubeconfig: ${{ secrets.KUBE_CONFIG }}
-    - name: Update deployment image
-      run: |
-        kubectl set image deployment/headwater headwater=yourusername/headwater:${{ github.sha }} -n headwater
-        kubectl rollout status deployment/headwater -n headwater
-```
-
-## Monitoring and Logging
-
-### Prometheus and Grafana Setup
-
-1. Install Prometheus Operator:
-
-```bash
-kubectl apply -f https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/main/bundle.yaml
-```
-
-2. Create a ServiceMonitor for Headwater API:
-
-```yaml
-# headwater-service-monitor.yaml
-apiVersion: monitoring.coreos.com/v1
-kind: ServiceMonitor
-metadata:
-  name: headwater
-  namespace: headwater
-spec:
-  selector:
-    matchLabels:
-      app: headwater
-  endpoints:
-  - port: http
-    path: /metrics
-    interval: 15s
-```
-
-Apply the ServiceMonitor:
-
-```bash
-kubectl apply -f headwater-service-monitor.yaml
-```
-
-### ELK Stack for Logging
-
-1. Install Elasticsearch, Logstash, and Kibana using Helm:
-
-```bash
-helm repo add elastic https://helm.elastic.co
-helm repo update
-
-helm install elasticsearch elastic/elasticsearch -n logging --create-namespace
-helm install kibana elastic/kibana -n logging
-helm install logstash elastic/logstash -n logging
-```
-
-2. Configure Filebeat to collect logs:
-
-```yaml
-# filebeat-config.yaml
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: filebeat-config
-  namespace: logging
-data:
-  filebeat.yml: |-
-    filebeat.inputs:
-    - type: container
-      paths:
-        - /var/log/containers/headwater-*.log
-      processors:
-        - add_kubernetes_metadata:
-            host: ${NODE_NAME}
-            matchers:
-            - logs_path:
-                logs_path: "/var/log/containers/"
-
-    output.elasticsearch:
-      hosts: ["elasticsearch-master:9200"]
-```
-
-Apply the ConfigMap:
-
-```bash
-kubectl apply -f filebeat-config.yaml
-```
-
-3. Deploy Filebeat:
-
-```yaml
-# filebeat-deployment.yaml
-apiVersion: apps/v1
-kind: DaemonSet
-metadata:
-  name: filebeat
-  namespace: logging
-spec:
-  selector:
-    matchLabels:
-      app: filebeat
-  template:
-    metadata:
-      labels:
-        app: filebeat
-    spec:
-      serviceAccountName: filebeat
-      containers:
-      - name: filebeat
-        image: docker.elastic.co/beats/filebeat:7.15.0
-        args: ["-c", "/etc/filebeat.yml", "-e"]
-        volumeMounts:
-        - name: config
-          mountPath: /etc/filebeat.yml
-          subPath: filebeat.yml
-        - name: varlibdockercontainers
-          mountPath: /var/lib/docker/containers
-          readOnly: true
-        - name: varlog
-          mountPath: /var/log
-          readOnly: true
-        env:
-        - name: NODE_NAME
-          valueFrom:
-            fieldRef:
-              fieldPath: spec.nodeName
-      volumes:
-      - name: config
-        configMap:
-          name: filebeat-config
-      - name: varlibdockercontainers
-        hostPath:
-          path: /var/lib/docker/containers
-      - name: varlog
-        hostPath:
-          path: /var/log
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: filebeat
-  namespace: logging
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: filebeat
-rules:
-- apiGroups: [""]
-  resources:
-  - namespaces
-  - pods
-  verbs:
-  - get
-  - list
-  - watch
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: filebeat
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: filebeat
-subjects:
-- kind: ServiceAccount
-  name: filebeat
-  namespace: logging
-```
-
-Apply the Filebeat deployment:
-
-```bash
-kubectl apply -f filebeat-deployment.yaml
-```
-
-## Troubleshooting Deployment Issues
-
-### Common Issues
-
-1. **API not starting**:
-   - Check logs: `kubectl logs deployment/headwater -n headwater`
-   - Verify environment variables: `kubectl describe pod -l app=headwater -n headwater`
-
-2. **Cannot connect to Redis**:
-   - Check Redis service: `kubectl get svc redis -n headwater`
-   - Verify Redis is running: `kubectl get pods -l app=redis -n headwater`
-
-3. **API key authentication failing**:
-   - Verify API keys in secrets: `kubectl get secret headwater-secrets -n headwater -o yaml`
-   - Check `ENABLE_API_KEY_AUTH` setting in ConfigMap
-
-4. **Health checks failing**:
-   - Check health endpoint: `kubectl port-forward svc/headwater 8000:80 -n headwater` then `curl http://localhost:8000/health`
-   - Verify dependencies are available (Redis, database)
-
-### Deployment Checklist
-
-- [ ] Environment variables configured correctly
-- [ ] Secrets and ConfigMaps created
-- [ ] Redis deployed and running (if used)
-- [ ] Database deployed and running (if used)
-- [ ] API deployment successful
-- [ ] Service created and accessible
-- [ ] Ingress configured correctly
-- [ ] TLS certificates provisioned
-- [ ] Monitoring and logging set up
+See also [TROUBLESHOOTING.md](TROUBLESHOOTING.md) and [SECURITY_GUIDELINES.md](SECURITY_GUIDELINES.md).

@@ -1,234 +1,131 @@
 # Frequently Asked Questions (FAQ)
 
-## General Questions
+## General
 
-### What is Headwater API?
+### What is Headwater?
 
-Headwater API is a comprehensive REST API that provides access to Google services including News, Trends, Autocomplete, and YouTube Transcripts. It offers developers a unified interface to access multiple Google data sources with consistent authentication and rate limiting.
+A self-hosted FastAPI service that puts Google Maps, Google News, Google Trends,
+Google Autocomplete and YouTube transcripts behind one authenticated JSON API.
+You run it yourself (Docker is the supported path); there is no hosted service,
+sign-up, pricing tier or dashboard.
 
 ### How do I get started?
 
-1. Sign up for an API key at [our website](https://headwater.com)
-2. Review the [API Reference](API_REFERENCE.md) for available endpoints
-3. Check out the [Examples](EXAMPLES.md) for sample code
-4. Start with the [Quick Start Guide](../README.md#install)
+1. Follow the install steps in the [README](../README.md) or
+   [DEPLOYMENT.md](DEPLOYMENT.md) (`cp .env.example .env`, then `docker compose up -d`).
+2. Browse the interactive docs at `http://localhost:8000/docs` (served outside
+   production only).
+3. Try the requests in [EXAMPLES.md](EXAMPLES.md); parameters are in
+   [API_REFERENCE.md](API_REFERENCE.md).
 
-### What programming languages are supported?
+### Is there an SDK?
 
-The API is language-agnostic and works with any HTTP client. We provide official SDKs for:
+No. Use any HTTP client. The OpenAPI schema at `/openapi.json` (outside
+production) can generate one.
 
-- Python
-- JavaScript/Node.js
-- Go (coming soon)
+### Do I need Google API keys?
 
-## Authentication & Security
+No. Headwater reads public Google and YouTube endpoints; see
+[GOOGLE_SERVICES.md](GOOGLE_SERVICES.md).
 
-### How do I authenticate my requests?
+## Authentication
 
-All API requests require an API key in the header:
+### How do I authenticate?
+
+Send one of the keys configured in `API_KEYS` in the `X-API-Key` header:
 
 ```http
-X-API-Key: YOUR_API_KEY
+X-API-Key: your-key
 ```
 
-### Is my data secure?
+There is no `Bearer` prefix. `/health` and `/ping` need no key.
 
-Yes, we implement multiple security measures:
+### How do I add, rotate or revoke a key?
 
-- All data is transmitted over HTTPS
-- API keys are encrypted and stored securely
-- Rate limiting prevents abuse
-- Input validation and sanitization
-- Regular security audits
+Edit `API_KEYS` (comma-separated) and restart the service. There is no key
+management endpoint.
 
-### What happens if I lose my API key?
-
-Contact our support team immediately at [support@headwater.com](mailto:support@headwater.com). We'll help you revoke the old key and generate a new one.
-
-## Usage & Limits
+## Limits
 
 ### What are the rate limits?
 
-- Free tier: 1,000 requests/day
-- Basic tier: 10,000 requests/day
-- Pro tier: 100,000 requests/day
-- Enterprise: Custom limits
+Whatever you configure: `RATE_LIMIT_REQUESTS` requests per `RATE_LIMIT_TIMEFRAME`
+seconds, default 100 per 3600, counted per API key (or per client IP when no known
+key is sent). Every response carries `X-RateLimit-Limit`, `X-RateLimit-Remaining`
+and `X-RateLimit-Reset` (seconds until the window resets). A 429 adds
+`Retry-After`.
 
-Rate limits reset daily at midnight UTC.
+### Can Google block my server?
 
-### How do I check my usage?
+Yes. The upstreams throttle automated traffic by IP. Use caching
+(`ENABLE_CACHE`, `CACHE_TTL`) and, if needed, rotating proxies (`ENABLE_PROXY`,
+`PROXY_URLS`).
 
-You can check your usage statistics through:
+## Endpoints
 
-- API response headers (`X-RateLimit-Remaining`, `X-RateLimit-Reset`)
-- Dashboard at [headwater.com/dashboard](https://headwater.com/dashboard)
-- Programmatic access via the `/usage` endpoint
+### Google News: why does my search return nothing?
 
-### Can I upgrade my plan?
+The search parameter is `query` (not `q`), and the paths end with a slash
+(`/api/v1/google-news/search/`). Beyond that, a narrow query, `exact_match=true`
+or a tight `start_date`/`end_date` range can legitimately return no articles.
 
-Yes! You can upgrade your plan at any time through your dashboard. Changes take effect immediately, and you'll be prorated for the billing period.
+### Google Trends: interest-over-time vs interest-by-region?
 
-## API Endpoints
+- `/google-trends/interest-over-time` takes comma-separated `keywords` and returns
+  interest over a `timeframe`.
+- `/google-trends/interest-by-region` takes one `keyword` and returns interest per
+  region at a `resolution` (default `COUNTRY`).
 
-### Google News API
+Both can return `{"data": [], "message": ...}` when Google has no data, for
+example for low-volume terms.
 
-#### Why am I getting empty results for news searches?
+### Google Autocomplete: what does `variations=true` do?
 
-This could be due to:
+Instead of the raw suggestions for `q`, it expands the query into many related
+queries, fetches them in parallel (up to `AUTOCOMPLETE_MAX_PARALLEL_REQUESTS`) and
+returns the result under `keyword_data`.
 
-- The search query is too specific or contains restricted terms
-- Geographic restrictions on certain topics
-- The news source has blocked automated access
-- Try broadening your search terms or using different parameters
+### YouTube: why is there no transcript for a video?
 
-#### How fresh is the news data?
+Common reasons: the owner disabled captions, there is no transcript in the
+languages you asked for (check `/youtube-transcripts/list-transcripts` first), or
+YouTube is refusing requests from your server's IP.
 
-Our news data is typically 5-15 minutes old, depending on the source and topic popularity.
+### Does Headwater send webhooks?
 
-### Google Trends API
-
-#### What's the difference between interest_over_time and interest_by_region?
-
-- `interest_over_time`: Shows how search interest changes over time
-- `interest_by_region`: Shows geographic distribution of search interest
-
-#### Why do some trends return no data?
-
-Google Trends data may not be available for:
-
-- Very recent time periods (data takes time to process)
-- Niche or low-volume search terms
-- Restricted or sensitive topics
-
-### Google Autocomplete API
-
-#### How does the variations parameter work?
-
-When `variations=true`, the API generates multiple autocomplete suggestions for your query, providing broader coverage of related search terms.
-
-#### Why am I getting fewer results than expected?
-
-Autocomplete results depend on:
-
-- The popularity of the search term
-- Current search trends
-- Geographic location settings
-- Google's algorithm updates
-
-### YouTube Transcripts API
-
-#### What languages are supported for transcripts?
-
-We support all languages that YouTube provides transcripts for. The API automatically detects the available languages for each video.
-
-#### Why can't I get transcripts for some videos?
-
-Transcripts may not be available because:
-
-- The video creator disabled transcripts
-- The video contains copyrighted music
-- The video is too new (transcripts take time to generate)
-- The video is age-restricted
-
-## Technical Issues
-
-### I'm getting 429 (Too Many Requests) errors
-
-You've exceeded your rate limit. Check the response headers for reset timing:
-
-```http
-X-RateLimit-Reset: 1640995200
-```
-
-### Connection timeouts
-
-If you're experiencing timeouts:
-
-- Increase your client timeout settings
-- Check your internet connection
-- Try using a different region endpoint
-- Contact support if the issue persists
-
-### Invalid API key errors
-
-Common causes:
-
-- Typo in your API key
-- Using an expired or revoked key
-- Missing the "Bearer " prefix
-- Using the wrong header name
-
-## Billing & Pricing
-
-### How does billing work?
-
-We bill monthly based on your plan tier. Usage is tracked in real-time, and you can monitor it through your dashboard.
-
-### Can I get a refund?
-
-We offer a 30-day money-back guarantee for all paid plans. Contact support within 30 days of your first payment.
-
-### Do you offer enterprise discounts?
-
-Yes! Contact our sales team at [enterprise@headwater.com](mailto:enterprise@headwater.com) for custom pricing and features.
-
-## Development & Integration
-
-### Do you provide webhooks?
-
-Not currently, but it's on our roadmap. For now, you can poll our endpoints or use our real-time streaming API (available in Pro tier).
-
-### Can I use this for commercial applications?
-
-Yes, all plans include commercial usage rights. Review our [Terms of Service](https://headwater.com/terms) for details.
-
-### How do I report bugs or request features?
-
-- Bugs: Create an issue on our [GitHub repository](https://github.com/headwater/headwater/issues)
-- Features: Use our [feature request form](https://headwater.com/feature-request)
-- General support: Email [support@headwater.com](mailto:support@headwater.com)
+Yes, for Google Maps monitors. `POST /api/v1/google-maps/monitors` watches a
+place (`place_id` or `url`) every `check_interval_hours` and can take a
+`webhook_url` for change notifications; `POST /api/v1/google-maps/webhooks`
+registers a receiver for a list of `events`. Webhook targets must resolve to public addresses, and
+`MAPS_WEBHOOK_ALLOWED_HOSTS` can restrict them further.
 
 ## Troubleshooting
 
-### My requests are slow
+| Status | Meaning |
+|--------|---------|
+| 401 | Missing or unknown `X-API-Key` |
+| 422 | Invalid or missing parameters |
+| 429 | Rate limit reached; wait `Retry-After` seconds |
+| 500 "no API keys are configured" | Auth is on but `API_KEYS` is empty |
+| 502 / 503 | An upstream failed or blocked the request, or the rate limiter backend (Redis) is unreachable |
 
-Performance optimization tips:
+Errors other than 422 are `application/problem+json` bodies with `type`, `title`,
+`status` and `detail`. See [TROUBLESHOOTING.md](TROUBLESHOOTING.md) for more.
 
-- Use caching for frequently requested data
-- Implement connection pooling
-- Use the nearest regional endpoint
-- Batch requests when possible
-- Check our [Performance Tuning](PERFORMANCE_TUNING.md) guide
+## Data and legal
 
-### Data seems outdated
+### Does Headwater store my data?
 
-- News data: Typically 5-15 minutes old
-- Trends data: Usually 1-2 hours old
-- Autocomplete: Real-time
-- Transcripts: Available immediately when YouTube generates them
+There is no database. Responses are cached for `CACHE_TTL` seconds (Redis when
+`REDIS_URL` is set, memory otherwise). Google Maps jobs, monitors and webhooks are
+kept in Redis, or in memory without it.
 
-### Getting 500 Internal Server Error
+### Can I use it commercially?
 
-This usually indicates a temporary server issue. Try:
+The code is MIT licensed (see `LICENSE`). You are responsible for complying with
+the terms of Google, YouTube and any site you fetch through it.
 
-- Retrying your request after a few minutes
-- Checking our [status page](https://status.headwater.com)
-- Contacting support if the issue persists
+### How do I report bugs or request features?
 
-## Legal & Compliance
-
-### Can I store the data I retrieve?
-
-Yes, but you must comply with Google's Terms of Service and our API terms. Some data may have additional restrictions.
-
-### Do you comply with GDPR?
-
-Yes, we are GDPR compliant. We don't store personal data unless required for billing, and we provide data export/deletion upon request.
-
-### What's your data retention policy?
-
-We don't retain API request/response data. Usage statistics are kept for billing purposes only and are automatically deleted after 2 years.
-
----
-
-*This FAQ is regularly updated. If you don't find the answer you're looking for, please contact our support team.*
+Open an issue at https://github.com/HouseofLoops/headwater/issues. For security
+problems, see [SECURITY_GUIDELINES.md](SECURITY_GUIDELINES.md#reporting-a-vulnerability).

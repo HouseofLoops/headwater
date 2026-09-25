@@ -16,16 +16,18 @@ from fastapi.testclient import TestClient
 
 from app.core.middleware import (
     CORSConfigurationError,
+    resolve_allowed_hosts,
     resolve_cors_policy,
     setup_middleware,
 )
 
 
-def make_settings(environment="development", origins=None):
+def make_settings(environment="development", origins=None, allowed_hosts=None):
     """Build a settings stub with just the fields setup_middleware reads."""
     settings = MagicMock()
     settings.ENVIRONMENT = environment
     settings.CORS_ORIGINS = ["*"] if origins is None else origins
+    settings.ALLOWED_HOSTS = ["*"] if allowed_hosts is None else allowed_hosts
     settings.CORS_METHODS = ["*"]
     settings.CORS_HEADERS = ["*"]
     return settings
@@ -109,3 +111,45 @@ class TestCorsResponses:
     def test_setup_middleware_refuses_wildcard_in_production(self):
         with pytest.raises(CORSConfigurationError):
             self.build_app(make_settings("production", ["*"]))
+
+
+class TestAllowedHosts:
+    """Host allow-list. It used to be hardcoded to api.headwater.com,
+    headwater.com and localhost in production, so every self-hosted
+    deployment on its own domain got 400 on every request."""
+
+    @staticmethod
+    def build_app(settings):
+        app = FastAPI()
+
+        @app.get("/probe")
+        async def probe():
+            return {"ok": True}
+
+        setup_middleware(app, settings)
+        return app
+
+    def test_default_accepts_any_host(self):
+        assert resolve_allowed_hosts(make_settings("production")) is None
+
+    def test_default_in_production_warns(self, caplog):
+        with caplog.at_level("WARNING", logger="app.core.middleware"):
+            resolve_allowed_hosts(make_settings("production"))
+        assert "ALLOWED_HOSTS" in caplog.text
+
+    def test_explicit_list_keeps_loopback_for_the_health_check(self):
+        hosts = resolve_allowed_hosts(make_settings("production", allowed_hosts=["API.Example.com"]))
+        assert hosts == ["api.example.com", "localhost", "127.0.0.1"]
+
+    def test_production_serves_its_own_domain(self):
+        """The regression: a self-hosted production deploy on its own domain."""
+        settings = make_settings("production", origins=["https://app.example.com"], allowed_hosts=["*"])
+        client = TestClient(self.build_app(settings), base_url="http://api.selfhosted.example")
+        assert client.get("/probe").status_code == 200
+
+    def test_explicit_list_rejects_other_hosts(self):
+        settings = make_settings("production", origins=["https://app.example.com"], allowed_hosts=["api.example.com"])
+        app = self.build_app(settings)
+        assert TestClient(app, base_url="http://api.example.com").get("/probe").status_code == 200
+        assert TestClient(app, base_url="http://localhost").get("/probe").status_code == 200
+        assert TestClient(app, base_url="http://evil.example").get("/probe").status_code == 400

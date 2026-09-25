@@ -5,6 +5,27 @@ All notable changes to the Headwater API will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **Production rejected every custom domain.** The allowed Host headers were
+  hardcoded to `api.headwater.com`, `headwater.com` and `localhost` in
+  production, so self-hosted deployments on their own domain got
+  `400 Invalid host header` on every request. The new `ALLOWED_HOSTS` setting
+  (comma separated, default `*`) controls it; `localhost` and `127.0.0.1` are
+  always allowed so container health checks keep working, and production logs a
+  warning while it is `*`.
+- **Docker marked the container unhealthy after about 50 minutes.** `/health`
+  was rate limited like any route, and the health check (every 30 s, 120/h)
+  exceeds the default budget of 100/h. `/health` and `/ping` are now exempt
+  (exact paths; `/health/detailed` stays limited).
+
+### Changed
+
+- Documentation rewritten to match the code; `docs/API_REFERENCE.md` is
+  generated from the OpenAPI schema and checked in CI.
+
 ## [2.2.2] - 2026-09-23
 
 First release from the `HouseofLoops` organisation. The application code is

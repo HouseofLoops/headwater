@@ -807,6 +807,14 @@ class RateLimiter:
         raise ServiceUnavailableError(detail=detail, headers=headers)
 
 
+# Liveness probes, exempt from rate limiting. The Dockerfile and compose
+# health checks poll /health every 30 s (120/h) against a default budget of
+# 100/h, so without this the container went unhealthy about 50 minutes into
+# every window. Exact paths only: /health/detailed needs an API key and stays
+# limited, and no prefix match can widen the exemption.
+RATE_LIMIT_EXEMPT_PATHS = frozenset({"/health", "/ping"})
+
+
 class RateLimitMiddleware(BaseHTTPMiddleware):
     """
     Middleware for rate limiting requests.
@@ -845,6 +853,8 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         Returns:
             Response: The response
         """
+        if request.url.path in RATE_LIMIT_EXEMPT_PATHS:
+            return await call_next(request)
         return await self.limiter.limit(request, call_next)
 
 

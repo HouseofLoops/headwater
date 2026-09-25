@@ -1,143 +1,115 @@
 # API Structure
 
-This document provides an overview of the Headwater API structure, organization, and versioning strategy.
+How the Headwater API is organised: code layout, URL scheme, auth, limits and
+errors. For every endpoint and parameter, see [API_REFERENCE.md](API_REFERENCE.md).
 
-## Directory Structure
-
-The API is organized into versioned modules under the `app/api/` directory:
+## Directory structure
 
 ```
+main.py                          # app factory, operational routes, /api/v1 router
 app/
 ├── api/
-│   ├── v1/
-│   │   ├── google_autocomplete/
-│   │   │   └── google_autocomplete_api.py
-│   │   ├── google_news/
-│   │   │   └── google_news_api.py
-│   │   ├── google_trends/
-│   │   │   └── google_trends_api.py
-│   │   └── youtube_transcripts/
-│   │       └── youtube_transcripts_api.py
-│   └── __init__.py
-├── core/
-│   ├── auth.py
-│   ├── base_router.py
-│   ├── cache_manager.py
-│   ├── config.py
-│   ├── database.py
-│   ├── dependencies.py
-│   ├── exceptions.py
-│   ├── health_checks.py
-│   ├── middleware.py
-│   ├── proxy.py
-│   ├── rate_limiter.py
-│   ├── security.py
-│   └── utils.py
-├── models/
-└── utils/
+│   ├── google_autocomplete/google_autocomplete_api.py
+│   ├── google_maps/             # __init__.py builds the router from:
+│   │   ├── search.py  places.py  geo.py  analytics.py
+│   │   ├── jobs.py  monitors.py  health.py
+│   │   ├── schemas.py  common.py
+│   │   └── google_maps_api.py   # re-exports google_maps_router
+│   ├── google_news/google_news_api.py
+│   ├── google_trends/google_trends_api.py
+│   └── youtube_transcripts/youtube_transcripts_api.py
+├── core/                        # config, auth, rate limiting, cache, middleware, ...
+├── schemas/                     # enums.py, responses.py
+└── services/                    # upstream fetching and parsing
+    └── google_maps/             # Maps scraper and service modules
 ```
 
-## API Versioning
+See [ARCHITECTURE_OVERVIEW.md](ARCHITECTURE_OVERVIEW.md) for what each module does.
 
-All endpoints are versioned using URL path versioning with the format `/api/v1/...`. This approach ensures:
+## Routing and versioning
 
-1. **Backward Compatibility**: New versions can be introduced without breaking existing clients
-2. **Clear Evolution Path**: Clients can easily understand which version they're using
-3. **Parallel Development**: Multiple API versions can be maintained simultaneously
+`main.py` creates `APIRouter(prefix="/api/v1")` and mounts one router per service
+on it, each with a `get_api_key` dependency. There is one version, `v1`.
 
-### Version Lifecycle
+| Prefix | Router | Operations |
+|--------|--------|-----------:|
+| `/api/v1/google-maps` | `google_maps_router` | 39 |
+| `/api/v1/google-trends` | `google_trends_router` | 10 |
+| `/api/v1/google-news` | `gnews_router` | 9 |
+| `/api/v1/youtube-transcripts` | `youtube_transcripts_router` | 5 |
+| `/api/v1/google-autocomplete` | `router` (autocomplete module) | 1 |
+| (root) | defined in `main.py` | 6: `/health`, `/health/detailed`, `/ping`, `/status`, `/api-config`, `/config-sources` |
 
-- **v1**: Current stable version
-- **v0**: Legacy version (deprecated)
-- **v2**: Future version (in planning)
+Paths are `/api/v1/{service}/{action}`, for example
+`/api/v1/google-trends/interest-over-time`,
+`/api/v1/youtube-transcripts/get-transcript`,
+`/api/v1/google-maps/place/{place_id}/reviews`. Google News paths end with a slash
+(`/api/v1/google-news/search/`).
 
 ## BaseRouter
 
-The `BaseRouter` class in `app/core/base_router.py` provides a foundation for all API routers with consistent behavior:
-
-```python
-class BaseRouter(APIRouter):
-    def __init__(
-        self, prefix: str, service_name: Optional[str] = None, responses: Optional[Dict[int, dict]] = None, **kwargs
-    ):
-        # Extract service_name from prefix if not provided
-        if service_name is None:
-            parts = prefix.strip("/").split("/")
-            service_name = parts[1] if len(parts) > 1 else parts[0]
-
-        # Validate consistency between extracted service_name and any explicitly passed name
-        if service_name and prefix and service_name not in prefix:
-            raise ValueError(f"Service name '{service_name}' must be part of prefix '{prefix}'")
-
-        # Initialize with standard parameters
-        super().__init__(
-            prefix=prefix,
-            tags=[service_name],
-            responses=responses,
-            dependencies=[Depends(authenticate_api_key)],
-            **kwargs,
-        )
-```
-
-### Usage Example
+`app/core/base_router.py` defines `BaseRouter`, a wrapper (not an `APIRouter`
+subclass) that builds an `APIRouter` in `.router` with the API-key dependency,
+a tag derived from the prefix, and default RFC 7807 error responses. The service
+routers currently use plain `APIRouter` instead; `BaseRouter` is covered by
+`tests/test_base_router.py`.
 
 ```python
 from app.core.base_router import BaseRouter
 
-router = BaseRouter(prefix="/api/v1/google-news")
+news = BaseRouter(prefix="/google-news")  # service_name derived from the prefix
 
 
-@router.get("/search")
-async def search_news(query: str):
-    # Implementation
-    pass
-```
+@news.get("/example")
+async def example():
+    return {"ok": True}
 
-## URL Structure
 
-The API follows a consistent URL structure:
-
-- `/api/v1/{service}/{resource}/{action}`
-
-Examples:
-- `/api/v1/google-news/search`
-- `/api/v1/google-trends/interest-over-time`
-- `/api/v1/google-autocomplete/autocomplete`
-- `/api/v1/youtube-transcripts/get-transcript`
-
-## Error Handling
-
-All API endpoints use a standardized error response format following RFC7807 Problem Details:
-
-```json
-{
-  "type": "https://headwater.com/problems/validation_error",
-  "title": "Bad Request",
-  "status": 400,
-  "detail": "Invalid parameter: query cannot be empty"
-}
+app_router = news.router  # the underlying APIRouter
 ```
 
 ## Authentication
 
-All API endpoints require authentication using an API key provided in the `x-api-key` header:
+Every `/api/v1/*` route, plus `/health/detailed`, `/status`, `/api-config`,
+`/config-sources` and `/metrics`, needs a key from `API_KEYS` in the `X-API-Key`
+header. `/health` and `/ping` are open. `ENABLE_API_KEY_AUTH=false` disables the
+check.
 
 ```bash
-curl -X GET "http://localhost:8000/api/v1/google-news/search?q=ai" \
-  -H "x-api-key: your_api_key"
+curl "http://localhost:8000/api/v1/google-news/search/?query=ai" \
+  -H "X-API-Key: your-key"
 ```
 
-## Rate Limiting
+## Rate limiting
 
-Rate limiting is applied to all endpoints based on the client's API key or IP address. Default limits are:
+One limit, `RATE_LIMIT_REQUESTS` per `RATE_LIMIT_TIMEFRAME` seconds (default 100
+per 3600), applied by middleware to every route. Requests with a known API key
+share that key's bucket; everything else is bucketed by client IP. Responses
+carry `X-RateLimit-Limit`, `X-RateLimit-Remaining` and `X-RateLimit-Reset`; a 429
+adds `Retry-After`.
 
-- 100 requests per hour per API key
-- 10 requests per minute per IP address (for unauthenticated requests)
+## Errors
 
-## Documentation
+Errors are RFC 7807 Problem Details (`application/problem+json`), built in
+`app/core/exceptions.py`:
 
-API documentation is available at:
+```json
+{
+  "type": "https://headwater.com/problems/not_found",
+  "title": "Not Found",
+  "status": 404,
+  "detail": "..."
+}
+```
 
-- Swagger UI: `/api/docs`
-- ReDoc: `/api/redoc`
-- OpenAPI Schema: `/api/openapi.json`
+Request validation failures are FastAPI's default 422 `{"detail": [...]}`.
+
+## Documentation endpoints
+
+Served only when `ENVIRONMENT` is not `production`:
+
+| Path | Content |
+|------|---------|
+| `/docs`, `/api/docs` | Swagger UI |
+| `/redoc`, `/api/redoc` | ReDoc |
+| `/openapi.json` | OpenAPI schema |

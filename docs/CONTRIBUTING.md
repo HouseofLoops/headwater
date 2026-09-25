@@ -12,7 +12,7 @@ Thank you for your interest in contributing to the Headwater API! This document 
 - [Pull Request Process](#pull-request-process)
 - [Reporting Issues](#reporting-issues)
 - [Documentation](#documentation)
-- [Community](#community)
+- [Additional Resources](#additional-resources)
 
 ## Development Setup
 
@@ -27,10 +27,10 @@ Before you begin, ensure you have the following installed:
 
 ### Local Development Setup
 
-1. **Fork the repository**
+1. **Fork the repository** (https://github.com/HouseofLoops/headwater) and clone your fork
 
    ```bash
-   git clone https://github.com/yourusername/headwater.git
+   git clone https://github.com/<your-username>/headwater.git
    cd headwater
    ```
 
@@ -44,8 +44,8 @@ Before you begin, ensure you have the following installed:
 3. **Install dependencies**
 
    ```bash
-   pip install -r requirements.txt
-   pip install -r requirements-dev.txt  # For development tools
+   pip install -r requirements-dev.txt  # includes requirements.txt (same as `make install`)
+   playwright install chromium          # only needed to run the Maps scraper locally
    ```
 
 4. **Set up environment variables**
@@ -56,37 +56,21 @@ Before you begin, ensure you have the following installed:
 
 5. **Start the development server**
    ```bash
-   # Using Docker Compose (recommended)
-   docker-compose up -d
+   # With auto-reload on port 8000 (same as `make run` / `make dev`)
+   uvicorn main:app --reload --host 0.0.0.0 --port 8000
 
-   # Or using Python directly
-   python main.py
+   # Or the full stack (API + Redis) in Docker
+   docker compose up --build -d
+   docker compose logs -f web
    ```
 
-### Development with Docker
+   Redis is optional locally: without `REDIS_URL` the rate limiter, cache and
+   Maps records use process memory. The production image does not contain the
+   test dependencies, so run `pytest` on the host.
 
-For a fully containerized development environment:
+### Development Tools
 
-```bash
-# Build and start all services
-docker-compose up --build
-
-# Run tests in container
-docker-compose exec web pytest
-
-# View logs
-docker-compose logs -f web
-```
-
-### Development Tools Setup
-
-Install development dependencies:
-
-```bash
-pip install -r requirements-dev.txt
-```
-
-This includes:
+`requirements-dev.txt` includes:
 - `pytest`, `pytest-cov`, `pytest-asyncio` - Testing and coverage
 - `ruff` - Linting and formatting (the only linter/formatter; configured in `pyproject.toml`)
 - `mypy` - Type checking
@@ -125,8 +109,8 @@ git checkout -b fix/issue-number-description
 # Run the full test suite
 pytest
 
-# Run specific tests
-pytest tests/test_specific_feature.py
+# Run one test file (replace <module> with a real name, e.g. tests/test_proxy.py)
+pytest tests/test_<module>.py
 
 # Run with coverage
 pytest --cov=app --cov-report=html
@@ -216,8 +200,8 @@ mypy is installed by `requirements-dev.txt` but is not run in CI, so treat its o
 ### Pre-commit Hooks
 
 `.pre-commit-config.yaml` runs the standard file hygiene hooks (trailing whitespace, end-of-file,
-YAML/TOML/JSON validity, merge conflicts, private keys), ruff with the same blocking rule set as CI
-(`--select E9,F63,F7,F82`, no auto-fix), bandit, hadolint (needs Docker) and shellcheck.
+YAML/TOML/JSON validity, merge conflicts, private keys), ruff with the full rule set from
+`pyproject.toml` (`--no-fix`) and `ruff-format --check`, bandit, hadolint (needs Docker) and shellcheck.
 
 ```bash
 pip install pre-commit
@@ -242,7 +226,11 @@ tests/
 └── integration/    # Integration tests
 ```
 
-CI runs `pytest --cov=app --cov-fail-under=65` (the `coverage-floor` input in `_verify.yml`).
+`tests/conftest.py` blocks outbound network access in every test: mock the HTTP
+client, or mark a test `@pytest.mark.allow_network` if it genuinely must reach the
+network. Markers are declared in `pyproject.toml` (`--strict-markers` is on).
+
+CI runs `pytest --cov=app` and fails below 65% coverage (the `coverage-floor` input in `_verify.yml`).
 
 ### Running Tests
 
@@ -265,33 +253,29 @@ pytest --cov=app --cov-report=html
 
 ### Writing Tests
 
+Use the fixtures in `tests/conftest.py`: `test_client` (a `TestClient` on the real
+`main:app`, with startup and shutdown run), `settings`, `override_settings`,
+`api_headers` and `fake_redis`. A minimal example:
+
 ```python
-import pytest
-from app.api.google_news import GoogleNewsAPI
+def test_health_is_public(test_client):
+    response = test_client.get("/health")
+    assert response.status_code == 200
+    assert response.json() == {"status": "healthy"}
 
 
-class TestGoogleNewsAPI:
-    def test_search_basic(self):
-        """Test basic news search functionality."""
-        api = GoogleNewsAPI()
-        results = api.search("artificial intelligence")
-
-        assert len(results) > 0
-        assert "title" in results[0]
-        assert "link" in results[0]
-
-    def test_search_with_filters(self):
-        """Test news search with country and language filters."""
-        api = GoogleNewsAPI()
-        results = api.search(query="climate change", country="US", language="en", max_results=5)
-
-        assert len(results) <= 5
-        # Add more assertions...
+def test_status_rejects_a_missing_key(test_client):
+    assert test_client.get("/status").status_code == 401
 ```
+
+The test environment configures no API keys; `tests/test_auth.py` shows how to
+set `API_KEYS` for a test. Endpoint tests that would reach Google must mock the
+service layer; see `tests/test_google_news_api.py` and
+`tests/test_google_trends_api.py` for the pattern.
 
 ### Test Coverage
 
-Maintain test coverage above 80%:
+CI enforces the 65% floor above; new code should not lower it.
 
 ```bash
 # Generate coverage report
@@ -347,107 +331,61 @@ test(api): add integration tests for autocomplete
 
 ### Before Submitting
 
-1. **Update your branch** with the latest changes from main:
+1. **Update your branch** with the latest `main` from the upstream repository:
    ```bash
-   git checkout main
-   git pull origin main
-   git checkout your-branch
-   git rebase main
+   git remote add upstream https://github.com/HouseofLoops/headwater.git  # once
+   git fetch upstream
+   git rebase upstream/main
    ```
 
-2. **Run all checks**:
+2. **Run the same checks as CI**:
    ```bash
-   # Run tests
-   pytest
-   
-   # Run linting (blocking rule set, as in CI) and format the files you changed
-   ruff check --select E9,F63,F7,F82 .
-   ruff format path/to/changed_file.py
-   
-   # Run pre-commit hooks
-   pre-commit run --all-files
+   pytest --cov=app
+   make lint          # ruff check . && ruff format --check .
+   pre-commit run --files path/to/changed_file.py
    ```
 
-3. **Update documentation** if needed
+3. **Update documentation** if behaviour, configuration or endpoints change.
 
-### Pull Request Template
+### What to put in the PR description
 
-When creating a PR, please fill out the template with:
+There is no PR template. Describe what changed and why, how you tested it, and
+any breaking change (renamed settings, changed response shapes, removed endpoints).
 
-- **Description**: What changes were made and why
-- **Type of Change**: Bug fix, feature, documentation, etc.
-- **Testing**: How the changes were tested
-- **Breaking Changes**: Any breaking changes
-- **Screenshots**: UI changes (if applicable)
+### Review and release
 
-### Review Process
-
-1. **Automated Checks**: CI/CD pipeline runs tests and linting
-2. **Code Review**: At least one maintainer reviews the code
-3. **Approval**: PR is approved and merged
-4. **Deployment**: Changes are automatically deployed
+1. CI (`.github/workflows/main.yml`, which calls `_verify.yml`) runs ruff, the
+   tests with the coverage floor, `pip-audit`, a boot from `.env.example`, and a
+   Docker build with a health check.
+2. A maintainer reviews; `main` only accepts changes through pull requests with
+   passing CI.
+3. Releases are cut by bumping `app/__version__.py` in a PR (`make version-patch`,
+   `make version-minor` or `make version-major`). On merge, `release.yml` tags the
+   version and publishes signed multi-arch images to Docker Hub and GHCR.
 
 ## Reporting Issues
 
-### Bug Reports
+Open issues at https://github.com/HouseofLoops/headwater/issues.
 
-When reporting bugs, please include:
-
-1. **Clear title** describing the issue
-2. **Steps to reproduce** the problem
-3. **Expected behavior** vs actual behavior
-4. **Environment details**:
-   - OS and version
-   - Python version
-   - Dependencies versions
-5. **Error messages** and stack traces
-6. **Screenshots** if applicable
-
-### Feature Requests
-
-For new features, please include:
-
-1. **Use case**: What problem does this solve?
-2. **Proposed solution**: How should it work?
-3. **Alternatives**: Other approaches considered
-4. **Additional context**: Any other relevant information
+- **Bugs**: steps to reproduce, expected vs actual behaviour, Headwater version
+  (`GET /status` or the image tag), how you run it (Docker, bare uvicorn),
+  relevant settings with secrets removed, and the error body or log lines.
+- **Feature requests**: the use case, the proposed behaviour and alternatives
+  you considered.
+- **Security issues**: do not file a public issue; see
+  [SECURITY_GUIDELINES.md](SECURITY_GUIDELINES.md#reporting-a-vulnerability).
 
 ## Documentation
 
-### Updating Documentation
+When a change affects users:
 
-When making changes that affect users:
+1. Update the relevant file in `docs/` (and `README.md` if needed).
+2. Update [API_REFERENCE.md](API_REFERENCE.md) for endpoint changes and
+   `.env.example` for new settings.
+3. Add an entry to [CHANGELOG.md](CHANGELOG.md).
 
-1. **Update README.md** if needed
-2. **Update API documentation** for endpoint changes
-3. **Add code examples** for new features
-4. **Update CHANGELOG.md** with changes
-
-### Documentation Standards
-
-- Use Markdown for all documentation
-- Include code examples where helpful
-- Keep language clear and concise
-- Test all code examples
-
-## Community
-
-### Getting Help
-
-- **GitHub Issues**: For bugs and feature requests
-- **GitHub Discussions**: For general questions and discussions
-- **Discord**: For real-time chat and community support
-
-### Code of Conduct
-
-Please review and follow our Code of Conduct.
-
-### Recognition
-
-Contributors are recognized in:
-- CHANGELOG.md for significant contributions
-- GitHub's contributor insights
-- Social media mentions (with permission)
+Every endpoint, setting, path and command in the docs must exist in the code.
+Run the examples you add.
 
 ## Additional Resources
 
@@ -456,7 +394,3 @@ Contributors are recognized in:
 - [Deployment Guide](DEPLOYMENT.md)
 - [Troubleshooting Guide](TROUBLESHOOTING.md)
 - [Security Guidelines](SECURITY_GUIDELINES.md)
-
----
-
-Thank you for contributing to Headwater API! Your contributions help make this project better for everyone. 🚀
