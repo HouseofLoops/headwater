@@ -23,7 +23,7 @@ class BaseRouter:
         Initialize a new BaseRouter.
 
         Args:
-            prefix: URL prefix for all routes (e.g., "/google-ads")
+            prefix: URL prefix for all routes (e.g., "/google-trends")
             service_name: Optional name for the service. If not provided, derived from prefix.
             responses: Optional dict of status codes to response models for OpenAPI docs.
             **kwargs: Additional arguments to pass to the underlying APIRouter.
@@ -61,9 +61,9 @@ class BaseRouter:
         Extract service name from the URL prefix.
 
         Example:
-            "/google-ads" -> "google-ads"
+            "/google-trends" -> "google-trends"
             "/youtube-transcripts" -> "youtube-transcripts"
-            "/api/v1/google-ads" -> "google-ads"
+            "/api/v1/google-news" -> "google-news"
 
         Args:
             prefix: URL prefix string
@@ -80,7 +80,7 @@ class BaseRouter:
         if not parts:
             raise ValueError(f"Cannot extract service name from prefix: {prefix}")
 
-        # If the prefix is like "/api/v1/google-ads", take the last segment
+        # If the prefix is like "/api/v1/google-news", take the last segment
         if len(parts) > 1 and parts[0] == "api" and parts[1].startswith("v"):
             service_name = parts[2] if len(parts) > 2 else parts[0]
         else:
