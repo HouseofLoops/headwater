@@ -24,6 +24,7 @@ from typing import Any, TypeVar
 from uuid import UUID
 
 from app.core.config import Settings, get_settings
+from app.core.exceptions import UpstreamRateLimitedError
 from app.core.log_safety import scrub
 from app.core.redis_manager import RedisManager
 
@@ -671,6 +672,11 @@ async def get_cached_or_fetch(cache_key: str, fetch_func: Callable[[], Any], ttl
         logger.debug("Cached data for key: %s", scrub(cache_key))
 
         return data
+    except UpstreamRateLimitedError:
+        # Expected and transient, not a fault: the 429 handler logs it as a
+        # warning. Still re-raised, so nothing is cached.
+        logger.debug("Not caching %s: upstream rate limited", scrub(cache_key))
+        raise
     except Exception as e:
         logger.error("Error fetching data for cache key %s: %s", scrub(cache_key), scrub(e))
         raise

@@ -28,6 +28,9 @@ practice:
 - Headwater aims to report an upstream failure as an error response
   (`application/problem+json`) rather than as an empty success; see
   `tests/test_failure_honesty.py`.
+- When Google Trends, Google News or Google Autocomplete throttles Headwater,
+  the response is `429` of type `upstream_rate_limited` with `Retry-After`
+  (Google's value, or `UPSTREAM_RETRY_AFTER_SECONDS`), not a 502.
 - Google page and response formats change without notice, so parsers can break
   between releases.
 

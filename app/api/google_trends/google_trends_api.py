@@ -9,6 +9,7 @@ import asyncio
 import json
 import logging
 import random
+import re
 from datetime import date
 
 import numpy as np
@@ -17,9 +18,12 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel, Field
 from trendspy import BatchPeriod, Trends
+from trendspy.client import TrendsQuotaExceededError
+from trendspy.news_article import NewsArticle
 
 from app.core.cache_manager import generate_cache_key, get_cached_or_fetch
 from app.core.constants import REFERER_LIST, USER_AGENT_LIST
+from app.core.exceptions import UpstreamRateLimitedError, parse_retry_after
 from app.core.log_safety import scrub
 from app.core.proxy import get_proxy, mask_proxy
 from app.core.rate_limiter import rate_limit
@@ -146,6 +150,16 @@ if _unmapped_timeframes:
 # went wrong upstream. The detail lives in the logs.
 UPSTREAM_UNAVAILABLE_DETAIL = "Upstream Google Trends request failed. Please retry."
 UPSTREAM_UNUSABLE_DETAIL = "Upstream Google Trends returned an unusable response."
+UPSTREAM_REJECTED_DETAIL = (
+    "Google Trends rejected the request as invalid (HTTP 400). Retrying it unchanged will not help."
+)
+NEWS_TOKENS_REJECTED_DETAIL = (
+    "Google Trends rejected the news tokens. Send the numeric IDs, or the [id, language, geo] "
+    "tokens exactly as /trending-now returns them."
+)
+
+# Named in the 429 body and log line so a client can tell which upstream is throttling.
+GOOGLE_TRENDS = "Google Trends"
 
 
 class UpstreamUnavailable(Exception):
@@ -164,6 +178,97 @@ class UpstreamUnavailable(Exception):
         super().__init__(f"{operation}: {detail}")
         self.operation = operation
         self.detail = detail
+
+
+class UpstreamRateLimited(UpstreamUnavailable):
+    """Google Trends is throttling us: HTTP 429, or trendspy's quota error.
+
+    The classification :func:`run_trends_call` turns into a 429
+    ``UpstreamRateLimitedError`` with ``Retry-After``, rather than a 502: the
+    upstream is healthy and asked us to wait.
+
+    Attributes:
+        retry_after: Seconds from Google's own ``Retry-After`` header, or
+            ``None`` when it sent none (the config default is used then).
+    """
+
+    def __init__(self, operation: str, retry_after: int | None = None):
+        super().__init__(operation, "Google Trends is rate limiting requests.")
+        self.retry_after = retry_after
+
+
+class UpstreamRejected(UpstreamUnavailable):
+    """Google Trends answered HTTP 400, or refused the RPC arguments.
+
+    Still a 502, but with a detail that does not invite a retry: the same
+    request will be rejected again. /trending-now-showcase-timeline is the
+    standing example -- Google now rejects every request trendspy 0.1.6
+    builds for it.
+    """
+
+    def __init__(self, operation: str, detail: str = UPSTREAM_REJECTED_DETAIL):
+        super().__init__(operation, detail)
+
+
+def _upstream_response(exc: BaseException):
+    """Return the ``requests`` response behind ``exc`` or its causes, if any.
+
+    ``requests.HTTPError`` carries the response (status and headers). trendspy
+    raises one from ``_get`` once its own retries are spent, and
+    :class:`HeadwaterTrends` raises one for failed batchexecute calls.
+    """
+    seen: set[int] = set()
+    current: BaseException | None = exc
+    while current is not None and id(current) not in seen:
+        seen.add(id(current))
+        response = getattr(current, "response", None)
+        if isinstance(getattr(response, "status_code", None), int):
+            return response
+        current = current.__cause__ or current.__context__
+    return None
+
+
+def classify_trends_failure(operation: str, exc: BaseException) -> UpstreamUnavailable:
+    """Map an exception raised by a trendspy call to the failure it represents.
+
+    * ``TrendsQuotaExceededError`` or HTTP 429 -> :class:`UpstreamRateLimited` (429)
+    * HTTP 400                                -> :class:`UpstreamRejected` (502)
+    * anything else                           -> :class:`UpstreamUnavailable` (502)
+
+    trendspy's quota error is raised by ``related_queries`` and
+    ``related_topics`` when Google marks the embed token
+    ``USER_TYPE_EMBED_OVER_QUOTA``; it has no HTTP status or ``Retry-After``.
+    """
+    if isinstance(exc, TrendsQuotaExceededError):
+        return UpstreamRateLimited(operation)
+
+    response = _upstream_response(exc)
+    status = response.status_code if response is not None else None
+    if status == 429:
+        return UpstreamRateLimited(operation, parse_retry_after(response.headers.get("Retry-After")))
+    if status == 400:
+        return UpstreamRejected(operation)
+    return UpstreamUnavailable(operation)
+
+
+class HeadwaterTrends(Trends):
+    """trendspy's client, made to fail loudly on a failed batchexecute call.
+
+    trendspy 0.1.6 is the latest release (December 2024) and is no longer
+    updated, so this is fixed here rather than upstream. Its ``_get_batch``
+    never checks the status code: a 429 or 400 from the batchexecute endpoint
+    (trending now, news by IDs, showcase timeline) only surfaces later as a
+    ``ValueError("Invalid response: status 429 ...")`` that has dropped the
+    response, so the status and ``Retry-After`` were lost and every such
+    failure looked the same. Raising ``HTTPError`` here keeps the response
+    attached for :func:`classify_trends_failure`.
+    """
+
+    def _get_batch(self, req_id, data):
+        response = super()._get_batch(req_id, data)
+        if response.status_code >= 400:
+            response.raise_for_status()
+        return response
 
 
 # /geo and /categories are reference data: 3681 locations and 1133 categories that
@@ -233,20 +338,38 @@ async def run_trends_call(operation: str, call):
         Whatever trendspy returned, including empty results.
 
     Raises:
-        UpstreamUnavailable: if the trendspy call raised. The original
+        UpstreamRateLimitedError: Google is rate limiting us (HTTP 429 or
+            trendspy's quota error). An ``HTTPException``, so it passes
+            through the cache (uncached) and every handler as a 429.
+        UpstreamUnavailable: any other failure, classified by
+            :func:`classify_trends_failure` (rejected or failed). The original
             exception is logged, never returned to the caller.
     """
     loop = asyncio.get_event_loop()
     try:
         return await loop.run_in_executor(None, call)
+    except UpstreamUnavailable:
+        # Already classified by a Headwater helper running in the executor.
+        raise
     except Exception as exc:
-        logger.error("Google Trends call %s failed: %s", operation, exc, exc_info=True)
-        raise UpstreamUnavailable(operation) from exc
+        failure = classify_trends_failure(operation, exc)
+        if isinstance(failure, UpstreamRateLimited):
+            # Expected and transient: a warning without a traceback, not an
+            # internal error. Google throttles Trends hard.
+            logger.warning("Google Trends rate-limited %s (%s)", operation, type(exc).__name__)
+            raise UpstreamRateLimitedError(GOOGLE_TRENDS, retry_after=failure.retry_after) from exc
+        if isinstance(failure, UpstreamRejected):
+            logger.error("Google Trends rejected %s with HTTP 400: %s", operation, exc)
+        else:
+            logger.error("Google Trends call %s failed: %s", operation, exc, exc_info=True)
+        raise failure from exc
 
 
 async def cached_trends_response(cache_key: str, fetch_func, ttl: int | None = None):
     """Serve a Trends endpoint from cache, mapping upstream failure to 502.
 
+    Rate limiting never reaches here as ``UpstreamUnavailable``:
+    :func:`run_trends_call` raises it as a 429 ``UpstreamRateLimitedError``.
     ``get_cached_or_fetch`` re-raises instead of caching when ``fetch_func``
     raises, so an upstream failure leaves the cache untouched and the next
     request tries again.
@@ -299,59 +422,199 @@ def encode_trends_payload(operation: str, raw):
         raise UpstreamUnavailable(operation, UPSTREAM_UNUSABLE_DETAIL) from exc
 
 
-def normalise_trending_news(raw):
-    """Validate and normalise a ``trending_now_news_by_ids`` response.
+# -------------------------------------------------------------------------
+# News by IDs
+#
+# Google's news RPC (batchexecute ``w4opAf``) takes each token as
+# ``[numeric id, language, geo]``, the shape /trending-now returns in
+# ``news_tokens``. The endpoint used to split its input on commas and forward
+# bare strings. Google answers those with HTTP 200, a null payload and RPC
+# status [3] (INVALID_ARGUMENT), and trendspy's ``trending_now_news_by_ids``
+# then calls ``json.loads(None)``: "the JSON object must be str, bytes or
+# bytearray, not NoneType". trendspy also crashes on a well-formed token Google
+# does not know (payload ``"[]"`` -> IndexError), and on success it returns
+# ``NewsArticle`` objects, which the old normaliser rejected as an unexpected
+# shape, so the endpoint could not answer 200 at all. The RPC is therefore
+# called here, not through trendspy's method.
+# -------------------------------------------------------------------------
+TRENDING_NEWS_RPC_ID = "w4opAf"
+MAX_NEWS_TOKENS = 50
+MAX_NEWS_ARTICLES = 50
+# The language /trending-now's tokens carry (trendspy's default).
+NEWS_TOKEN_LANGUAGE = "en"  # nosec B105 - a language code, not a secret
+_NEWS_TOKEN_ID_RE = re.compile(r"^\d{1,20}$")
+_NEWS_TOKEN_LANGUAGE_RE = re.compile(r"^[a-z]{2,3}$")
+_NEWS_TOKEN_GEO_RE = re.compile(r"^[A-Z]{2}(-[A-Z0-9]{1,3})?$")
+NEWS_TOKENS_FORMAT_HINT = (
+    "Send comma-separated numeric IDs (e.g. 4830466997,4830466998) or the JSON array "
+    '/trending-now returns in news_tokens (e.g. [[4830466997,"en","US"]]).'
+)
 
-    trendspy returns a list of rows whose third element carries the news
-    payload, sometimes as a JSON string. Anything that does not fit that shape
-    means the upstream contract changed.
+
+class InvalidNewsTokens(ValueError):
+    """``news_tokens`` cannot be turned into Google's token shape.
+
+    The message is safe to return to the caller: it never echoes the input.
+    """
+
+
+def _news_token_id(value, position: int) -> int:
+    # bool is an int subclass; true/false in the JSON form is not an ID.
+    if isinstance(value, int) and not isinstance(value, bool) and value >= 0:
+        return value
+    if isinstance(value, str) and _NEWS_TOKEN_ID_RE.match(value.strip()):
+        return int(value.strip())
+    raise InvalidNewsTokens(f"news_tokens item {position} is not a numeric ID. {NEWS_TOKENS_FORMAT_HINT}")
+
+
+def parse_news_tokens(raw: str, geo: str) -> list[list]:
+    """Turn the ``news_tokens`` query value into ``[[id, language, geo], ...]``.
+
+    Accepts either form a client can get from /trending-now:
+
+    * comma-separated numeric IDs (``4830466997,4830466998``), completed with
+      language ``en`` and ``geo``;
+    * the ``news_tokens`` JSON array as returned (``[[4830466997,"en","US"]]``).
+
+    Duplicates are dropped, first occurrence kept.
+
+    Args:
+        raw: The ``news_tokens`` query value.
+        geo: Location used to complete bare IDs.
+
+    Returns:
+        The tokens in the shape Google's news RPC accepts.
 
     Raises:
-        UpstreamUnavailable: on any unrecognised shape. Previously each of
-            these branches answered 200 with ``{"data": []}``, which cached a
-            broken upstream response for the full TTL.
+        InvalidNewsTokens: empty input, bad JSON, a malformed token, or more
+            than ``MAX_NEWS_TOKENS`` tokens.
+    """
+    raw = raw.strip()
+    geo = geo.strip().upper()
+    if not _NEWS_TOKEN_GEO_RE.match(geo):
+        raise InvalidNewsTokens("geo must be a location code such as US or GB.")
+    tokens: list[list] = []
+
+    if raw.startswith("["):
+        try:
+            decoded = json.loads(raw)
+        except ValueError as exc:
+            raise InvalidNewsTokens(f"news_tokens is not valid JSON. {NEWS_TOKENS_FORMAT_HINT}") from exc
+        if not isinstance(decoded, list):
+            raise InvalidNewsTokens(f"news_tokens must be a JSON array. {NEWS_TOKENS_FORMAT_HINT}")
+        for position, item in enumerate(decoded, start=1):
+            if not isinstance(item, list) or len(item) != 3:
+                raise InvalidNewsTokens(
+                    f"news_tokens item {position} must be [id, language, geo]. {NEWS_TOKENS_FORMAT_HINT}"
+                )
+            token_id, language, token_geo = item
+            if not isinstance(language, str) or not _NEWS_TOKEN_LANGUAGE_RE.match(language.lower()):
+                raise InvalidNewsTokens(f"news_tokens item {position} has an invalid language code.")
+            if not isinstance(token_geo, str) or not _NEWS_TOKEN_GEO_RE.match(token_geo.upper()):
+                raise InvalidNewsTokens(f"news_tokens item {position} has an invalid geo code.")
+            tokens.append([_news_token_id(token_id, position), language.lower(), token_geo.upper()])
+    else:
+        parts = [part.strip() for part in raw.split(",") if part.strip()]
+        tokens = [[_news_token_id(part, position), NEWS_TOKEN_LANGUAGE, geo] for position, part in enumerate(parts, 1)]
+
+    # A set, not `token not in unique`: the input is caller-sized (up to the
+    # URL limit), and a quadratic scan would run before the count check.
+    seen: set[tuple] = set()
+    unique: list[list] = []
+    for token in tokens:
+        if tuple(token) not in seen:
+            seen.add(tuple(token))
+            unique.append(token)
+
+    if not unique:
+        raise InvalidNewsTokens("No valid news tokens provided.")
+    if len(unique) > MAX_NEWS_TOKENS:
+        raise InvalidNewsTokens(f"news_tokens carries more than {MAX_NEWS_TOKENS} tokens.")
+    return unique
+
+
+def fetch_trending_news(trends_obj, tokens: list[list], max_news: int) -> list[dict]:
+    """Fetch the news articles for Trending Now news tokens.
+
+    Calls the RPC trendspy's ``trending_now_news_by_ids`` wraps, but handles
+    the answers that method crashes on (see the section comment above).
+
+    Args:
+        trends_obj: A :class:`HeadwaterTrends` instance.
+        tokens: ``[[id, language, geo], ...]`` from :func:`parse_news_tokens`.
+        max_news: Maximum number of articles Google should return.
+
+    Returns:
+        Articles as ``{"title", "url", "source", "picture", "time", "snippet"}``
+        dicts, the fields /trending-now uses for its own news. Empty when
+        Google has no news for the tokens (unknown or expired IDs).
+
+    Raises:
+        UpstreamRejected: Google refused the tokens (null payload).
+        UpstreamUnavailable: the response is not in the shape we know.
+        requests.HTTPError: the batchexecute call failed (429, 400, ...);
+            :func:`run_trends_call` classifies it.
     """
     operation = "trending_now_news_by_ids"
+    response = trends_obj._get_batch(TRENDING_NEWS_RPC_ID, [tokens, max_news])
+    try:
+        envelope = trends_obj._parse_protected_json(response)
+    except ValueError as exc:
+        logger.error("Google Trends %s response could not be parsed: %s", operation, exc)
+        raise UpstreamUnavailable(operation, UPSTREAM_UNUSABLE_DETAIL) from exc
 
-    if not isinstance(raw, list):
-        logger.error("Google Trends %s returned %s, expected list", operation, type(raw))
+    entry = None
+    if isinstance(envelope, list):
+        entry = next(
+            (
+                item
+                for item in envelope
+                if isinstance(item, list) and len(item) > 2 and item[:2] == ["wrb.fr", TRENDING_NEWS_RPC_ID]
+            ),
+            None,
+        )
+    if entry is None:
+        logger.error("Google Trends %s response carries no %s result", operation, TRENDING_NEWS_RPC_ID)
         raise UpstreamUnavailable(operation, UPSTREAM_UNUSABLE_DETAIL)
 
-    rows = list(raw)
-    for index, row in enumerate(rows):
-        if row is None or not isinstance(row, (list, tuple)) or len(row) < 3:
-            logger.error("Google Trends %s row %d has unexpected shape", operation, index)
-            raise UpstreamUnavailable(operation, UPSTREAM_UNUSABLE_DETAIL)
+    payload = entry[2]
+    if payload is None:
+        # Google's way of refusing the arguments; entry[5] is the RPC status,
+        # e.g. [3] for INVALID_ARGUMENT. This is what trendspy fed to json.loads.
+        rpc_status = entry[5] if len(entry) > 5 else None
+        logger.error("Google Trends refused the %s arguments (RPC status %s)", operation, rpc_status)
+        raise UpstreamRejected(operation, NEWS_TOKENS_REJECTED_DETAIL)
 
-        row = list(row)
-        news_data = row[2]
-        if news_data is None:
-            logger.error("Google Trends %s row %d carries no news payload", operation, index)
-            raise UpstreamUnavailable(operation, UPSTREAM_UNUSABLE_DETAIL)
+    try:
+        decoded = json.loads(payload)
+    except (TypeError, ValueError) as exc:
+        logger.error("Google Trends %s payload is not JSON: %s", operation, exc)
+        raise UpstreamUnavailable(operation, UPSTREAM_UNUSABLE_DETAIL) from exc
 
-        if isinstance(news_data, str):
-            try:
-                row[2] = json.loads(news_data)
-            except json.JSONDecodeError as exc:
-                logger.error(
-                    "Google Trends %s row %d has unparseable JSON: %s",
-                    operation,
-                    index,
-                    exc,
-                )
-                raise UpstreamUnavailable(operation, UPSTREAM_UNUSABLE_DETAIL) from exc
-        elif not isinstance(news_data, (dict, list)):
-            logger.error(
-                "Google Trends %s row %d news payload is %s",
-                operation,
-                index,
-                type(news_data),
-            )
-            raise UpstreamUnavailable(operation, UPSTREAM_UNUSABLE_DETAIL)
+    # "[]" when Google knows none of the tokens; "[[article, ...]]" otherwise.
+    if decoded in ([], [[]], [None]):
+        return []
+    if not isinstance(decoded, list) or not isinstance(decoded[0], list):
+        logger.error("Google Trends %s payload has an unexpected shape", operation)
+        raise UpstreamUnavailable(operation, UPSTREAM_UNUSABLE_DETAIL)
 
-        rows[index] = row
+    try:
+        articles = [NewsArticle.from_api(item) for item in decoded[0]]
+    except (TypeError, ValueError, IndexError, KeyError, AttributeError) as exc:
+        logger.error("Google Trends %s article has an unexpected shape: %s", operation, exc)
+        raise UpstreamUnavailable(operation, UPSTREAM_UNUSABLE_DETAIL) from exc
 
-    return rows
+    return [
+        {
+            "title": article.title,
+            "url": article.url,
+            "source": article.source,
+            "picture": article.picture,
+            "time": article.time,
+            "snippet": article.snippet,
+        }
+        for article in articles
+    ]
 
 
 def empty_trends_response(message: str) -> dict:
@@ -365,15 +628,18 @@ def empty_trends_response(message: str) -> dict:
 async def get_trends_instance():
     """
     Create and return a Trends instance, applying proxy if needed and random headers.
+
+    The instance is a :class:`HeadwaterTrends`, so a failed batchexecute call
+    keeps its HTTP status and ``Retry-After``.
     """
     proxy_url = await get_proxy()
     headers = get_random_headers()
     if proxy_url:
         logger.debug("TrendSpy is using proxy: %s", mask_proxy(proxy_url))
-        return Trends(proxy=proxy_url, headers=headers)
+        return HeadwaterTrends(proxy=proxy_url, headers=headers)
     else:
         logger.debug("TrendSpy is not using any proxy.")
-        return Trends(headers=headers)
+        return HeadwaterTrends(headers=headers)
 
 
 # -------------------------------------------------------------------------
@@ -665,9 +931,21 @@ async def trending_now_by_rss(
 @google_trends_router.get("/trending-now-news-by-ids", summary="News by IDs")
 async def trending_now_news_by_ids(
     # === REQUIRED ===
-    news_tokens: str = Query(..., description="Comma-separated news tokens from trending topic"),
+    news_tokens: str = Query(
+        ...,
+        description=(
+            "News tokens from /trending-now: comma-separated numeric IDs (4830466997,4830466998), "
+            'or its news_tokens JSON array ([[4830466997,"en","US"]]). At most 50.'
+        ),
+    ),
     # === OPTIONS ===
-    max_news: int = Query(3, description="Max articles to retrieve", examples=[3]),
+    max_news: int = Query(3, ge=1, le=MAX_NEWS_ARTICLES, description="Max articles to retrieve (1-50)", examples=[3]),
+    geo: str = Query(
+        "US",
+        pattern=r"^[A-Za-z]{2}(-[A-Za-z0-9]{1,3})?$",
+        description="Location of the /trending-now call the IDs came from; applies to bare IDs only",
+        examples=["US"],
+    ),
     # === AUTH ===
     rate_limit: None = Depends(rate_limit),
 ):
@@ -675,33 +953,33 @@ async def trending_now_news_by_ids(
     try:
         logger.debug("Received request with tokens: %s, max_news: %s", scrub(news_tokens), scrub(max_news))
 
-        token_list = [token.strip() for token in news_tokens.split(",") if token.strip()]
-        logger.debug(f"Parsed token list: {token_list}")
+        try:
+            tokens = parse_news_tokens(news_tokens, geo)
+        except InvalidNewsTokens as exc:
+            logger.warning("Rejected news_tokens: %s", exc)
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        logger.debug("Parsed %d news tokens", len(tokens))
 
-        if not token_list:
-            logger.warning("No valid tokens found in input")
-            raise HTTPException(status_code=400, detail="No valid news tokens provided.")
-
-        # Generate cache key
-        cache_key = generate_cache_key("trends_trending_now_news_by_ids", news_tokens=news_tokens, max_news=max_news)
+        # Keyed on the normalised tokens, so "1,2" and '[[1,"en","US"],[2,"en","US"]]' share an entry.
+        cache_key = generate_cache_key(
+            "trends_trending_now_news_by_ids",
+            news_tokens=json.dumps(tokens, separators=(",", ":")),
+            max_news=max_news,
+        )
 
         async def fetch_trending_now_news_by_ids():
             trends_obj = await get_trends_instance()
 
-            raw_results = await run_trends_call(
+            articles = await run_trends_call(
                 "trending_now_news_by_ids",
-                lambda: trends_obj.trending_now_news_by_ids(token_list, max_news=max_news),
+                lambda: fetch_trending_news(trends_obj, tokens, max_news),
             )
 
-            if is_empty_result(raw_results):
-                logger.info("Google Trends returned no trending_now_news_by_ids rows")
+            if is_empty_result(articles):
+                logger.info("Google Trends returned no trending_now_news_by_ids articles")
                 return empty_trends_response("No news data was returned.")
 
-            # A response in an unrecognised shape is an upstream problem, not
-            # "no news": answering 200 with [] would cache the bad response.
-            normalised = normalise_trending_news(raw_results)
-
-            return {"data": encode_trends_payload("trending_now_news_by_ids", normalised)}
+            return {"data": encode_trends_payload("trending_now_news_by_ids", articles)}
 
         # Get cached result or fetch and cache
         return await cached_trends_response(cache_key, fetch_trending_now_news_by_ids)
@@ -724,7 +1002,18 @@ async def trending_now_showcase_timeline(
     # === AUTH ===
     rate_limit: None = Depends(rate_limit),
 ):
-    """Get trending timeline data for keywords."""
+    """Get trending timeline data for keywords.
+
+    Known limitation: Google Trends currently rejects this request (HTTP 400)
+    for every keyword and timeframe, so the endpoint answers 502 with a detail
+    saying a retry will not help.
+    """
+    # Checked 2026-09-25: the batchexecute "jpdkv" request trendspy 0.1.6
+    # builds gets HTTP 400 with ["er", ..., 400, ..., 3] (INVALID_ARGUMENT),
+    # including with trendspy's own defaults. Headwater passes the arguments
+    # trendspy documents, so this is a Google-side contract change, and 0.1.6
+    # is the latest trendspy release. HeadwaterTrends keeps the 400 visible and
+    # classify_trends_failure turns it into UpstreamRejected.
     try:
         # Parse keywords
         keyword_list = [k.strip() for k in keywords.split(",") if k.strip()]

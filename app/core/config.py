@@ -10,6 +10,7 @@ from functools import lru_cache
 from typing import Annotated
 
 from pydantic import (
+    Field,
     RedisDsn,
     ValidationError,
     field_validator,
@@ -104,6 +105,10 @@ class Settings(BaseSettings):
     RATE_LIMIT_ENABLED: bool = True
     RATE_LIMIT_REQUESTS: int = 100
     RATE_LIMIT_TIMEFRAME: int = 3600  # seconds
+    # Retry-After (seconds) sent with a 429 when an upstream (Google Trends,
+    # Google News, Google Autocomplete) rate-limits Headwater and did not say
+    # how long to wait itself. See exceptions.UpstreamRateLimitedError.
+    UPSTREAM_RETRY_AFTER_SECONDS: Annotated[int, Field(ge=1)] = 60
 
     # Caching
     ENABLE_CACHE: bool = True

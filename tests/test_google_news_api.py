@@ -1241,3 +1241,66 @@ def test_failed_news_response_is_not_cached():
 
     assert recovered.status_code == 200
     assert len(recovered.json()["articles"]) == 1
+
+
+# -----------------------------------------------------------------------------
+# Google News rate limiting -> 429, not 500
+# -----------------------------------------------------------------------------
+def _rate_limited_gnews():
+    """A real GNews whose feed fetch always answers 429.
+
+    gnews retries the 429 with backoff (``_sleep`` is its test seam), then
+    raises its own ``RateLimitError``, which the route catch-alls used to
+    report as 500 Internal Server Error.
+    """
+    from types import SimpleNamespace
+
+    from gnews import GNews
+
+    gnews = GNews(language="en", country="US", max_results=5)
+    gnews._fetch_feed = lambda url: SimpleNamespace(status=429, entries=[])
+    gnews._sleep = lambda seconds: None
+    return gnews
+
+
+@pytest.fixture
+def problem_news_client():
+    """The News router behind Headwater's real RFC 7807 exception handlers."""
+    from app.core.exceptions import configure_exception_handlers
+    from app.core.rate_limiter import rate_limit
+
+    problem_app = FastAPI()
+    configure_exception_handlers(problem_app)
+    problem_app.include_router(gnews_router, prefix="/news")
+    problem_app.dependency_overrides[rate_limit] = lambda: None
+    return TestClient(problem_app)
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/news/search/?query=python",
+        "/news/top/",
+        "/news/topic/?topic=TECHNOLOGY",
+        "/news/location/?location=London",
+        "/news/source/?source=cnn.com",
+        "/news/articles/?query=python",
+    ],
+)
+def test_google_news_rate_limit_is_429_with_retry_after(problem_news_client, override_settings, path):
+    override_settings(UPSTREAM_RETRY_AFTER_SECONDS=33)
+
+    with patch(
+        "app.api.google_news.google_news_api.get_gnews_instance",
+        new_callable=AsyncMock,
+        return_value=_rate_limited_gnews(),
+    ):
+        response = problem_news_client.get(path)
+
+    assert response.status_code == 429, response.text
+    assert response.headers["Retry-After"] == "33"
+    assert response.headers["Content-Type"].startswith("application/problem+json")
+    body = response.json()
+    assert body["type"] == "https://headwater.com/problems/upstream_rate_limited"
+    assert body["upstream"] == "Google News"
+    assert cache_manager_module._cache_store == {}

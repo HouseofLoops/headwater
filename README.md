@@ -286,9 +286,11 @@ the first one is not.
 It exists to keep you inside the upstreams' tolerance, so raising it is a decision
 about their patience, not just yours.
 
-**Errors** follow RFC 7807. A `502` means an upstream genuinely failed; an empty
-result set is a `200` with an empty list. The distinction is deliberate — a quiet
-week and a broken scraper should never look the same.
+**Errors** follow RFC 7807. A `502` means an upstream genuinely failed; a `429`
+of type `upstream_rate_limited` means Google is throttling this server (wait
+`Retry-After`); an empty result set is a `200` with an empty list. The
+distinction is deliberate — a quiet week and a broken scraper should never look
+the same.
 
 **Observability.** Prometheus metrics, `/health/detailed` with per-dependency
 status including Redis and record durability, and structured logs.

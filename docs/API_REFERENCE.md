@@ -303,8 +303,9 @@ News by IDs
 
 | Name | In | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- | --- |
-| `max_news` | query | `integer` | no | `3` | Max articles to retrieve |
-| `news_tokens` | query | `string` | yes |  | Comma-separated news tokens from trending topic |
+| `geo` | query | `string` | no | `"US"` | Location of the /trending-now call the IDs came from; applies to bare IDs only |
+| `max_news` | query | `integer` | no | `3` | Max articles to retrieve (1-50) |
+| `news_tokens` | query | `string` | yes |  | News tokens from /trending-now: comma-separated numeric IDs (4830466997,4830466998), or its news_tokens JSON array ([[4830466997,"en","US"]]). At most 50. |
 
 ### GET /api/v1/google-trends/trending-now-showcase-timeline
 

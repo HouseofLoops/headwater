@@ -285,7 +285,7 @@ Errors (except request validation) are RFC 7807 `application/problem+json`:
 |--------|-------|
 | 401 | Missing or unknown `X-API-Key` |
 | 422 | Invalid or missing parameters (FastAPI `{"detail": [...]}` body) |
-| 429 | Rate limit reached; honour `Retry-After` |
+| 429 | Rate limit reached; honour `Retry-After`. Type `upstream_rate_limited` (with `upstream` and `retry_after`) means Google is throttling Headwater rather than you exceeding your quota |
 | 502 / 503 | Upstream failure or block, or rate limiter backend unavailable |
 
 For more, see [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
