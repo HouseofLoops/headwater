@@ -17,13 +17,13 @@ The `BaseRouter` class provides a standardized way to create API routers in the 
 from app.core.base_router import BaseRouter
 
 # Create a router with auto-derived service name
-router = BaseRouter(prefix="/google-ads")
+router = BaseRouter(prefix="/google-trends")
 
 
 # Define routes
-@router.get("/keywords")
-async def get_keywords():
-    return {"keywords": ["python", "programming", "api"]}
+@router.get("/related-queries")
+async def related_queries(keyword: str):
+    return {"keyword": keyword, "rising": [], "top": []}
 
 
 # Include the router in your FastAPI app
@@ -34,7 +34,7 @@ app.include_router(router())
 
 ```python
 # Create a router with explicit service name
-router = BaseRouter(prefix="/google-ads", service_name="google-ads-service")
+router = BaseRouter(prefix="/google-trends", service_name="google-trends-service")
 ```
 
 ### With Custom Responses
@@ -44,7 +44,7 @@ router = BaseRouter(prefix="/google-ads", service_name="google-ads-service")
 custom_responses = {
     200: {
         "description": "Success",
-        "content": {"application/json": {"example": {"keywords": ["python", "programming", "api"]}}},
+        "content": {"application/json": {"example": {"keyword": "self hosting", "rising": [], "top": []}}},
     },
     400: {
         "description": "Bad Request",
@@ -63,7 +63,7 @@ custom_responses = {
 }
 
 # Create a router with custom responses
-router = BaseRouter(prefix="/google-ads", responses=custom_responses)
+router = BaseRouter(prefix="/google-trends", responses=custom_responses)
 ```
 
 ## Error Handling
@@ -99,9 +99,9 @@ router.raise_internal_error("Database connection failed")
 
 The `BaseRouter` class automatically extracts the service name from the URL prefix:
 
-- `/google-ads` → `google-ads`
+- `/google-trends` → `google-trends`
 - `/youtube-transcripts` → `youtube-transcripts`
-- `/api/v1/google-ads` → `google-ads`
+- `/api/v1/google-news` → `google-news`
 
 If a service name is explicitly provided, it will be used instead of the extracted one. If the provided service name differs from the extracted one, a warning will be logged.
 
