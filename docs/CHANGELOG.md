@@ -5,6 +5,52 @@ All notable changes to the Headwater API will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **Upstream rate limiting was reported as 502 or 500.** When Google throttles
+  Headwater, the endpoint now answers `429 Too Many Requests` with a
+  `Retry-After` header and an RFC 7807 body of type `upstream_rate_limited`,
+  carrying `upstream` (which service) and `retry_after` (seconds). Google's own
+  `Retry-After` is passed on when it sends one; otherwise
+  `UPSTREAM_RETRY_AFTER_SECONDS` (default 60) is used. It is logged as a warning,
+  not as an internal error, and never cached. Covered:
+  - **Google Trends**, every endpoint: HTTP 429 and trendspy's
+    `TrendsQuotaExceededError` (the usual failure of `related-queries` and
+    `related-topics`) used to be `502 Upstream Google Trends request failed`.
+  - **Google News** feed endpoints (`search`, `top`, `topic`, `location`,
+    `source`, `articles`): gnews' `RateLimitError` used to be a 500.
+  - **Google Autocomplete** (`autocomplete`, not `variations=true`): Google's
+    429 used to be `500 Internal Server Error: 429: ...`.
+
+  Genuine upstream failures keep their existing status (502 for Trends).
+  YouTube transcripts are unchanged: youtube-transcript-api raises the same
+  `IpBlocked` for a 429 and for a captcha page, so it stays `503`.
+- **`/google-trends/trending-now-news-by-ids` could never succeed.** It split
+  `news_tokens` on commas and sent bare strings; Google's news RPC takes each
+  token as `[id, language, geo]`, answers bare strings with a null payload, and
+  trendspy 0.1.6 then crashed on `json.loads(None)` ("the JSON object must be
+  str, bytes or bytearray, not NoneType"). Even a successful answer was rejected
+  by the old response check. The endpoint now:
+  - accepts comma-separated numeric IDs (completed with language `en` and the new
+    `geo` parameter, default `US`) or the `news_tokens` JSON array exactly as
+    `/trending-now` returns it; malformed tokens, more than 50 tokens or
+    `max_news` outside 1-50 are rejected with 400/422 before Google is called;
+  - calls the RPC itself instead of trendspy's method, returning articles as
+    `{title, url, source, picture, time, snippet}`, an empty result for tokens
+    Google does not know, and a 502 with a clear detail if Google refuses the
+    tokens.
+- **`/google-trends/trending-now-showcase-timeline`** still cannot return data:
+  Google answers HTTP 400 to the request trendspy 0.1.6 (the latest release)
+  builds, for every keyword and timeframe. It now returns a 502 whose detail
+  says a retry will not help, instead of "Please retry". Any other Trends call
+  Google rejects with 400 gets the same detail.
+
+### Added
+
+- `UPSTREAM_RETRY_AFTER_SECONDS` setting (see Fixed).
+
 ## [2.2.3] - 2026-09-24
 
 Fixes two bugs that broke real production deployments. Upgrade if you run

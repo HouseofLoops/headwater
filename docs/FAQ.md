@@ -105,7 +105,7 @@ registers a receiver for a list of `events`. Webhook targets must resolve to pub
 |--------|---------|
 | 401 | Missing or unknown `X-API-Key` |
 | 422 | Invalid or missing parameters |
-| 429 | Rate limit reached; wait `Retry-After` seconds |
+| 429 | Rate limit reached, Headwater's own (`rate_limit_exceeded`) or Google's (`upstream_rate_limited`); wait `Retry-After` seconds |
 | 500 "no API keys are configured" | Auth is on but `API_KEYS` is empty |
 | 502 / 503 | An upstream failed or blocked the request, or the rate limiter backend (Redis) is unreachable |
 

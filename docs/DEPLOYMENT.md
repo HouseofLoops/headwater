@@ -93,6 +93,7 @@ All settings are read by `app/core/config.py` from the environment or `.env`.
 | `REDIS_URL` | unset | Enables the shared rate-limit store, Redis cache and durable Maps records |
 | `RATE_LIMIT_ENABLED` | `true` | |
 | `RATE_LIMIT_REQUESTS` / `RATE_LIMIT_TIMEFRAME` | `100` / `3600` | Requests per window (seconds), per API key, or per client IP when no known key is sent |
+| `UPSTREAM_RETRY_AFTER_SECONDS` | `60` | `Retry-After` sent with a 429 when Google rate-limits Headwater (Trends, News feeds, Autocomplete) and did not send its own |
 | `ENABLE_CACHE` / `CACHE_TTL` | `true` / `3600` | Redis when `REDIS_URL` is set, in-process memory otherwise |
 | `CORS_ORIGINS` | `["*"]` | Must be an explicit list in production |
 | `ENABLE_PROXY` / `PROXY_URLS` | `false` / unset | Comma-separated proxies, rotated round-robin |

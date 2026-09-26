@@ -21,11 +21,13 @@ from urllib.parse import quote, urlparse
 import httpx
 from fastapi import HTTPException
 from gnews import GNews
+from gnews.exceptions import RateLimitError as GNewsRateLimitError
 from selectolax.parser import HTMLParser
 
 from app.core.cache_manager import cache_manager
 from app.core.config import get_settings
 from app.core.constants import USER_AGENTS
+from app.core.exceptions import UpstreamRateLimitedError
 from app.core.http_client import get_http_client_manager
 from app.core.log_safety import scrub
 from app.core.proxy import get_proxy, mask_proxy
@@ -392,6 +394,38 @@ async def get_gnews_instance(
         logger.debug("GNews instance not using any proxy for httpx session or feedparser.")
 
     return gnews
+
+
+# Named in the 429 body and log line so a client can tell which upstream is throttling.
+GOOGLE_NEWS = "Google News"
+
+
+async def run_gnews_call(func: Callable[..., Any], *args: Any) -> Any:
+    """Run a blocking gnews call off the event loop.
+
+    gnews retries a Google News 429 with backoff and then raises its
+    ``RateLimitError``. The route handlers' catch-all turned that into
+    ``500 Internal Server Error``, logged with a traceback as if Headwater were
+    broken. It is reported as 429 with ``Retry-After`` instead; gnews does not
+    expose Google's own header, so the ``UPSTREAM_RETRY_AFTER_SECONDS`` default
+    applies. Every other exception propagates unchanged.
+
+    Args:
+        func: The gnews method, e.g. ``gnews.get_news``.
+        *args: Its positional arguments.
+
+    Returns:
+        Whatever ``func`` returns.
+
+    Raises:
+        UpstreamRateLimitedError: Google News rate-limited the request.
+    """
+    loop = asyncio.get_event_loop()
+    try:
+        return await loop.run_in_executor(None, func, *args)
+    except GNewsRateLimitError as exc:
+        logger.warning("Google News rate-limited %s", getattr(func, "__name__", "a gnews call"))
+        raise UpstreamRateLimitedError(GOOGLE_NEWS) from exc
 
 
 # -----------------------------------------------------------------------------

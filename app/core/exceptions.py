@@ -6,10 +6,15 @@ standardized error handling across the application.
 """
 
 import logging
+import math
+from datetime import UTC, datetime
+from email.utils import parsedate_to_datetime
 from typing import Any
 
 from fastapi import HTTPException, Request
 from fastapi.responses import JSONResponse
+
+from app.core import config as app_config
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -153,6 +158,95 @@ class RateLimitExceededError(HeadwaterException):
     title = "Too Many Requests"
 
 
+def parse_retry_after(value: str | None, now: datetime | None = None) -> int | None:
+    """Parse an upstream ``Retry-After`` header into whole seconds.
+
+    RFC 9110 allows either a number of seconds or an HTTP-date. Anything
+    else (missing, empty, negative, unparseable) returns ``None`` so the
+    caller falls back to ``UPSTREAM_RETRY_AFTER_SECONDS``. The result is
+    never below 1, the same floor Headwater's own rate limiter uses.
+
+    Args:
+        value: The raw header value, or ``None`` if the header was absent.
+        now: Reference time for an HTTP-date; defaults to the current time.
+
+    Returns:
+        Seconds to wait, or ``None`` if the header gave no usable value.
+    """
+    if value is None:
+        return None
+    value = value.strip()
+    if not value:
+        return None
+    # isascii() too: str.isdigit() accepts characters such as "²" that int() rejects.
+    if value.isascii() and value.isdigit():
+        return max(1, int(value))
+    try:
+        when = parsedate_to_datetime(value)
+    except TypeError, ValueError, IndexError:
+        return None
+    if when.tzinfo is None:
+        when = when.replace(tzinfo=UTC)
+    delta = (when - (now or datetime.now(UTC))).total_seconds()
+    return max(1, math.ceil(delta))
+
+
+class UpstreamRateLimitedError(HTTPException):
+    """An upstream service (Google Trends, Google News, ...) is rate limiting Headwater.
+
+    Reported as 429 with ``Retry-After``, not as a 502. The upstream is up and
+    answered; it is refusing more requests for a while, and the caller's right
+    move is to wait and retry. A 502 told clients and monitoring that the
+    upstream was broken, and every one was logged as an internal error.
+
+    The problem type is ``upstream_rate_limited`` rather than
+    ``rate_limit_exceeded`` so a client can tell "Google is throttling this
+    server" from "you used up your Headwater quota".
+
+    It subclasses ``HTTPException`` on purpose: the routers already re-raise
+    ``HTTPException`` past their catch-all ``except Exception`` blocks, so this
+    reaches :func:`upstream_rate_limited_handler` without every endpoint having
+    to know about it.
+
+    Attributes:
+        upstream: Human-readable name of the service that throttled us.
+        retry_after: Seconds the caller should wait, sent as ``Retry-After``.
+    """
+
+    error_type = "upstream_rate_limited"
+    title = "Too Many Requests"
+
+    def __init__(self, upstream: str, retry_after: int | None = None):
+        """Build the 429.
+
+        Args:
+            upstream: Name of the throttling service, e.g. ``"Google Trends"``.
+            retry_after: Seconds from the upstream's own ``Retry-After``; when
+                ``None``, ``UPSTREAM_RETRY_AFTER_SECONDS`` is used.
+        """
+        if retry_after is None:
+            # Looked up through the module so a test's settings override applies.
+            retry_after = app_config.get_settings().UPSTREAM_RETRY_AFTER_SECONDS
+        self.upstream = upstream
+        self.retry_after = retry_after
+        super().__init__(
+            status_code=429,
+            detail=f"{upstream} is rate limiting requests from this server. Retry after {retry_after} seconds.",
+            headers={"Retry-After": str(retry_after)},
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        """Return the RFC 7807 body, with ``upstream`` and ``retry_after`` as extension members."""
+        return {
+            "type": f"https://headwater.com/problems/{self.error_type}",
+            "title": self.title,
+            "status": self.status_code,
+            "detail": self.detail,
+            "upstream": self.upstream,
+            "retry_after": self.retry_after,
+        }
+
+
 # 404 Not Found Exceptions
 
 
@@ -288,6 +382,33 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> JSONRe
     return JSONResponse(status_code=exc.status_code, content=content, headers=headers)
 
 
+async def upstream_rate_limited_handler(request: Request, exc: UpstreamRateLimitedError) -> JSONResponse:
+    """
+    Handle UpstreamRateLimitedError: 429, ``Retry-After`` and an RFC 7807 body.
+
+    Registered for the subclass, so Starlette picks it over the generic
+    HTTPException handler. Logged as a warning: an upstream asking us to back
+    off is an expected, transient condition, not a Headwater fault.
+
+    Args:
+        request: The request that caused the exception
+        exc: The exception instance
+
+    Returns:
+        JSONResponse: RFC7807 compliant error response
+    """
+    logger.warning(
+        "%s is rate limiting Headwater; answering 429 with Retry-After %s",
+        exc.upstream,
+        exc.retry_after,
+        extra={"status_code": exc.status_code, "error_type": exc.error_type, "path": request.url.path},
+    )
+
+    headers = dict(exc.headers or {})
+    headers["Content-Type"] = "application/problem+json"
+    return JSONResponse(status_code=exc.status_code, content=exc.to_dict(), headers=headers)
+
+
 async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """
     Handle unhandled exceptions and convert to RFC7807 format.
@@ -325,6 +446,7 @@ def configure_exception_handlers(app):
     """
     app.add_exception_handler(HeadwaterException, headwater_exception_handler)
     app.add_exception_handler(HTTPException, http_exception_handler)
+    app.add_exception_handler(UpstreamRateLimitedError, upstream_rate_limited_handler)
     app.add_exception_handler(Exception, unhandled_exception_handler)
 
 

@@ -61,6 +61,7 @@ from app.services.google_news_service import (
     get_gnews_instance,
     is_cacheable,
     is_google_news_redirect,
+    run_gnews_call,
     settings,
     transform_article,
     validate_date_format,
@@ -98,6 +99,7 @@ __all__ = [
     "is_cacheable",
     "is_google_news_redirect",
     "nltk",
+    "run_gnews_call",
     "settings",
     "setup_nltk",
     "transform_article",
@@ -230,8 +232,7 @@ async def get_news_by_source(
                 end_date=end_date_tuple,
             )
 
-            loop = asyncio.get_event_loop()
-            articles = await loop.run_in_executor(None, gnews.get_news, domain_source)
+            articles = await run_gnews_call(gnews.get_news, domain_source)
             if not articles:
                 raise HTTPException(status_code=404, detail="No articles found for the given parameters.")
 
@@ -307,8 +308,7 @@ async def search_google_news(
                 end_date=end_date_tuple,
             )
 
-            loop = asyncio.get_event_loop()
-            news = await loop.run_in_executor(None, gnews.get_news, query)
+            news = await run_gnews_call(gnews.get_news, query)
 
             if not news:
                 raise HTTPException(status_code=404, detail="No news found for the given query.")
@@ -352,8 +352,7 @@ async def get_top_google_news(
                 max_results=max_results,
             )
 
-            loop = asyncio.get_event_loop()
-            top_news = await loop.run_in_executor(None, gnews.get_top_news)
+            top_news = await run_gnews_call(gnews.get_top_news)
 
             if not top_news:
                 raise HTTPException(status_code=404, detail="No top news found.")
@@ -412,8 +411,7 @@ async def get_news_by_topic(
                 exclude_duplicates=exclude_duplicates,
             )
 
-            loop = asyncio.get_event_loop()
-            news = await loop.run_in_executor(None, gnews.get_news_by_topic, topic)
+            news = await run_gnews_call(gnews.get_news_by_topic, topic)
 
             if not news:
                 raise HTTPException(status_code=404, detail="No news found for the given topic.")
@@ -481,10 +479,9 @@ async def get_news_by_location(
                 end_date=end_date_tuple,
             )
 
-            loop = asyncio.get_event_loop()
             # URL-encode location to handle spaces and special characters (GNews library bug)
             encoded_location = quote(location)
-            news_by_location = await loop.run_in_executor(None, gnews.get_news_by_location, encoded_location)
+            news_by_location = await run_gnews_call(gnews.get_news_by_location, encoded_location)
 
             if not news_by_location:
                 raise HTTPException(status_code=404, detail=f"No news found for the location '{location}'.")
@@ -537,8 +534,7 @@ async def get_google_news_articles(
                 period=period,
             )
 
-            loop = asyncio.get_event_loop()
-            articles = await loop.run_in_executor(None, gnews.get_news, query)
+            articles = await run_gnews_call(gnews.get_news, query)
             if not articles:
                 raise HTTPException(status_code=404, detail="No articles found for the given parameters.")
 

@@ -23,6 +23,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from app.core.auth import get_api_key
 from app.core.cache_manager import generate_cache_key, get_cached_or_fetch
 from app.core.config import get_settings
+from app.core.exceptions import UpstreamRateLimitedError, parse_retry_after
 from app.core.http_client import get_http_client_manager
 from app.core.input_sanitizer import get_input_sanitizer
 from app.core.log_safety import scrub
@@ -40,6 +41,9 @@ from app.services.google_autocomplete_service import google_autocomplete_service
 # Configure logging
 logger = logging.getLogger("uvicorn")
 logging.basicConfig(level=logging.INFO)
+
+# Named in the 429 body and log line so a client can tell which upstream is throttling.
+GOOGLE_AUTOCOMPLETE = "Google Autocomplete"
 
 
 # Pydantic model for request validation
@@ -117,6 +121,7 @@ router = APIRouter(tags=["Google Autocomplete API"])
         400: {"description": "Invalid parameters"},
         401: {"description": "Invalid API key"},
         422: {"description": "Validation error"},
+        429: {"description": "Rate limited by Headwater, or by Google (problem type upstream_rate_limited)"},
         500: {"description": "Server error"},
     },
 )
@@ -383,6 +388,15 @@ async def get_autocomplete(
             http_client = await http_manager.get_client(proxy_url)
             response = await http_client.get("https://www.google.com/complete/search", params=params)
 
+            if response.status_code == 429:
+                # Google is throttling this server. Its own Retry-After is
+                # passed on when it sent one; UPSTREAM_RETRY_AFTER_SECONDS
+                # otherwise. The outer handler lets this through untouched.
+                raise UpstreamRateLimitedError(
+                    GOOGLE_AUTOCOMPLETE,
+                    retry_after=parse_retry_after(response.headers.get("Retry-After")),
+                )
+
             if response.status_code != 200:
                 logger.error(f"Failed to retrieve suggestions. Status Code: {response.status_code}")
                 raise HTTPException(status_code=response.status_code, detail="Failed to retrieve suggestions")
@@ -574,6 +588,9 @@ async def get_autocomplete(
         # Get cached result or fetch and cache
         return await get_cached_or_fetch(cache_key, fetch_autocomplete_suggestions)
 
+    except UpstreamRateLimitedError:
+        # Without this the catch-all below reported Google's 429 as a 500.
+        raise
     except Exception as e:
         logger.error(f"Error in get_autocomplete: {e!s}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Internal Server Error: {e!s}") from e

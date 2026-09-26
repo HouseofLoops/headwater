@@ -95,7 +95,8 @@ see several containers behind a load balancer; those need `REDIS_URL` too.
 | 403 | YouTube | Transcripts are disabled for that video |
 | 404 | News, YouTube, Maps jobs | No results, no transcript, or a job/monitor/webhook this key cannot see |
 | 422 | Any | Request validation failed; the body lists the fields |
-| 429 | Any | Headwater's rate limit, or an upstream 429 passed through by Autocomplete (see below) |
+| 429 | Any | Headwater's own rate limit (problem type `rate_limit_exceeded`) |
+| 429 | Trends, News feeds, Autocomplete | Google is rate limiting Headwater (problem type `upstream_rate_limited`, with `upstream` and `retry_after`); wait `Retry-After` seconds |
 | 500 `API key authentication is enabled but no API keys are configured.` | Any authenticated path | `ENABLE_API_KEY_AUTH=true` with empty `API_KEYS` and `API_KEY` |
 | 502 | Trends, News `article-details`, YouTube, Autocomplete | The upstream call failed; for YouTube, `Proxy connection failed` |
 | 503 `Rate limiting is temporarily unavailable` | Any | The rate limiter could not reach its store (see [Rate limiting](#rate-limiting)) |
@@ -227,9 +228,13 @@ the key that created them.
 
 ### Google Autocomplete
 
-- A 429 or other non-200 whose detail is `Failed to retrieve suggestions` came
-  from Google and was passed through. Headwater's own 429 has the title
-  `Too Many Requests` and a `Retry-After` header.
+- A 429 of type `upstream_rate_limited` means Google is throttling this server.
+  `Retry-After` is Google's own value when it sent one, otherwise
+  `UPSTREAM_RETRY_AFTER_SECONDS` (default 60). Headwater's own 429 has the type
+  `rate_limit_exceeded`. `variations=true` does not report Google's 429: a
+  throttled variation query comes back as an empty list.
+- Any other non-200 from Google currently surfaces as a 500 whose detail ends in
+  `Failed to retrieve suggestions`.
 - With `INPUT_SANITIZATION_ENABLED=true` (default) the query is cleaned rather
   than rejected: it is truncated to `MAX_QUERY_LENGTH` (default 200) characters,
   and characters outside `ALLOWED_CHARACTERS_PATTERN` are removed. The default
@@ -253,11 +258,30 @@ the key that created them.
 - **502 `Could not retrieve the requested article.`** The publisher fetch failed.
   The real reason is in the log.
 - **404** means the feed had no items for those parameters.
+- **429 `upstream_rate_limited`** means Google News kept answering 429 after
+  gnews' own retries. Wait `Retry-After` seconds (`UPSTREAM_RETRY_AFTER_SECONDS`,
+  default 60; gnews does not expose Google's header). A proxy helps.
 
 ### Google Trends
 
-- 502 means the call to Google Trends failed. Failures are not cached, so the
-  next request tries again. Google Trends throttles aggressively; proxies help.
+- 429 of type `upstream_rate_limited` means Google is throttling this server:
+  an HTTP 429, or trendspy's `TrendsQuotaExceededError`, which is how
+  `related-queries` and `related-topics` usually fail. `Retry-After` is Google's
+  value when it sent one, otherwise `UPSTREAM_RETRY_AFTER_SECONDS` (default 60).
+  The related-queries/topics quota is tied to the client's fingerprint and can
+  stay exhausted for a long time; a different proxy exit helps more than waiting.
+- 502 means the call to Google Trends failed. Failures (and 429s) are not cached,
+  so the next request tries again. A 502 whose detail says Google "rejected the
+  request as invalid (HTTP 400)" will fail the same way on retry.
+- `trending-now-showcase-timeline` currently always returns that 400-based 502:
+  Google rejects the request trendspy 0.1.6, the latest release, builds for it.
+  There is no Headwater-side fix until the new request format is known.
+- `trending-now-news-by-ids` takes the IDs from `/trending-now`: either
+  comma-separated numeric IDs (the first element of each `news_tokens` entry,
+  with `geo` set to the `/trending-now` location) or the `news_tokens` array
+  itself as JSON. A 502 saying Google "rejected the news tokens" means they were
+  well formed but Google refused them; `{"data": []}` means Google no longer has
+  news for them.
 
 ### YouTube transcripts
 
