@@ -8,7 +8,7 @@
 # 0.50.0 (5 unfixed advisories incl. Host-header poisoning of request.url.path).
 # The fixes ship in starlette 1.x, accepted only by fastapi >=0.133.
 fastapi==0.141.1
-starlette==1.7.0
+starlette==1.9.0
 uvicorn[standard]==0.53.0
 pydantic==2.13.5
 pydantic-settings==2.15.0
