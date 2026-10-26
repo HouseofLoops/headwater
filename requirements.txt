@@ -35,7 +35,7 @@ google-auth==2.58.0
 # News & Content Parsing
 newspaper4k==0.9.6
 lxml-html-clean==0.4.5
-selectolax==0.4.12
+selectolax==1.0.2
 # Imported unconditionally by app/services/google_news_service.py; the module
 # cannot be imported without it. Previously undeclared.
 tldextract==5.3.2
