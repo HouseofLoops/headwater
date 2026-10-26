@@ -17,7 +17,7 @@
 # update-base-image.yml with no --tag) derives BASE_IMAGE_TAG from the first
 # FROM line below, so moving the Python version here needs no change there.
 # python:3.14-slim-trixie as of 2026-09-19
-FROM python:3.14-slim-trixie@sha256:caaf356f40667c496d405780745b9ac25771c189a51dfcc42430d531ea09f8a2 AS builder
+FROM python:3.14-slim-trixie@sha256:35caba83af2fe6da9a5d922f9b0156f21d1246a48278c58a08bd253303ba42e8 AS builder
 
 WORKDIR /build
 
@@ -68,7 +68,7 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # Stage 2: Production - Minimal runtime image with Playwright
 # =============================================================================
 # python:3.14-slim-trixie as of 2026-09-19 (keep in sync with the builder stage)
-FROM python:3.14-slim-trixie@sha256:caaf356f40667c496d405780745b9ac25771c189a51dfcc42430d531ea09f8a2 AS production
+FROM python:3.14-slim-trixie@sha256:35caba83af2fe6da9a5d922f9b0156f21d1246a48278c58a08bd253303ba42e8 AS production
 
 # OCI image metadata. The image carried none before, so `docker inspect` on a
 # pulled image said nothing about what it was, where it came from or how it is
