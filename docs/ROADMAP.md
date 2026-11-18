@@ -4,7 +4,7 @@ What Headwater does today, and what is not built yet. Release history is in
 [CHANGELOG.md](./CHANGELOG.md); each release is published at
 [GitHub Releases](https://github.com/HouseofLoops/headwater/releases).
 
-## Current release: 2.2.2
+## Current release: 2.2.4
 
 - **Sources:** Google Maps (search, places, reviews, photos, Q&A, menus,
   directions, reservations, async jobs, monitors and webhooks), Google News,
