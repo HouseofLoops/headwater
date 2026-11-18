@@ -5,6 +5,21 @@ All notable changes to the Headwater API will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Security
+
+- **Transitive dependencies with known vulnerabilities.** Advisories published
+  after 2.2.4 made `pip-audit` and Trivy fail on `main` and on every open pull
+  request. `requirements.lock` now pins fixed versions: brotli 1.2.1,
+  certifi 2026.10.23, dnspython 2.9.2, filelock 4.2.12, pillow 13.0.0,
+  pyasn1 0.6.5, soupsieve 4.1.1 and urllib3 2.8.0. No direct pins in
+  `requirements.txt` changed.
+
+### Documentation
+
+- `ROADMAP.md` named 2.2.2 as the current release; it now names 2.2.4.
+
 ## [2.2.4] - 2026-09-26
 
 Google rate limits now come back as `429` with `Retry-After` instead of `502`/`500`,
