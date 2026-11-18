@@ -391,15 +391,18 @@ class TestGoogleTrendsAPI:
     @patch("app.api.google_trends.google_trends_api.get_trends_instance")
     def test_trending_now_success(self, mock_get_instance, client):
         """Test trending now endpoint success."""
+        from tests.test_trending_now_page import trending_page
+
         mock_instance = MagicMock()
-        mock_instance.trending_now.return_value = [{"title": "Python", "formattedTraffic": "1M+"}]
+        mock_instance.language = "en"
+        mock_instance._get.return_value = MagicMock(text=trending_page())
         mock_get_instance.return_value = mock_instance
 
         response = client.get("/api/v1/google-trends/trending-now")
 
         assert response.status_code == 200
         data = response.json()
-        assert "data" in data
+        assert data["data"][0]["keyword"] == "unh stock"
 
     @patch("app.api.google_trends.google_trends_api.get_trends_instance")
     def test_trending_now_by_rss_success(self, mock_get_instance, client):
@@ -722,10 +725,19 @@ class TestUpstreamRateLimiting:
         trends = fake_trends(post=http_response(429, "<html>sorry</html>", url=BATCH_URL))
 
         with patch.object(trends_api, "get_trends_instance", return_value=trends):
-            response = problem_client.get("/api/v1/google-trends/trending-now?geo=US")
+            response = problem_client.get("/api/v1/google-trends/trending-now-news-by-ids?news_tokens=4830466997")
 
         assert response.status_code == 429, response.text
         assert response.headers["Retry-After"] == "60"
+
+    def test_trending_page_429_is_a_rate_limit(self, problem_client):
+        """/trending-now reads the trending page; a throttled page is a 429, not a 502."""
+        trends = fake_trends(get=http_response(429, "<html>sorry</html>", url=trends_api.TRENDING_PAGE_URL))
+
+        with patch.object(trends_api, "get_trends_instance", return_value=trends):
+            response = problem_client.get("/api/v1/google-trends/trending-now?geo=US")
+
+        assert response.status_code == 429, response.text
 
     def test_rate_limit_is_not_logged_as_an_error(self, problem_client, caplog):
         trends = fake_trends(get=http_response(429, "", {"Retry-After": "5"}))

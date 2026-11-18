@@ -215,7 +215,14 @@ async def get_decoding_params(base64_str):
         proxy_url = await get_proxy()  # Adjust based on your implementation
 
         client = await get_gnews_http_client(proxy_url=proxy_url)
-        response = await client.get(url)
+        try:
+            response = await client.get(url)
+        except httpx.PoolTimeout:
+            # Same exhausted shared pool that broke autocomplete; see
+            # HTTPClientManager.get. Rebuild it and retry once.
+            await get_http_client_manager().reset_client(proxy_url, client)
+            client = await get_gnews_http_client(proxy_url=proxy_url)
+            response = await client.get(url)
         response.raise_for_status()
 
         parser = HTMLParser(response.text)
@@ -236,7 +243,9 @@ async def get_decoding_params(base64_str):
     except httpx.RequestError as rss_req_err:
         return {
             "status": False,
-            "message": f"Request error in get_decoding_params with RSS URL: {rss_req_err!s}",
+            "message": (
+                f"Request error in get_decoding_params with RSS URL: {type(rss_req_err).__name__} {rss_req_err!s}"
+            ),
         }
     except Exception as e:
         return {

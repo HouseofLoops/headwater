@@ -51,7 +51,9 @@ class TestInputSanitizer:
             sanitizer = InputSanitizer()
             # Should fall back to default pattern
             assert sanitizer.allowed_pattern.pattern == r"^[a-zA-Z0-9\s\-\.\,\?\!\(\)\[\]\{\}\'\"]+$"
-            assert len(sanitizer.suspicious_patterns) == 1  # Only valid pattern
+            # "[also" is not a valid regex, so it is matched literally rather than dropped
+            assert len(sanitizer.suspicious_patterns) == 2
+            assert sanitizer.suspicious_patterns[0].search("x[ALSO y")
 
     def test_sanitize_query_empty(self):
         """Test sanitizing empty query."""
@@ -353,3 +355,18 @@ class TestInputSanitizer:
             result = sanitize_input(q="test query")
             assert result == {"test": "result"}
             mock_sanitizer.validate_all_params.assert_called_once_with(q="test query")
+
+
+class TestDefaultSuspiciousPatterns:
+    """The shipped defaults must all be active (regression: "eval(" was dropped)."""
+
+    def test_every_default_pattern_is_compiled(self):
+        from app.core.config import Settings
+
+        defaults = Settings.model_fields["SUSPICIOUS_PATTERNS"].default
+        sanitizer = InputSanitizer()
+        assert len(sanitizer.suspicious_patterns) == len(defaults)
+
+    def test_eval_call_is_flagged(self):
+        result = InputSanitizer().sanitize_query("eval(1)")
+        assert any("eval" in warning for warning in result["warnings"])
