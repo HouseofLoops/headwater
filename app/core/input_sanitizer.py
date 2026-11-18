@@ -33,13 +33,17 @@ class InputSanitizer:
             logger.warning("Invalid ALLOWED_CHARACTERS_PATTERN, using default: %s", str(e))
             self.allowed_pattern = re.compile(r"^[a-zA-Z0-9\s\-\.\,\?\!\(\)\[\]\{\}\'\"]+$")
 
-        # Compile suspicious patterns
+        # Compile suspicious patterns. Each entry is a regex, but the shipped
+        # defaults include plain strings such as "eval(" and "alert(" that are
+        # not valid regexes. Those used to be dropped, with a warning on every
+        # request, so the check silently never ran for them. An entry that does
+        # not compile is matched literally instead.
         self.suspicious_patterns = []
         for pattern in self.settings.SUSPICIOUS_PATTERNS:
             try:
                 self.suspicious_patterns.append(re.compile(pattern, re.IGNORECASE))
-            except re.error as e:
-                logger.warning("Invalid suspicious pattern '%s': %s", pattern, str(e))
+            except re.error:
+                self.suspicious_patterns.append(re.compile(re.escape(pattern), re.IGNORECASE))
 
     def sanitize_query(self, query: str) -> dict[str, Any]:
         """

@@ -8,6 +8,9 @@ of the many pools that had been created and the rest leaked for the life of
 the process.
 """
 
+import asyncio
+
+import httpx
 import pytest
 
 from app.core import http_client as http_client_module
@@ -99,3 +102,67 @@ class TestShutdown:
 
         assert client.is_closed
         assert http_client_module._http_client_manager is None
+
+
+class TestPoolExhaustionRecovery:
+    """A permanently exhausted pool is rebuilt (production, 2026-10-29 .. 2026-11-18)."""
+
+    @pytest.mark.asyncio
+    async def test_get_rebuilds_the_pool_once_on_pool_timeout(self):
+        manager = HTTPClientManager()
+        manager.settings = type("S", (), {"HTTP_READ_TIMEOUT": -5.0})()  # close immediately in the test
+        calls = []
+
+        def exhausted(request):
+            raise httpx.PoolTimeout("pool exhausted")
+
+        def healthy(request):
+            calls.append(str(request.url))
+            return httpx.Response(200, text="ok")
+
+        stale = httpx.AsyncClient(transport=httpx.MockTransport(exhausted))
+        manager._clients["default"] = stale
+        fresh = httpx.AsyncClient(transport=httpx.MockTransport(healthy))
+        original_get_client = manager.get_client
+
+        async def get_client(proxy_url=None):
+            if "default" not in manager._clients:
+                manager._clients["default"] = fresh
+            return await original_get_client(proxy_url)
+
+        manager.get_client = get_client
+        response = await manager.get("https://example.com/x")
+
+        assert response.status_code == 200
+        assert calls == ["https://example.com/x"]
+        assert manager._clients["default"] is fresh
+        # Closed later, so requests still running on the old pool can finish.
+        assert not stale.is_closed
+        await asyncio.gather(*manager._closing)
+        assert stale.is_closed
+
+    @pytest.mark.asyncio
+    async def test_get_does_not_retry_other_errors(self):
+        manager = HTTPClientManager()
+
+        def refused(request):
+            raise httpx.ConnectError("refused")
+
+        client = httpx.AsyncClient(transport=httpx.MockTransport(refused))
+        manager._clients["default"] = client
+        with pytest.raises(httpx.ConnectError):
+            await manager.get("https://example.com/x")
+        assert manager._clients["default"] is client
+
+    @pytest.mark.asyncio
+    async def test_reset_keeps_a_client_another_request_already_replaced(self):
+        manager = HTTPClientManager()
+        stale = httpx.AsyncClient()
+        replacement = httpx.AsyncClient()
+        manager._clients["default"] = replacement
+        await manager.reset_client(None, stale, close_after=0)
+        assert manager._clients["default"] is replacement
+        await asyncio.gather(*manager._closing)
+        assert stale.is_closed
+        assert not replacement.is_closed
+        await replacement.aclose()

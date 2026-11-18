@@ -36,6 +36,11 @@ def autocomplete(monkeypatch: pytest.MonkeyPatch):
 
     manager.get_client = get_client
 
+    async def get(url, proxy_url=None, **kwargs):
+        return await http_client.get(url, **kwargs)
+
+    manager.get = get
+
     sanitizer = MagicMock()
     sanitizer.settings.INPUT_SANITIZATION_ENABLED = False
 

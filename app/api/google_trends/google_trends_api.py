@@ -20,6 +20,8 @@ from pydantic import BaseModel, Field
 from trendspy import BatchPeriod, Trends
 from trendspy.client import TrendsQuotaExceededError
 from trendspy.news_article import NewsArticle
+from trendspy.trend_keyword import TrendKeyword
+from trendspy.trend_list import TrendList
 
 from app.core.cache_manager import generate_cache_key, get_cached_or_fetch
 from app.core.constants import REFERER_LIST, USER_AGENT_LIST
@@ -617,6 +619,86 @@ def fetch_trending_news(trends_obj, tokens: list[list], max_news: int) -> list[d
     ]
 
 
+# -------------------------------------------------------------------------
+# Trending Now
+#
+# trendspy's ``trending_now`` calls batchexecute RPC ``i0OFE``. Since early
+# November 2026 (last success seen 2026-11-05) Google answers that RPC with
+# HTTP 200, a null payload and RPC status [7] (PERMISSION_DENIED) for every
+# caller, with or without a proxy,
+# session cookie or the page's ``f.sid``/``bl`` values, and trendspy then calls
+# ``json.loads(None)``. Every /trending-now request became a 502.
+#
+# The Trending Now page itself (trends.google.com/trending) now renders the
+# list into its HTML as an ``AF_initDataCallback`` block. Its data is
+# ``[null, [row, ...]]``, and each row is the same list the RPC used to return,
+# so trendspy's ``TrendKeyword`` still parses it. The list is read from there.
+# -------------------------------------------------------------------------
+TRENDING_PAGE_URL = "https://trends.google.com/trending"
+TRENDING_NOW_DEFAULT_HOURS = 24
+_INIT_DATA_RE = re.compile(r"AF_initDataCallback\(\{key: '(ds:\d+)'.*?data:(.*?), sideChannel", re.S)
+
+
+def _trending_rows(decoded) -> list | None:
+    """Return the trend rows when ``decoded`` is the Trending Now data block."""
+    if not (isinstance(decoded, list) and len(decoded) > 1 and isinstance(decoded[1], list)):
+        return None
+    rows = decoded[1]
+    if all(isinstance(row, list) and row and isinstance(row[0], str) for row in rows):
+        return rows
+    return None
+
+
+def parse_trending_page(html: str) -> list | None:
+    """Extract the Trending Now rows embedded in the trending page's HTML.
+
+    Returns:
+        The rows (possibly empty), or ``None`` when no data block on the page
+        has the Trending Now shape.
+    """
+    for match in _INIT_DATA_RE.finditer(html):
+        try:
+            decoded = json.loads(match.group(2))
+        except ValueError:
+            continue
+        rows = _trending_rows(decoded)
+        if rows is not None:
+            return rows
+    return None
+
+
+def fetch_trending_now_rows(trends_obj, geo: str, hours: int = TRENDING_NOW_DEFAULT_HOURS) -> TrendList:
+    """Fetch Trending Now from the trending page (see the section comment).
+
+    Args:
+        trends_obj: A :class:`HeadwaterTrends` instance; its session carries
+            the proxy and headers.
+        geo: Location code, e.g. ``US``.
+        hours: Look-back window Google offers on the page (4, 24, 48 or 168).
+
+    Returns:
+        A ``TrendList`` of ``TrendKeyword``, the type trendspy's own
+        ``trending_now`` returned, so the response shape is unchanged.
+
+    Raises:
+        UpstreamUnavailable: the page no longer carries the data block, or a
+            row is not in the shape ``TrendKeyword`` reads.
+        requests.HTTPError: the page request failed (429, 5xx, ...);
+            :func:`run_trends_call` classifies it.
+    """
+    operation = "trending_now"
+    response = trends_obj._get(TRENDING_PAGE_URL, {"geo": geo, "hours": hours, "hl": trends_obj.language})
+    rows = parse_trending_page(response.text)
+    if rows is None:
+        logger.error("Google Trends %s page carries no trending data block", operation)
+        raise UpstreamUnavailable(operation, UPSTREAM_UNUSABLE_DETAIL)
+    try:
+        return TrendList(map(TrendKeyword, rows))
+    except (TypeError, ValueError, IndexError, KeyError, AttributeError) as exc:
+        logger.error("Google Trends %s row has an unexpected shape: %s", operation, exc)
+        raise UpstreamUnavailable(operation, UPSTREAM_UNUSABLE_DETAIL) from exc
+
+
 def empty_trends_response(message: str) -> dict:
     """Build the 200 response used when Google Trends genuinely had no data."""
     return {"data": [], "message": message}
@@ -867,7 +949,7 @@ async def trending_now(
 
             raw_results = await run_trends_call(
                 "trending_now",
-                lambda: trends_obj.trending_now(geo=geo),
+                lambda: fetch_trending_now_rows(trends_obj, geo=geo),
             )
 
             if is_empty_result(raw_results):

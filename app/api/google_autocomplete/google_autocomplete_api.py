@@ -385,8 +385,9 @@ async def get_autocomplete(
                 params["xssi"] = xssi
 
             # Make request using HTTP client manager
-            http_client = await http_manager.get_client(proxy_url)
-            response = await http_client.get("https://www.google.com/complete/search", params=params)
+            response = await http_manager.get(
+                "https://www.google.com/complete/search", proxy_url=proxy_url, params=params
+            )
 
             if response.status_code == 429:
                 # Google is throttling this server. Its own Retry-After is

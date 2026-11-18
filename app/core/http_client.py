@@ -29,6 +29,7 @@ class HTTPClientManager:
         self.settings = get_settings()
         self._clients: dict[str, httpx.AsyncClient] = {}
         self._client_lock = asyncio.Lock()
+        self._closing: set[asyncio.Task] = set()
         self._stats = {
             "total_requests": 0,
             "successful_requests": 0,
@@ -86,6 +87,67 @@ class HTTPClientManager:
                 self._stats["connection_pool_hits"] += 1
 
             return self._clients[client_key]
+
+    async def reset_client(
+        self, proxy_url: str | None, stale: httpx.AsyncClient, close_after: float | None = None
+    ) -> None:
+        """Drop ``stale`` from the cache so the next ``get_client`` builds a new pool.
+
+        Only removes the entry if it is still ``stale``: when several requests
+        hit the same pool at once, the first one replaces it and the rest must
+        not throw away the fresh client.
+
+        The old client is closed later, not now. A pool that is merely busy
+        (more concurrent requests than ``HTTP_CONNECTION_POOL_SIZE``) also
+        raises ``PoolTimeout``, and closing it at once would abort the requests
+        still running on it. Waiting out the read timeout lets them finish.
+
+        Args:
+            proxy_url: The proxy the client was created for.
+            stale: The client to discard.
+            close_after: Seconds before the old client is closed; defaults to
+                the read timeout plus a margin.
+        """
+        client_key = proxy_url or "default"
+        async with self._client_lock:
+            if self._clients.get(client_key) is stale:
+                del self._clients[client_key]
+        if close_after is None:
+            close_after = float(self.settings.HTTP_READ_TIMEOUT) + 5.0
+        task = asyncio.create_task(self._close_later(stale, close_after))
+        # Keep a reference: the event loop only holds tasks weakly.
+        self._closing.add(task)
+        task.add_done_callback(self._closing.discard)
+
+    @staticmethod
+    async def _close_later(client: httpx.AsyncClient, delay: float) -> None:
+        await asyncio.sleep(delay)
+        try:
+            await asyncio.wait_for(client.aclose(), timeout=5.0)
+        except Exception as exc:  # best effort: the client is discarded anyway
+            logger.warning("Closing a discarded HTTP client failed: %s", type(exc).__name__)
+
+    async def get(self, url: str, proxy_url: str | None = None, **kwargs) -> httpx.Response:
+        """GET through the shared pool, rebuilding the pool once if it is exhausted.
+
+        ``httpx.PoolTimeout`` means every connection in the pool is checked
+        out and none came back within the pool timeout. Connections that never
+        return (seen with proxied requests that fail or are cancelled mid-way)
+        make that permanent: from 2026-10-29 every autocomplete request on the
+        production instance failed this way until the process restarted. A
+        fresh pool clears it, so the request is retried once on a new client.
+        """
+        client = await self.get_client(proxy_url)
+        try:
+            return await client.get(url, **kwargs)
+        except httpx.PoolTimeout:
+            logger.warning(
+                "HTTP connection pool exhausted (%s); rebuilding it and retrying once",
+                mask_proxy(proxy_url) if proxy_url else "no proxy",
+            )
+            await self.reset_client(proxy_url, client)
+            client = await self.get_client(proxy_url)
+            return await client.get(url, **kwargs)
 
     async def make_request(
         self,

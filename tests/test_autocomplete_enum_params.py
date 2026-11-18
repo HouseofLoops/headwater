@@ -45,6 +45,11 @@ def captured(monkeypatch: pytest.MonkeyPatch):
         return client
 
     manager.get_client = get_client
+
+    async def get(url, proxy_url=None, **kwargs):
+        return await client.get(url, **kwargs)
+
+    manager.get = get
     manager.get_request_count.return_value = 1
     manager.get_connection_stats.return_value = {}
 

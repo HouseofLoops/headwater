@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **`/google-trends/trending-now` answered 502 to every request.** Since early
+  November 2026 Google refuses the batchexecute RPC trendspy uses (`i0OFE`,
+  HTTP 200 with a null payload and RPC status 7, PERMISSION_DENIED) for every
+  caller, and trendspy then crashed on `json.loads(None)`. The list is now read
+  from the Trending Now page, which embeds the same rows; the response shape is
+  unchanged. A throttled page is a 429 with `Retry-After`, and a page Google
+  redesigns is a 502 "unusable response" rather than a crash.
+- **Autocomplete and Google News URL decoding could fail permanently with
+  `httpx.PoolTimeout`.** Once the shared connection pool ran out of
+  connections it never recovered: a production instance answered 500 to every
+  autocomplete request from 2026-10-29 until it was restarted three weeks
+  later, and Google News decoding failed on the same pool first. The pool is
+  now discarded and rebuilt, and the request retried once, when it times out
+  waiting for a connection; the old pool is closed after the read timeout so
+  requests still running on it can finish. This is a recovery, not a fix for
+  whatever leaves connections checked out, which is not yet known. Decode
+  failures now log the exception type, since `PoolTimeout` has no message.
+- **Two default `SUSPICIOUS_PATTERNS` never ran.** `eval(` and `alert(` are not
+  valid regular expressions, so they were dropped (with a warning logged on
+  every request). A pattern that does not compile is now matched literally.
+  Like the other patterns, a match only marks the query invalid, and the
+  autocomplete endpoint then sends the sanitized (percent-encoded) query, so a
+  query containing `eval(` or `alert(` now reaches Google encoded, as one
+  containing `<script` already did.
+
 ### Security
 
 - **Transitive dependencies with known vulnerabilities.** Advisories published
