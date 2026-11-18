@@ -129,6 +129,16 @@ RUN mkdir -p /opt/playwright-browsers && \
     playwright install --with-deps chromium && \
     chmod -R 755 /opt/playwright-browsers
 
+# Ship no pip in the runtime image. Nothing here uses it (the app, healthcheck
+# and entrypoint never install packages; dependencies are fixed at build time
+# from requirements.lock), and pip vendors its own copies of certifi and
+# setuptools' pkg_resources that lag behind advisories and trip the Trivy gate
+# independently of requirements.lock (GHSA-6q48-6c7w-9gw2 via the base image's
+# pip 26.2.1; CVE-2025-47273 / CVE-2026-59890 via setuptools 70.3.0 vendored in
+# pip 26.3). Removes both the base image's /usr/local pip and the venv's pip.
+RUN /usr/local/bin/python -m pip uninstall -y pip && \
+    /opt/venv/bin/python -m pip uninstall -y pip
+
 # Create required directories with proper permissions
 RUN mkdir -p /app/.tldextract_cache && \
     chown -R appuser:appuser /app /opt/playwright-browsers

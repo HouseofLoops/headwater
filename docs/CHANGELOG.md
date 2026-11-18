@@ -15,6 +15,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   certifi 2026.10.23, dnspython 2.9.2, filelock 4.2.12, pillow 13.0.0,
   pyasn1 0.6.5, soupsieve 4.1.1 and urllib3 2.8.0. No direct pins in
   `requirements.txt` changed.
+- **The runtime image no longer ships pip.** pip vendors its own certifi and
+  setuptools `pkg_resources`, which Trivy flagged (GHSA-6q48-6c7w-9gw2,
+  CVE-2025-47273, CVE-2026-59890) independently of `requirements.lock`. Nothing
+  in the running container uses pip, so both the base image's and the venv's
+  copies are removed after the Playwright browser install.
 
 ### Documentation
 
