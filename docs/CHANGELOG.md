@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.2.5] - 2026-11-18
+
+`/google-trends/trending-now` works again, autocomplete recovers on its own from an
+exhausted connection pool, and the runtime image ships with no known vulnerabilities.
+
 ### Fixed
 
 - **`/google-trends/trending-now` answered 502 to every request.** Since early
