@@ -21,6 +21,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   in the running container uses pip, so both the base image's and the venv's
   copies are removed after the Playwright browser install.
 
+### Changed
+
+- Dependency updates: tldextract 5.4.0, gnews 0.8.3, google-auth 2.62.0,
+  playwright 1.64.1; dev tools pytest 9.2.0, pytest-asyncio 1.4.1,
+  ruff 0.17.3 (also the CI lint pin) and mypy 2.4.1.
+
 ### Documentation
 
 - `ROADMAP.md` named 2.2.2 as the current release; it now names 2.2.4.
