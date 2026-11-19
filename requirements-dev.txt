@@ -8,7 +8,7 @@
 # Testing
 pytest==9.2.0
 pytest-cov==7.1.0
-pytest-asyncio==1.4.1
+pytest-asyncio==1.5.0
 
 # Code Quality
 # ruff is the only linter/formatter (config in pyproject.toml). flake8, black and
