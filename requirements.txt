@@ -44,7 +44,7 @@ tldextract==5.4.0
 youtube-transcript-api==1.2.4
 
 # Browser Automation (Google Maps scraping)
-playwright==1.64.1
+playwright==1.65.2
 
 # Caching
 # redis-py 8.x flips DEFAULT_RESP_VERSION from 2 to 3 (verified: it is 3 on
