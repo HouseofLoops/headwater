@@ -541,9 +541,9 @@ gnews==0.8.3 \
     --hash=sha256:937eed0073fcc14f359159655e2e016c5c6e503e8d290c2a212c43242588f462 \
     --hash=sha256:956615a6c657d4030edf18399891315a2977bcc5fc5176b0d051e165497c98e4
     # via -r requirements.txt
-google-auth==2.62.0 \
-    --hash=sha256:0bef0ce54bdf9ce226c5d66e4264413bd918141c31bbe49fb52eac882f513d69 \
-    --hash=sha256:4ff4319aeb4ad128409759d397a9fcafad126d0031d241cc0dd6b9a00b43e3f3
+google-auth==2.62.2 \
+    --hash=sha256:046c61a72d3a847d6df6417a7f0d5cf054e3b82bbcb54fb1e69d47880964049c \
+    --hash=sha256:e9bcdb0679b6a4369ac327c5c59f06d92f7b4cd2624e7100294c14632f55a36b
     # via -r requirements.txt
 greenlet==3.5.5 \
     --hash=sha256:03115c2e0a371999bf8ae616aa8d653f96641d4705c457aebaa187276e9f7537 \
