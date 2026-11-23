@@ -22,7 +22,7 @@ requests==2.34.2
 httpx==0.28.1
 
 # Data Processing
-pandas==3.0.6
+pandas==3.1.1
 # nltk removed: PYSEC-2026-3740 / GHSA-8mgp-746c-j5xp, no fixed release exists.
 # Optional extra for newspaper4k, used only for article summary/keywords.
 # Re-add when nltk > 3.10.3 ships (nltk/nltk#3753).
